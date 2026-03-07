@@ -1,0 +1,19 @@
+# Entornos virtuales y Dependencias
+.venv/
+node_modules/
+
+# Producción y Caché
+dist/
+__pycache__/
+*.py[cod]
+
+# Secretos (Indispensable para seguridad)
+.env
+
+# Herramientas y Notebooks
+.vscode/
+.ipynb_checkpoints/
+
+# Archivos temporales de Linux
+*.swp
+*~
