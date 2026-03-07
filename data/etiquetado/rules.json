@@ -1,0 +1,618 @@
+{
+    "description_map": {
+        "TRANSF. DIRECTA A BAYAS  CHACHA ALICIA LILIANA": "Canelazo",
+        "UBER   *TRIP": "Uber ",
+        "FYBECA": "Fybeca                  Q",
+        "MCDONALDS": "Mc",
+        "TRANSF. DIRECTA A CASTRO  PUENTES JHOE ABRAHAM": "Chiva",
+        "TRANSF. DEUNA A JESSENIA PATRICIA DELGADO ZAMBRANO": "Manabas Grill Almuerzos",
+        "UBER EATS": "Subcripcion Uber",
+        "TRANSF. DIRECTA DE ARCENTALES ARCINIEGA ARIANNA NICOLE": "Hermana",
+        "TRANSF. DEUNA A MEI WAH RESTAURANTE": "Transf. Deuna A Mei Wah Restaurante",
+        "TRANSF. DIRECTA DE CRISTHIAN JHONEL MORENO PANEZO": "Transf. Directa De Cristhian Jhonel Moreno Panezo",
+        "ATIMASA": "Gasolinera Atimasa",
+        "TARIFA CONSUMO GASOLINERA": "Tarifa Consumo Gasolinera",
+        "TRANSF. DEUNA A GREGORY ALESSANDRO ARIAS VACA": "Transf. Deuna A Gregory Alessandro Arias Vaca",
+        "UNIVERSIDAD CATOLICA": "Universidad Catolica",
+        "TRANSF. DEUNA A JORGE DAVID LAVERDE MUNOZ": "Mens Barberia",
+        "TRANSF. DEUNA A LIBRERIA STUDIUM CIA LTDA LIBRERIA STUDIUM CIA LTDA": "Transf. Deuna A Libreria Studium Cia Ltda Libreria Studium Cia Ltda",
+        "SUPERMAXI": "Supermaxi",
+        "UBER RIDES": "Uber",
+        "CANCELACION PLAZO FIJO": "Cancelacion Plazo Fijo",
+        "TRANSFERENCIA INTERIOR": "Interes (Transferencia Interior)",
+        "AUTOSERVIPAMPA": "Autoservipampa",
+        "TRANSF. DEUNA A MARIA DIGNA EMERITA PASPUEL ISIZAN": "Cevichocho U Esquina",
+        "PAGO TARJETA DE CREDITO MASTERCARD BANCO PICHINCHA  22306700007562": "Pago Tarjeta De Credito Principal",
+        "UB *EATS": "Uber Eats",
+        "TRANSF. DIRECTA DE ARCINIEGA BASANTES PAULINA MARIA": "Madre",
+        "TRANSF. DIRECTA A SOSA  LOROÑA ANTHONY SEBASTIAN": "Transf. Directa A Sosa  Loroña Anthony Sebastian",
+        "TRANSF. DIRECTA A JIMENEZ  EGAS LEANDRO IVAN": "Leo",
+        "SWEET 8 COFFEECU": "Sweet Coffee",
+        "MB-MAYFLOWER": "Mayflower",
+        "TRANSF. DEUNA A NORALMA CECIBELL MENDOZA ANDRADE": "Transf. Deuna A Noralma Cecibell Mendoza Andrade",
+        "TRANSF. DIRECTA A VILLACRES  CARRILLO ALICIA": "Taurus",
+        "251226076ZKJ-AUTOMOTO-REC-1714675020": "251226076Zkj-Automoto-Rec-1714675020",
+        "Spotify P3DD40AF72      S": "Spotify",
+        "UB *EATS ECUADOR        8": "UBER EATS",
+        "TRANSF. DIRECTA A ARCENTALES  ARCINIEGA ARIANNA NICOLE": "Hermana",
+        "TRANSF. DIRECTA A ALVAREZ  BURBANO DOMENICA MISHELL": "Transf. Directa A Alvarez  Burbano Domenica Mishell",
+        "2511051XGVNA-MASTE BP-REC-22306700007562": "Pago Tarjeta",
+        "TRANSF. DEUNA A ERICK EDUARDO MOSQUERA HERRERA": "Transf. Deuna A Erick Eduardo Mosquera Herrera",
+        "TRANSF. DIRECTA A PAZMIÑO  VALLEJO NORMA ISABEL": "Transf. Directa A Pazmiño  Vallejo Norma Isabel",
+        "TRANSF. DIRECTA A ENCALADA  ENCALADA OSMAN FREDDY": "Transf. Directa A Encalada  Encalada Osman Freddy",
+        "TRANSF. DIRECTA A CAIZA  ESPINOSA NARCIZA DEL PILAR": "Parqueadero U",
+        "TRANSF. DEUNA A AGROMIRO EC S A AGROMIRO EC": "Transf. Deuna A Agromiro Ec S A Agromiro Ec",
+        "CARRETAS  DE USA        Q": "Gasolina Carretas",
+        "15341620-NOVAECUADOR    -3V-TU BANCA PRO": "15341620-Novaecuador    -3V-Tu Banca Pro",
+        "SWEET 8 COFFEECU        Q": "Sweet Coffee",
+        "SUPERMAXI POMASQUI 122  Q": "Supermaxi",
+        "Google Brawl Stars      M": "Brawl Stars",
+        "RETIRO DE EFECTIVO SIN TARJETA DE 0979344605 EN CAJERO AUTOMÁTICO  - AV 9 DE OCTUBRE   AV ORELLANA": "Retiro De Efectivo Sin Tarjeta De 0979344605 En Cajero Automático  - Av 9 De Octubre   Av Orellana",
+        "CERTIFICADO DE DEPOSITO": "Certificado De Deposito",
+        "PAGO TARJETA:  2230670000895647": "Pago Tarjeta Principal",
+        "TRANSF. DEUNA A EMILY CAROLINA CEVALLOS ALARCON": "Transf. Deuna A Emily Carolina Cevallos Alarcon",
+        "ATIMASA 9 DE OCTUBRE    E": "Gasolinera Atimasa",
+        "ROCK YOUR DOGS          E": "Rock Hamburguesas",
+        "TRANSF. DEUNA A ROSA CECILIA PULLAS URIBE": "Motel Dos Pinos",
+        "Spotify P3CD01F4FA      S": "Spotify",
+        "MONTESERRIN             E": "Gasolinera Monteserrin",
+        "ZARA05    ECUECU        Q": "Zara",
+        "QUICENTRO SHOPPING      Q": "Quicentro Shopping",
+        "TRANSF. DEUNA A DANIEL LARREA LUNA": "Transf. Deuna A Daniel Larrea Luna",
+        "TRANSF. INTERBANCARIA DE GUSTAVO DAVID JARA RAMIREZ": "Transf. Interbancaria De Gustavo David Jara Ramirez",
+        "TRANSF. DIRECTA A MARTINEZ  VIZUETE KEVIN DANIEL": "Transf. Directa A Martinez  Vizuete Kevin Daniel",
+        "DLC*UBER RIDESCU        S": "Uber",
+        "TRANSF. DIRECTA A FOUNES  PINTO GIOVANNY FRANCISCO": "Don Carbon",
+        "TRANSF. DIRECTA A LOS HOT DOGS DE LA GONZALEZ SUAREZ HOTDOGS S.A.S": "Transf. Directa A Los Hot Dogs De La Gonzalez Suarez Hotdogs S.A.S (2)",
+        "TRANSF. DEUNA A BODEGA SAN LUKAS": "Transf. Deuna A Bodega San Lukas",
+        "TRANSF. DEUNA A ESTEFANY MICAELA MACAS QUILCA": "Transf. Deuna A Estefany Micaela Macas Quilca",
+        "UBER   *TRIP            H": "Uber",
+        "FYBECA                  Q": "Fybeca",
+        "APP MCDONALDS ECUADOR   G": "Mc",
+        "DLC*UBER EATSECU        S": "Subcripcion Uber",
+        "TRANSF. DIRECTA A DELGADO  ALMEIDA JOEL RICARDO": "Transf. Directa A Delgado  Almeida Joel Ricardo",
+        "UNIVERSIDAD CATOLICA    E": "Universidad Catolica",
+        "SUPERMAXI QUICENTRO LC  Q": "Supermaxi",
+        "DLC*UBER RIDESLD        S": "Uber",
+        "AUTOSERVIPAMPA CIA. LT  Q": "Autoservipampa",
+        "RETENCION 2% RENDIMIENTO FINANCIERO": "Retencion 2% Rendimiento Financiero",
+        "MB-MAYFLOWER BUFFALOS   Q": "Mayflower",
+        "TRANSF. INTERBANCARIA A DAPPER DETAILING STUDIO S A S": "Transf. Interbancaria A Dapper Detailing Studio S A S",
+        "TRANSF. DEUNA A KARINA ALEXANDRA TUTISTAR SARANGO": "Transf. Deuna A Karina Alexandra Tutistar Sarango",
+        "TRANSF. DEUNA A ROSA MAGALI PALMA LOOR": "Menestras Simon",
+        "TRANSF. DEUNA A FABIOLA BERENICE TORRES GONZALEZ": "Morochos",
+        "UBER   *ONE MEMBERSHIP  U": "Uber   *One Membership  U",
+        "TRANSF. DIRECTA A CHICHANDA  LOOR BETTY FABIOLA": "Menestras Simon",
+        "2512041XGVNA-MASTE BP-REC-22306700007562": "2512041Xgvna-Maste Bp-Rec-22306700007562",
+        "WL *STEAM PURCHASE      S": "Wl *Steam Purchase      S",
+        "TRANSF. DIRECTA A MORENO  PANEZO CRISTHIAN JHONEL": "Jhonny U",
+        "TRANSF. DIRECTA A ARTEAGA  CARBAJAL DANIELA ABIGAIL": "Abby U",
+        "TRANSF. DEUNA A JUAN CARLOS BALLA YUMBO": "Transf. Deuna A Juan Carlos Balla Yumbo",
+        "PROAUTO CARAPUNGO ACC   Q": "Proauto Carapungo Acc   Q",
+        "IL CAPPO DIMANGI I014   Q": "Il Cappo Dimangi I014   Q",
+        "FUEL CENTRAL            Q": "Fuel Central Gasolinera",
+        "TRANSF. DIRECTA A GUEVARA  OLMEDO MATEO NICOLAS": "Transf. Directa A Guevara  Olmedo Mateo Nicolas",
+        "TRANSF. DEUNA A ENRIQUE JAVIER VIERA MENDOZA": "Transf. Deuna A Enrique Javier Viera Mendoza",
+        "TRANSF. DEUNA A DANIELA ABIGAIL ARTEAGA CARBAJAL": "Transf. Deuna A Daniela Abigail Arteaga Carbajal",
+        "TRANSF. DIRECTA A HONORES  JAEN IVES OLIVIA": "Orense",
+        "TRANSF. DEUNA A MARIA ANGELICA YANEZ ROMERO": "Transf. Deuna A Maria Angelica Yanez Romero",
+        "TRANSF. DEUNA A MICROMERCADO SEBAS": "Transf. Deuna A Micromercado Sebas",
+        "TRANSF. DIRECTA DE DOMINIQUE LOURDES VERKADE MONTIEL": "Transf. Directa De Dominique Lourdes Verkade Montiel",
+        "TRANSF. DEUNA A DANIEL GENARO ALMEIDA GUAMANZARA": "Transf. Deuna A Daniel Genaro Almeida Guamanzara",
+        "PROSERVICIOS YA S A S   Q": "Tantra",
+        "FUEL ORIENTAL           Q": "Fuel Oriental Gasolinera",
+        "PAGO POR SERVICIO DE COMBOS TUENTI": "Pago Por Servicio De Combos Tuenti",
+        "APERTURA DE DEPÓSTIO A PLAZO FIJO": "Apertura De Depóstio A Plazo Fijo",
+        "TRANSF. DEUNA A ESQUITES": "Transf. Deuna A Esquites",
+        "TRANSF. DEUNA A MARIA ELENA RECALDE ESTACIO": "Transf. Deuna A Maria Elena Recalde Estacio",
+        "TRANSF. DIRECTA A MANGUIA  MURILLO ANGELICA": "Motel U",
+        "TRANSF. DIRECTA A IMBAQUINGO  VEGA CLARA ISABEL": "Poliburger",
+        "Spotify P3EC5110AB      S": "Spotify",
+        "TRANSF. DIRECTA A PEREZ  GARCIA LILIANA PATRICIA": "Sanduche 1 Dolar",
+        "TRANSF. DIRECTA A CARVAJAL  CARVAJAL LUIS ALEXANDER": "Transf. Directa A Carvajal  Carvajal Luis Alexander",
+        "DLC*UBER RIDESRI        S": "Uber",
+        "TRANSF. DIRECTA A CHICHANDA LOOR BETTY FABIOLA": "Menestras Simon"
+    },
+    "entity_data": {
+        "Canelazo": {
+            "categoria": "Ocio",
+            "prioridad": "Deseo",
+            "es_fijo": false,
+            "tags": "fiestas quito"
+        },
+        "Uber": {
+            "categoria": "Subscripciones",
+            "prioridad": "Deseo",
+            "es_fijo": false,
+            "tags": ""
+        },
+        "Fybeca                  Q": {
+            "categoria": "Salud",
+            "prioridad": "Necesidad",
+            "es_fijo": false,
+            "tags": "gotas"
+        },
+        "Mc": {
+            "categoria": "Alimentación",
+            "prioridad": "Necesidad",
+            "es_fijo": false,
+            "tags": "Almuerzo"
+        },
+        "Chiva": {
+            "categoria": "Ocio",
+            "prioridad": "Deseo",
+            "es_fijo": false,
+            "tags": "fiestas quito"
+        },
+        "Transf. Deuna A Jessenia Patricia Delgado Zambrano": {
+            "categoria": "Alimentación",
+            "prioridad": "Necesidad",
+            "es_fijo": true,
+            "tags": "Almuerzo"
+        },
+        "Subcripcion Uber": {
+            "categoria": "Subscripciones",
+            "prioridad": "Deseo",
+            "es_fijo": true,
+            "tags": ""
+        },
+        "Hermana": {
+            "categoria": "Otro",
+            "prioridad": "---",
+            "es_fijo": true,
+            "tags": "Transporte Noah"
+        },
+        "Transf. Deuna A Mei Wah Restaurante": {
+            "categoria": "Alimentación",
+            "prioridad": "Deseo",
+            "es_fijo": false,
+            "tags": "Almuerzo"
+        },
+        "Gasolinera Atimasa": {
+            "categoria": "Transporte",
+            "prioridad": "Necesidad",
+            "es_fijo": true,
+            "tags": "Gasolina"
+        },
+        "Tarifa Consumo Gasolinera": {
+            "categoria": "Transporte",
+            "prioridad": "Necesidad",
+            "es_fijo": true,
+            "tags": "Gasolina"
+        },
+        "Transf. Directa A Delgado  Almeida Joel Ricardo": {
+            "categoria": "Alimentación",
+            "prioridad": "Deseo",
+            "es_fijo": false,
+            "tags": ""
+        },
+        "Transf. Deuna A Gregory Alessandro Arias Vaca": {
+            "categoria": "Alimentación",
+            "prioridad": "Necesidad",
+            "es_fijo": false,
+            "tags": "Almuerzo"
+        },
+        "Universidad Catolica    E": {
+            "categoria": "Otro",
+            "prioridad": "Necesidad",
+            "es_fijo": false,
+            "tags": ""
+        },
+        "Almuerzo Pampa": {
+            "categoria": "Alimentación",
+            "prioridad": "Necesidad",
+            "es_fijo": true,
+            "tags": "Almuerzo"
+        },
+        "Mens Barberia": {
+            "categoria": "Mensual",
+            "prioridad": "Necesidad",
+            "es_fijo": true,
+            "tags": "Corte"
+        },
+        "Transf. Deuna A Libreria Studium Cia Ltda Libreria Studium Cia Ltda": {
+            "categoria": "Otro",
+            "prioridad": "Necesidad",
+            "es_fijo": false,
+            "tags": ""
+        },
+        "Supermaxi Quicentro Lc  Q": {
+            "categoria": "Mensual",
+            "prioridad": "Necesidad",
+            "es_fijo": true,
+            "tags": "Compras Super"
+        },
+        "Cancelacion Plazo Fijo": {
+            "categoria": "Inversion",
+            "prioridad": "",
+            "es_fijo": false,
+            "tags": "Inversion"
+        },
+        "Interes Plazo Fijo(Transferencia Interior)": {
+            "categoria": "Otro",
+            "prioridad": "Deseo",
+            "es_fijo": false,
+            "tags": "Inversion"
+        },
+        "Autoservipampa Cia. Lt  Q": {
+            "categoria": "Transporte",
+            "prioridad": "Necesidad",
+            "es_fijo": true,
+            "tags": "Gasolina"
+        },
+        "Interes (Transferencia Interior)": {
+            "categoria": "Inversion",
+            "prioridad": "",
+            "es_fijo": false,
+            "tags": "Inversion"
+        },
+        "Sweet Coffee": {
+            "categoria": "Alimentación",
+            "prioridad": "Deseo",
+            "es_fijo": false,
+            "tags": ""
+        },
+        "Spotify": {
+            "categoria": "Subscripciones",
+            "prioridad": "Deseo",
+            "es_fijo": false,
+            "tags": "",
+            "nota": ""
+        },
+        "Uber Eats": {
+            "categoria": "Alimentación",
+            "prioridad": "Deseo",
+            "es_fijo": false,
+            "tags": ""
+        },
+        "Pago Tarjeta": {
+            "categoria": "Otro",
+            "prioridad": "Deseo",
+            "es_fijo": false,
+            "tags": "Tarjeta"
+        },
+        "Transf. Deuna A Erick Eduardo Mosquera Herrera": {
+            "categoria": "Alimentación",
+            "prioridad": "Necesidad",
+            "es_fijo": false,
+            "tags": "Almuerzo"
+        },
+        "Transf. Directa A Encalada  Encalada Osman Freddy": {
+            "categoria": "Ocio",
+            "prioridad": "Deseo",
+            "es_fijo": false,
+            "tags": "Motel, Renata"
+        },
+        "Parqueadero U": {
+            "categoria": "Mensual",
+            "prioridad": "Necesidad",
+            "es_fijo": true,
+            "tags": "Parqueadero"
+        },
+        "Gasolina Carretas": {
+            "categoria": "Transporte",
+            "prioridad": "Necesidad",
+            "es_fijo": true,
+            "tags": "Gasolina"
+        },
+        "Don Carbon": {
+            "categoria": "Alimentación",
+            "prioridad": "",
+            "es_fijo": false,
+            "tags": "Almuerzo"
+        },
+        "15341620-Novaecuador    -3V-Tu Banca Pro": {
+            "categoria": "Subscripciones",
+            "prioridad": "",
+            "es_fijo": false,
+            "tags": "Seguro"
+        },
+        "Brawl Stars": {
+            "categoria": "Ocio",
+            "prioridad": "Deseo",
+            "es_fijo": false,
+            "tags": "VideoJuego"
+        },
+        "Certificado De Deposito": {
+            "categoria": "Inversion",
+            "prioridad": "",
+            "es_fijo": false,
+            "tags": ""
+        },
+        "Pago Tarjeta Principal": {
+            "categoria": "Tarjeta",
+            "prioridad": "---",
+            "es_fijo": false,
+            "tags": "Tarjeta"
+        },
+        "Rock Hamburguesas": {
+            "categoria": "Alimentación",
+            "prioridad": "",
+            "es_fijo": false,
+            "tags": "Almuerzo"
+        },
+        "Gasolinera Monteserrin": {
+            "categoria": "Transporte",
+            "prioridad": "Necesidad",
+            "es_fijo": true,
+            "tags": "Gasolina"
+        },
+        "Taurus": {
+            "categoria": "Alimentación",
+            "prioridad": "Necesidad",
+            "es_fijo": false,
+            "tags": "Desauno"
+        },
+        "Mayflower": {
+            "categoria": "Alimentación",
+            "prioridad": "",
+            "es_fijo": false,
+            "tags": "Almuerzo"
+        },
+        "Transf. Deuna A Karina Alexandra Tutistar Sarango": {
+            "categoria": "Ocio",
+            "prioridad": "Deseo",
+            "es_fijo": false,
+            "tags": "Trago"
+        },
+        "Autoservipampa": {
+            "categoria": "Transporte",
+            "prioridad": "Necesidad",
+            "es_fijo": false,
+            "tags": "Gasolina"
+        },
+        "Apertura De Depóstio A Plazo Fijo": {
+            "categoria": "Inversion",
+            "prioridad": "---",
+            "es_fijo": false,
+            "nota": "",
+            "tags": "Inversion"
+        },
+        "Menestras Simon": {
+            "categoria": "Alimentación",
+            "prioridad": "---",
+            "es_fijo": false,
+            "tags": "Almuerzo",
+            "nota": ""
+        },
+        "Leo": {
+            "categoria": "Ocio",
+            "tags": "Trago",
+            "prioridad": "Deseo",
+            "es_fijo": false
+        },
+        "Tantra": {
+            "categoria": "Mujeres",
+            "tags": "Sexualidad",
+            "prioridad": "Deseo",
+            "es_fijo": false
+        },
+        "TRANSF. DIRECTA DE ARCINIEGA BASANTES PAULINA MARIA": {
+            "categoria": "Deudas"
+        },
+        "Google Brawl Stars      M": {
+            "categoria": "Regalo"
+        },
+        "UBER EATS": {
+            "categoria": "Alimentación"
+        },
+        "WL *STEAM PURCHASE      S": {
+            "categoria": "Mujeres"
+        },
+        "Jhonny U": {
+            "categoria": "Ocio"
+        },
+        "TRANSF. DEUNA A JESSENIA PATRICIA DELGADO ZAMBRANO": {
+            "categoria": "Alimentación"
+        },
+        "Manabas Grill Almuerzos": {
+            "categoria": "Alimentación",
+            "prioridad": "Necesidad",
+            "es_fijo": false,
+            "tags": "Almuerzo",
+            "nota": ""
+        },
+        "TRANSF. DIRECTA A ARTEAGA  CARBAJAL DANIELA ABIGAIL": {
+            "categoria": "Alimentación"
+        },
+        "PROAUTO CARAPUNGO ACC   Q": {
+            "categoria": "Transporte"
+        },
+        "Fuel Central Gasolinera": {
+            "categoria": "Transporte",
+            "tags": "Gasolina",
+            "prioridad": "Necesidad",
+            "es_fijo": false
+        },
+        "Motel Dos Pinos": {
+            "categoria": "Ocio",
+            "tags": "Sexualidad, Renata",
+            "prioridad": "Deseo",
+            "es_fijo": false
+        },
+        "Transf. Deuna A Juan Carlos Balla Yumbo": {
+            "categoria": "Alimentación",
+            "tags": "Almuerzo",
+            "prioridad": "Necesidad",
+            "es_fijo": false
+        },
+        "Transf. Deuna A Daniela Abigail Arteaga Carbajal": {
+            "categoria": "Alimentación",
+            "tags": "Renata",
+            "prioridad": "Deseo",
+            "es_fijo": false
+        },
+        "Transf. Directa A Guevara  Olmedo Mateo Nicolas": {
+            "categoria": "Alimentación",
+            "tags": "Almuerzo",
+            "prioridad": "Deseo",
+            "es_fijo": false
+        },
+        "Orense": {
+            "categoria": "Alimentación",
+            "prioridad": "---",
+            "es_fijo": false,
+            "tags": "",
+            "nota": ""
+        },
+        "NaN": {
+            "categoria": "Alimentación",
+            "tags": "Almuerzo"
+        },
+        "Il Cappo Dimangi I014   Q": {
+            "categoria": "Alimentación",
+            "tags": "Almuerzo",
+            "prioridad": "---",
+            "es_fijo": false
+        },
+        "Transf. Deuna A Maria Angelica Yanez Romero": {
+            "categoria": "Alimentación",
+            "tags": "Almuerzo",
+            "prioridad": "Necesidad",
+            "es_fijo": false
+        },
+        "Transf. Deuna A Enrique Javier Viera Mendoza": {
+            "categoria": "Alimentación",
+            "tags": "Almuerzo",
+            "prioridad": "Necesidad",
+            "es_fijo": false
+        },
+        "Sanduche 1 Dolar": {
+            "categoria": "Alimentación",
+            "tags": "",
+            "prioridad": "Deseo",
+            "es_fijo": false
+        },
+        "Madre": {
+            "categoria": "Mensual",
+            "tags": "",
+            "prioridad": "---",
+            "es_fijo": false
+        },
+        "Transf. Directa A Pazmiño  Vallejo Norma Isabel": {
+            "categoria": "Viajes",
+            "tags": "CB_2025",
+            "prioridad": "Deseo",
+            "es_fijo": false
+        },
+        "Transf. Deuna A Micromercado Sebas": {
+            "categoria": "Ocio",
+            "tags": "Trago",
+            "prioridad": "---",
+            "es_fijo": false
+        },
+        "Transf. Directa De Dominique Lourdes Verkade Montiel": {
+            "categoria": "Alimentación",
+            "tags": "Merienda",
+            "prioridad": "Deseo",
+            "es_fijo": false
+        },
+        "Fuel Oriental Gasolinera": {
+            "categoria": "Transporte",
+            "tags": "Gasolina",
+            "prioridad": "Necesidad",
+            "es_fijo": false
+        },
+        "Pago Por Servicio De Combos Tuenti": {
+            "categoria": "Mujeres",
+            "tags": "Renata",
+            "prioridad": "Deseo",
+            "es_fijo": false
+        },
+        "Motel U": {
+            "categoria": "Mujeres",
+            "tags": "Sexualidad, Motel, Renata",
+            "prioridad": "Deseo",
+            "es_fijo": false
+        },
+        "Transf. Deuna A Esquites": {
+            "categoria": "Mujeres",
+            "tags": "Renata",
+            "prioridad": "Deseo",
+            "es_fijo": false
+        },
+        "Transf. Deuna A Maria Elena Recalde Estacio": {
+            "categoria": "Alimentación",
+            "tags": "Almuerzo",
+            "prioridad": "Necesidad",
+            "es_fijo": false
+        },
+        "Poliburger": {
+            "categoria": "Alimentación",
+            "tags": "Almuerzo",
+            "prioridad": "---",
+            "es_fijo": false
+        },
+        "Fybeca": {
+            "categoria": "Salud",
+            "tags": "",
+            "prioridad": "Necesidad",
+            "es_fijo": false
+        },
+        "Transf. Directa A Carvajal  Carvajal Luis Alexander": {
+            "categoria": "Alimentación",
+            "tags": "Almuerzo",
+            "prioridad": "---",
+            "es_fijo": false
+        },
+        "Transf. Interbancaria A Dapper Detailing Studio S A S": {
+            "categoria": "Transporte",
+            "prioridad": "Deseo",
+            "es_fijo": false,
+            "tags": "Carwash",
+            "nota": ""
+        },
+        "Pago Tarjeta De Credito Principal": {
+            "categoria": "Tarjeta",
+            "prioridad": "Necesidad",
+            "es_fijo": true,
+            "tags": "Tarjeta",
+            "nota": ""
+        },
+        "Retencion 2% Rendimiento Financiero": {
+            "categoria": "Inversion",
+            "prioridad": "---",
+            "es_fijo": false,
+            "tags": "Inversion",
+            "nota": ""
+        }
+    },
+    "tag_data": {
+        "Almuerzo": {
+            "categoria": "Alimentación",
+            "prioridad": "Necesidad",
+            "es_fijo": false,
+            "nota": ""
+        },
+        "Mensual_Gasolina": {
+            "categoria": "Mensual",
+            "prioridad": "Necesidad",
+            "es_fijo": false,
+            "nota": ""
+        },
+        "Trago": {
+            "categoria": "Ocio",
+            "prioridad": "Deseo",
+            "es_fijo": false,
+            "nota": ""
+        },
+        "Carwash": {
+            "categoria": "Transporte",
+            "prioridad": "Deseo",
+            "es_fijo": false,
+            "nota": ""
+        },
+        "Gasolina": {
+            "categoria": "Transporte",
+            "prioridad": "Necesidad",
+            "es_fijo": false,
+            "nota": ""
+        },
+        "Tarjeta": {
+            "categoria": "Tarjeta",
+            "prioridad": "Necesidad",
+            "es_fijo": true,
+            "nota": ""
+        }
+    }
+}

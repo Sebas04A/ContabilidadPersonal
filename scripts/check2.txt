@@ -1,0 +1,15 @@
+First TARJETA in maestros:
+  FECHA: 2024-01-06 00:00:00
+  DESC: MEGAMAXI EL CONDADO LC  Q
+  MONTO: -13.62
+
+First row in tarjeta_unida:
+  FECHA: 2024-01-06 00:00:00
+  DESC: MCDONALDS EC KSU        G
+  MONTO: 6.98
+
+Key maestros: 2024-01-06|MEGAMAXI EL CONDADO LC  Q|-13.62
+Key tarjeta:  2024-01-06|MCDONALDS EC KSU        G|6.98
+
+Tarjeta rows in maestros: 652
+Matched: 0

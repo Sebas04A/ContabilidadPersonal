@@ -26,7 +26,7 @@ def guardar_archivo(df,nombre, guardar_definitivo=False):
     if (guardar_definitivo):
         if(df["FECHA"].min()> pd.to_datetime('2024-03-22')):
             raise ValueError("Asegurate de enviar el df completo, no solo los nuevos datos")
-
+        
         path = PATH_UNIDO+"/atipicos_descripciones.xlsx"
     else:
         path = f"{PATH_GUARDAR_ATIPICOS_HISTORICOS}/{nombre}_{fecha_actual}.xlsx" 

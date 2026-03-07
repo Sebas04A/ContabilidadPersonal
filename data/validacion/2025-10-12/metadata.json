@@ -1,0 +1,13 @@
+{
+    "fecha": "2025-10-12T20:23:14.680859",
+    "path_carpeta_anterior": "Primer Guardado",
+    "cambios": "PrimerGuardado",
+    "cambiosCuenta": {
+        "fecha_inicio": "2024-03-11T00:00:00",
+        "fecha_fin": "2025-09-10T13:00:00",
+        "saldo_inicio": 31850.39,
+        "saldo_fin": 173.67,
+        "path_nuevos_datos": "../data/nuevos/banca/Movimientos_cuenta_20240910_20250910.xlsx",
+        "cambios": ""
+    }
+}

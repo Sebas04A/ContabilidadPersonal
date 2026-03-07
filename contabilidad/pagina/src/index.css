@@ -1,0 +1,103 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Import Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+  font-family: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: dark;
+  /* High contrast text base */
+  color: #fafafa; /* zinc-50 */
+  background-color: #09090b; /* zinc-950 */
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  /* Cleaner, more professional subtle background */
+  background: 
+    radial-gradient(circle at 15% 50%, rgba(124, 58, 237, 0.08), transparent 25%), 
+    radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.08), transparent 25%);
+  background-color: #09090b; /* zinc-950 fallback */
+}
+
+/* Glassmorphism & High Contrast Utilities */
+@layer components {
+  /* Base Glass - Crisper, higher contrast */
+  .glass {
+    @apply bg-surface-900/60 backdrop-blur-xl border border-white/5 shadow-xl;
+  }
+  
+  /* Card Variant - Used for main containers */
+  .glass-card {
+    @apply bg-surface-900/40 backdrop-blur-2xl border border-white/10 shadow-2xl rounded-2xl transition-all duration-300;
+  }
+  
+  /* Interactive Card Hover Effect */
+  .glass-card-hover {
+    @apply hover:bg-surface-800/60 hover:border-primary-500/30 hover:shadow-primary-900/20 hover:-translate-y-0.5;
+  }
+
+  /* Buttons */
+  .btn-primary {
+    @apply flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-500 text-white font-medium transition-all shadow-lg shadow-primary-900/20 active:scale-95 border border-primary-500/20;
+  }
+
+  .btn-secondary {
+    @apply flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-surface-800 hover:bg-surface-700 text-surface-200 font-medium transition-all border border-surface-700 active:scale-95;
+  }
+
+  .btn-icon {
+    @apply p-2 rounded-xl text-surface-400 hover:text-white hover:bg-surface-800 transition-all border border-transparent hover:border-surface-700;
+  }
+
+  /* Inputs */
+  .input-field {
+    @apply w-full bg-surface-950/50 border border-surface-800 rounded-xl px-4 py-2.5 text-surface-100 placeholder:text-surface-500 focus:outline-none focus:border-primary-500/50 focus:ring-1 focus:ring-primary-500/20 transition-all;
+  }
+
+  /* Typography Utilities for Consistency */
+  .text-h1 {
+    @apply text-2xl md:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-surface-400;
+  }
+  
+  .text-label {
+    @apply text-sm font-medium text-surface-400 uppercase tracking-wider;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #3f3f46; /* zinc-700 */
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #52525b; /* zinc-600 */
+}
+
+/* Animations */
+@keyframes background-animate {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.background-animate {
+  background-size: 200% 200%;
+  animation: background-animate 3s infinite ease-in-out;
+}

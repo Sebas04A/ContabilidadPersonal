@@ -1,0 +1,86 @@
+﻿FECHA	diff_total_yo	diff_tarjeta	diff_saldo_real	descripcion
+2024-03-25	279.0	0.0	279.0	Deposito 280 
+2024-03-29	-156.69	156.69	0.0	Pycca Portal , supermaxi mc -155 #En verdad pycca es -28 
+2024-04-01	-27.31	0.0	-27.31	transferencia -40 #No cuadra
+2024-04-02	-28.84	15.84	-13.0	Kfc y transferecia -27
+2024-04-05	-26.68	26.68	0.0	MC -26
+2024-04-08	-29.5	32.5	3.0	Difare? y Sime -32
+2024-04-11	-83.12	37.22	-45.9	ChatGpt Difare y Sime -37 &Pagado
+2024-04-18	40.0	0.0	40.0	Transferencia -40
+2024-04-26	216.02	0.0	216.02	Transferencia 216 &Madre
+2024-05-01	586.85	23.15	610.0	Deposito 610
+2024-05-02	-56.25	6.25	-50.0	Transferencia -50
+2024-05-08	-337.29	337.29	0.0	Usa -337 &pagado
+2024-05-11	-22.99	22.99	0.0	ChatGpt -23
+2024-05-14	-27.5	0.0	-27.5	Transferencia -25 #dia anterior
+2024-05-27	-21.49	21.49	0.0	tablita
+2024-05-28	-245.18	0.0	-245.18	SRI &pagado
+2024-06-03	-32.83	40.63	7.8	Super y mc #El super es del 29 &pagado 27
+2024-06-05	-26.32	26.32	0.0	Super y mc 
+2024-06-11	-37.33	35.73	-1.6	Mc y ChatGpt
+2024-06-21	-31.97	31.97	0.0	Casa res mela
+2024-06-22	-102.52	102.52	0.0	Carro &pagado
+2024-07-04	-26.9	0.0	-26.9	Padel,partido,pizza
+2024-07-05	-68.0	0.0	-68.0	Derma #solo se ve de una parte &pagado
+2024-07-08	-31.61	31.61	0.0	Farmacias y uber de 17 &pagado
+2024-07-11	-22.99	22.99	0.0	ChatGpt
+2024-07-15	-113.5	0.0	-113.5	Derma menos transf de nico #el derma es del 07-05 &pagado 150
+2024-07-16	-185.67	185.67	0.0	Farmacia &pagado
+2024-07-19	-21.74	3.99	-17.75	Deuna salida ale
+2024-07-23	21.4	0.0	21.4	#pago obl
+2024-07-25	-44.97	43.47	-1.5	Vape 21 y derma y fybeca &no pagado
+2024-07-29	-32.16	13.1	-19.06	MC y Deuna salida mela
+2024-08-11	-22.99	22.99	0.0	ChatGpt
+2024-08-12	-159.88	7.67	-152.21	Pago discover
+2024-08-13	-29.75	0.0	-29.75	Transferencia ultimo dia mela
+2024-08-15	28.55	0.0	28.55	Transferencia Madre 30 &pagado 30
+2024-08-21	-23.63	19.6	-4.03	Mc y playa
+2024-08-23	-1080.0	0.0	-1080.0	Pago Tarjeta 5466 Madre &tarjeta 5466 1080
+2024-09-09	-32.52	13.01	-19.51	viaje mindo y uber eats #no cuadra bien el viaje mindo &pagado madre 30
+2024-09-10	-21.46	21.46	0.0	Fybecca 8 y uber eats &pagado
+2024-09-26	569.66	2.84	572.5	Sobre inversion me da madre &madre me da 572.5
+2024-09-30	-216.95	0.0	-216.95	Derma &pagado
+2024-10-01	-21.65	18.15	-3.5	Uber a u &no pagado
+2024-10-04	118.47	11.03	129.5	Trasnferencia madre menos viernes salida #del 10-02 &pagado madre 132 y 250 dia anterior
+2024-10-12	-67.73	67.73	0.0	Cumple abanderada 
+2024-10-13	-64.76	64.76	0.0	Safaera y uber a safaera
+2024-10-18	-43.16	10.0	-33.16	transeferencia no se #del 10
+2024-11-05	132.0	0.0	132.0	Transferencia madre &pagado madre 132
+2024-11-14	-44.99	0.0	-44.99	Seguro banco &pagado
+2024-11-19	-102.0	0.0	-102.0	prestado madre #para que cuadre la inversion &pagado
+2024-12-11	-157.04	150.44	-6.6	Derma &no pagado
+2024-12-13	-35.9	32.2	-3.7	Farmacias &pagado
+2024-12-23	-59.69	48.48	-11.21	Regalos navidad
+2024-12-24	-52.01	45.31	-6.7	Mega,salsa pavo y mc  &pagado 22
+2024-12-27	50.0	0.0	50.0	Trasnferencia nico
+2025-01-06	698.35	0.0	698.35	Trasnferencia madre &pagado madre 600 + 100
+2025-01-10	-29.75	0.0	-29.75	nose salida dome y majo
+2025-01-17	-55.79	52.79	-3.0	Gasolina y Pagado ale
+2025-01-20	-25.15	23.0	-2.15	ChatGPT
+2025-01-21	-23.91	23.91	0.0	Fybeca &pagado
+2025-01-22	-146.5	0.0	-146.5	Derma #dia anterior &pagado
+2025-02-06	-53.45	0.0	-53.45	Derma 34 y lavada carro y extras #dia anterior
+2025-02-07	-115.77	79.77	-36.0	Optica 35, netlife 30 estuche 18 kfc 5 uber eats 7 registro civil 16 hamburguesas 9 #desde el 30 la tarjeta &pagado optica carro netlife no pagado registro civil 
+2025-02-10	188.58	0.0	188.58	Transferencia madre 200 &pagado madre 200
+2025-02-14	-52.26	27.86	-24.4	noche 14,y super del 14  #dia anterior
+2025-02-20	-23.0	23.0	0.0	ChatGPT
+2025-02-24	-75.26	0.0	-75.26	Puse mas Inversion -103 Trasnferencia madre 50 menos pagos viaje &prestado 103 creo que no pagado.pagado 50 mensual
+2025-02-28	-30.6	0.0	-30.6	Trasnferencia Ale
+2025-03-01	-33.5	33.5	0.0	Safara
+2025-03-07	-258.95	241.2	-17.75	LSD y mas #del 5
+2025-03-12	-85.57	81.32	-4.25	Comfarpi &no pagado
+2025-03-13	-54.5	0.0	-54.5	salida majo y dia anterior mucho gasto#mitad dia anterior
+2025-03-14	-48.83	45.83	-3.0	Optica &no pagado
+2025-03-20	-42.57	32.31	-10.26	ChatGPT y uber #uber dia anterior
+2025-03-25	596.28	0.0	596.28	Transferencia madre 535 y 100 menos gastos no se #es del 21 &pagado madre 535 y 100
+2025-03-26	-204.44	191.19	-13.25	Almuerzo y luces reparadas.Parqueadero Puce, gasolina #parqueadero dia anterior &pagado parqueadero 172
+2025-03-27	-23.03	20.15	-2.88	Sime 10, mc y spotyfy &pagado sime 10
+2025-04-04	-23.85	0.0	-23.85	Salida leo y nos volvimos a ver rubia,normi
+2025-04-07	-34.71	30.01	-4.7	gasolina
+2025-04-08	-65.88	15.19	-50.69	Retiro
+2025-04-17	-115.42	8.92	-106.5	partido y me pagan en efectivo 
+2025-04-20	-23.0	23.0	0.0	ChatGPT
+2025-04-21	-58.6	14.6	-44.0	car wash 23 y no se .tablita
+2025-04-23	88.8	7.7	96.5	Transferencia madre 100 &mensual madre
+2025-04-29	-22.92	0.0	-22.92	Viernes leo y comida #desde el 25
+2025-05-01	-34.39	29.29	-5.1	uber eats y google cloud #uber del 25 &pagado 26

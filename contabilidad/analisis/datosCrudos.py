@@ -242,7 +242,7 @@ def confgurar_completo(visualizador: VisualizadorFinanciero):
         col_fecha='FECHA',
         col_valor='TOTAL',
         col_descripcion="DESCRIPCION",
-        columnas_default=['FECHA',"TOTAL", 'SALDO', 'TARJETA',"INVERSION","PAGOS_MENSUAL_MA INTER","NOTIONCUM","DESCRIPCION","MADRE"]
+        columnas_default=['FECHA',"TOTAL", 'SALDO', 'TARJETA',"INVERSION","NOTIONCUM","PAGOS_MENSUAL_MA INTER","DESCRIPCION","MADRE"]
     )
 def configurar_completo_diff(visualizador: VisualizadorFinanciero):
     return visualizador.configurar_fuente(
@@ -250,7 +250,7 @@ def configurar_completo_diff(visualizador: VisualizadorFinanciero):
         col_fecha='FECHA',
         col_valor='diff_TOTAL',
         col_descripcion="DESCRIPCION",
-        columnas_default=['FECHA',"diff_TOTAL", 'diff_saldo_sin_inversion', 'diff_tarjeta', 'diff_notion', 'DESCRIPCION','MADRE']
+        columnas_default=['FECHA',"diff_TOTAL", 'diff_saldo_sin_inversion', 'diff_tarjeta', 'diff_notion',"diff_madre INTER" ,'DESCRIPCION','MADRE']
     )
 
 

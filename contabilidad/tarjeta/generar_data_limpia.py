@@ -4,7 +4,7 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 from bs4 import BeautifulSoup
-from contabilidad.config import PATH_TARJETA_PROCESADA,PATH_TARJETAS_DATA_CRUDA
+from contabilidad.config import PATH_TARJETA_PROCESADA,PATH_TARJETA_NUEVOS
 from contabilidad.tarjeta.tiposCsvDatos import DATOS_TARJETA_COMPLETA,DATOS_TARJETA_HEADER,DATOS_TARJETA_INFO_MOVIMIENTOS,DATOS_TARJETA_METADATA,DATOS_TARJETA_TOTALES
 
 def fix_encoding(text: str) -> str:
@@ -444,13 +444,13 @@ def dividir_archivo_tarjeta(rows: list[list[str]]):
     return start_header_idx,end_header_idx, indices_movimientos
 
 
-def extraer_data_tarjeta(file_path: str):
+def obtener_datos_tarjeta(file_path: str) -> tuple[pd.DataFrame, DATOS_TARJETA_COMPLETA]:
     """
-    Genera un CSV de movimientos de tarjeta a partir de un archivo .xls extraido de banca
-    y el resumen de los movimientos
+    Procesa un archivo .xls de tarjeta y retorna el DataFrame de movimientos y los metadatos completos.
+    Does not save to file.
     """
     path = Path(file_path)
-    print(f"Procesando archivo: {path}")
+    # print(f"Procesando archivo: {path}")
     if not path.exists():
         raise FileNotFoundError(f"Archivo no encontrado: {path}")
     if path.suffix.lower() != '.xls':
@@ -466,35 +466,24 @@ def extraer_data_tarjeta(file_path: str):
     cols_names = rows[start_header_idx]
     df_header = pd.DataFrame(header_info, columns=cols_names)
     df_header['Valor'] = df_header['Valor'].apply(to_float)
-    # print(df_header)
 
     movements_rows = []
     for start, end in movimientos_idx:
         movements_rows.extend(rows[start : end])
 
-    # print("Movements rows",movements_rows)
-
     df_movements = pd.DataFrame(movements_rows, columns=cols_names)
     df_movements['Valor'] = df_movements['Valor'].apply(to_float)
 
-    # print(df_movements)
-
     totales_info = rows[end_movements_idx:]
-    # print(f"Totales info: {totales_info}")
     
     header_info = get_info_header(df_header=df_header)
-    # print("Header info extraída:", header_info)
 
     info_totales = get_info_totales(totales_info=totales_info)
-    # print("Info totales extraída:", info_totales)
 
     TOTAL_A_PAGAR = info_totales.TOTAL_A_PAGAR
 
-    
-
     movements_header = extract_header_movements(df_header=df_header)
     movements_header.loc[:, 'Valor'] = movements_header['Valor'].astype(float)
-    # print(f"Movements header:\n{movements_header}")
     
     df_normalizado = build_movements_df(
         data=movements_rows,
@@ -506,30 +495,18 @@ def extraer_data_tarjeta(file_path: str):
 
     total_movimientos = df_normalizado['VALOR'].sum()
     total_calculado = total_movimientos + header_info.DEUDAS_MES_ANTERIOR
-    # print('Total movimientos:', total_movimientos, "Antes consumos:", header_info.TOTAL_ANTES_CONSUMOS)
-    # print(f"Total extraido : {TOTAL_A_PAGAR}, total calculado: {total_calculado}")
-    # print(f"Total extraido : {TOTAL_A_PAGAR}, total calculado: {total_calculado},total movimientos: {total_movimientos}")
+   
     if not np.isclose(TOTAL_A_PAGAR, total_calculado, atol=1):
         print(f"Total movimientos: {total_movimientos}, Deudas mes anterior: {header_info.DEUDAS_MES_ANTERIOR}")
         raise Warning(f"Advertencia: El valor de 'TOTAL_A_PAGAR' ({TOTAL_A_PAGAR}) no coincide con 'total_calculado' ({total_calculado}).")
 
     min_fecha_movimientos  = df_normalizado['FECHA'].min()
     max_fecha_movimientos = df_normalizado['FECHA'].max()
-    # print(f"Rango de movimientos: {min_fecha_movimientos} - {max_fecha_movimientos}")
 
     movimientos_info=DATOS_TARJETA_INFO_MOVIMIENTOS(
         MIN_FECHA_MOVIMIENTO=min_fecha_movimientos,
         MAX_FECHA_MOVIMIENTO=max_fecha_movimientos
     )
-
-    # print("METADATA ROWS:")
-    # print(metadata_rows)
-    # print("HEADER:")
-    # print(df_header) 
-    # print("MOVIMIENTOS:")
-    # print(df_movements)
-    # print("TOTALES:")
-    # print(totales_info)
 
     data_completa= DATOS_TARJETA_COMPLETA.desde_partes(
         metadata=metadata,
@@ -538,12 +515,16 @@ def extraer_data_tarjeta(file_path: str):
         movimientos=movimientos_info
     )
 
-    
-    # data_completa = {**metadata, **header_info, **info_totales, **{
-    #     'min_fecha_movimientos': min_fecha_movimientos,
-    #     'max_fecha_movimientos': max_fecha_movimientos
-    # }}
-    # print("Datos completos:", data_completa)
+    return df_normalizado, data_completa
+
+
+def extraer_data_tarjeta(file_path: str):
+    """
+    Genera un CSV de movimientos de tarjeta a partir de un archivo .xls extraido de banca
+    y el resumen de los movimientos
+    """
+    print(f"Procesando archivo para guardar: {file_path}")
+    df_normalizado, data_completa = obtener_datos_tarjeta(file_path)
 
     year  = data_completa.FECHA_EMISION.year 
     month = data_completa.FECHA_EMISION.month 
@@ -588,7 +569,7 @@ def extraer_data_tarjeta(file_path: str):
     print(f"Archivo guardado en: {nombre_archivo}")
 
 
-def extraer_data_todas_tarjetas(carpeta: str=PATH_TARJETAS_DATA_CRUDA):
+def extraer_data_todas_tarjetas(carpeta: str=PATH_TARJETA_NUEVOS):
     """Genera archivos CSV para todos los archivos .xls en una carpeta."""
     carpeta_path = Path(carpeta)
     archivos = sorted(carpeta_path.glob("*.xls"))

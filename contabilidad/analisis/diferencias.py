@@ -3,10 +3,10 @@ import plotly.graph_objects as go
 def get_diferencias(df_total):
     df_diferencia = df_total.copy()
 
-    df_diferencia["TOTAL_MADRE"] = df_diferencia["PAGOS_MENSUAL_MA"]+ df_diferencia["PAGOS_MA"]
+    df_diferencia["TOTAL_MADRE"] = df_diferencia["PAGOS_MENSUAL_MA"]
     df_diferencia["diff_madre"] = df_diferencia["TOTAL_MADRE"].diff()
 
-    df_diferencia["TOTAL_MADRE INTER"] = df_diferencia["PAGOS_MENSUAL_MA INTER"]+ df_diferencia["PAGOS_MA"]
+    df_diferencia["TOTAL_MADRE INTER"] = df_diferencia["PAGOS_MENSUAL_MA INTER"]
     df_diferencia["diff_madre INTER"] = df_diferencia["TOTAL_MADRE INTER"].diff()
 
     df_diferencia['diff_days']   =df_diferencia['FECHA'].diff().dt.days

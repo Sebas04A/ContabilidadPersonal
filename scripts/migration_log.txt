@@ -1,0 +1,35 @@
+============================================================
+Migration: gastos_maestros.csv -> etiquetas.csv
+============================================================
+
+1. Loading files...
+   gastos_maestros: 1444 rows
+   banca_unida: 1165 rows (2024-09-11 to 2026-02-06)
+   tarjeta_unida: 652 rows (2024-01-06 to 2026-02-06)
+
+2. Building lookup indices...
+   Banca keys: 677
+   Tarjeta keys: 632
+
+3. Matching rows...
+   Matched to banca: 649
+   Matched to tarjeta: 0
+   Created legacy IDs: 795
+   Skipped (no labels): 0
+   Total labels: 1444
+
+4. DRY RUN - would save 1444 rows
+
+============================================================
+SUMMARY
+============================================================
+  Total maestros rows:    1444
+  Matched to banca:      649
+  Matched to tarjeta:    0
+  Legacy IDs created:    795
+  Skipped (no labels):   0
+
+  NOTE: 795 rows got legacy IDs (prefix "legacy_").
+  These are old transactions not in banca_unida.xlsx.
+  They will appear in the system with their legacy IDs.
+  When you re-process older banca data, you can re-run migration.

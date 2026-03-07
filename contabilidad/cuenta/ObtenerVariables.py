@@ -3,9 +3,14 @@ import pandas as pd
 
 # pagos_tarjetas_cancelado = ["2025-04-28","2024-08-23","2024-09-23"]
 DESCRIPCION_PAGO_OBLIGATORIO = "PAGO TARJETA" #Los que tienen esta descripcion son pagos obligatorios de 20 dolares en general. El minimo
+
 DESCRIPCION_PAGO_INTERBANCARIA = "INTERBANCARIA" #Pagos a otras tarjetas
 DESCRIPCION_PAGO_MASTERCARD = "MASTE" #Pagos que nos aseguramos que sea mastercard
 DESCRIPCION_ES_MI_NUMERO = "223067" #Numero de mi tarjeta principal
+
+#EJEMPLO NUEVO
+# PAGO TARJETA DE CREDITO MASTERCARD BANCO PICHINCHA  22306700007562
+
 
 def obtener_pagos_tarjetas(df,pagos_cancelados=[]):
     df=df.copy()
@@ -34,8 +39,13 @@ def obtener_pagos_tarjetas(df,pagos_cancelados=[]):
 
     
 def ver_inversiones(df):
-    inversion_acabada = df[df['DESCRIPCION'] =="CANCELACION PLAZO FIJO" ]
-    inversion_inicidada =df[df['DESCRIPCION'] =="CERTIFICADO DE DEPOSITO"]
+    
+    ES_INVERSION_INICIADA = ["CERTIFICADO DE DEPOSITO","A PLAZO FIJO"]
+    ES_INVERSION_ACABADA = "CANCELACION PLAZO FIJO"
+
+    inversion_acabada = df[df['DESCRIPCION'] == ES_INVERSION_ACABADA ]
+    inversion_inicidada =df[df["DESCRIPCION"].str.contains("|".join(ES_INVERSION_INICIADA), na=False)]
+    print(inversion_inicidada[["FECHA","DESCRIPCION","MONTO"]], end="\n\n")
 
     df_inversiones_vista  = pd.concat([inversion_acabada, inversion_inicidada], ignore_index=True)
     df_inversiones_vista = df_inversiones_vista.sort_values(by='FECHA')
@@ -46,13 +56,13 @@ def ver_inversiones(df):
     for inversion_fecha in inversion_acabada["FECHA"]:
         filas_inversion = df[df["FECHA"] == inversion_fecha]
         print(f"Fecha Inversion: {inversion_fecha}")
-        plazo_fijo = filas_inversion[filas_inversion["DESCRIPCION"] == "CANCELACION PLAZO FIJO"]["MONTO"].values[0]
+        plazo_fijo = filas_inversion[filas_inversion["DESCRIPCION"] == ES_INVERSION_ACABADA]["MONTO"].values[0]
         # interes = filas_inversion[filas_inversion["DESCRIPCION"] == "TRANSFERENCIA INTERIOR"]["CREDITO"].values[0]
         interes_filtrado = filas_inversion[filas_inversion["DESCRIPCION"] == "TRANSFERENCIA INTERIOR"]
         if not interes_filtrado.empty:
             interes = interes_filtrado["CREDITO"].values[0]
         else:
-            interes = filas_inversion[filas_inversion["DESCRIPCION"] == "CANCELACION PLAZO FIJO"]["MONTO"].values[1]
+            interes = filas_inversion[filas_inversion["DESCRIPCION"] == ES_INVERSION_ACABADA]["MONTO"].values[1]
         
         # Verificar si existe la fila de impuesto antes de acceder
         if not filas_inversion[filas_inversion["DESCRIPCION"] == "RETENCION RENDIMIENTO FINANCIERO"].empty:

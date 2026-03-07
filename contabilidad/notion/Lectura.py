@@ -1,5 +1,5 @@
 import pandas as pd
-from contabilidad.config import PATH_NOTION
+
 from contabilidad.notion import integracionNotion
 # Diccionario de meses en español
 meses = {

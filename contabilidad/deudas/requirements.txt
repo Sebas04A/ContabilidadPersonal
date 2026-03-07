@@ -1,0 +1,2 @@
+# Dependencias para el módulo de deudas
+supabase>=2.0.0

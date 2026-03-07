@@ -1,19 +1,19 @@
 
 from collections import Counter
-from contabilidad.config import PATH_DATOS_ANTERIORES, CUENTAS_COLUMNAS
+from contabilidad.config import PATH_ARCHIVO_CUENTA, CUENTAS_COLUMNAS
 import numpy as np
 import pandas as pd
 import os
 
 def imprimir_cambios(df_nuevo,
-                     path_datos_anteriores=PATH_DATOS_ANTERIORES,
+                     path_datos_anteriores=PATH_ARCHIVO_CUENTA,
                      columnas_base=CUENTAS_COLUMNAS):
     """
     Imprime:
       1) Filas nuevas/eliminadas por fecha.
       2) Para fechas comunes, compara multiconjuntos de filas
          (sin importar el orden) y para cada diferencia:
-           - Si es un cambio (un viejo ↔ un nuevo), muestra
+           - Si es un cambio (un viejo - un nuevo), muestra
              columna por columna el valor antiguo y el nuevo.
            - Si una fila entera falta o sobra, la marca como
              "ELIMINADA" o "NUEVA".
@@ -33,8 +33,9 @@ def imprimir_cambios(df_nuevo,
     # 3) Carga CSV antiguo
     if not os.path.exists(path_datos_anteriores):
         raise FileNotFoundError(f"No existe: {path_datos_anteriores}")
+    print("Cargando datos anteriores de:", path_datos_anteriores)
     df_a = (
-        pd.read_csv(path_datos_anteriores, usecols=cols, parse_dates=["FECHA"])
+        pd.read_excel(path_datos_anteriores, usecols=cols, parse_dates=["FECHA"])
         .assign(FECHA=lambda d: d["FECHA"].dt.normalize())
         .dropna(subset=["FECHA"])
         .round(6)

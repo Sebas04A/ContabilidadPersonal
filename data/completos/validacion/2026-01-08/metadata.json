@@ -1,0 +1,13 @@
+{
+    "fecha": "2026-01-08T19:02:32.026108",
+    "path_carpeta_anterior": "../data/completos/2025-11-13",
+    "cambios": null,
+    "cambiosCuenta": {
+        "fecha_inicio": "2024-03-11T00:00:00",
+        "fecha_fin": "2025-12-09T12:13:00",
+        "saldo_inicio": 31850.39,
+        "saldo_fin": 646.86,
+        "path_nuevos_datos": "../data/nuevos/banca/Movimientos_cuenta_20251101_20251210.xlsx",
+        "cambios": ""
+    }
+}

@@ -1,17 +1,27 @@
 import pandas as pd
-from contabilidad.config import PATH_CUENTAS_ACTUAL_UNIDA
+from contabilidad.config import PATH_CUENTAS_ACTUAL
 from contabilidad.cuenta.lectura import FileProcessingConfig as FileProcessingConfig
 from contabilidad.cuenta.validacion import imprimir_cambios
 
 
 
+# def leer_datos_guardados_cuenta():
+#     """
+#     Lee los datos guardados de la cuenta guardados en PATH_CUENTA_UNIDO
+#     """
+#     df= pd.read_excel(PATH_CUENTAS_ACTUAL)
+#     df['FECHA'] = pd.to_datetime(df['FECHA'], format='%Y-%m-%d')
+#     df["MONTO"] = df["CREDITO"] - df["DEBITO"]
+#     return df
 def leer_datos_guardados_cuenta():
     """
     Lee los datos guardados de la cuenta guardados en PATH_CUENTA_UNIDO
     """
-    df= pd.read_csv(PATH_CUENTAS_ACTUAL_UNIDA)
+    df= pd.read_excel(PATH_CUENTAS_ACTUAL)
     df['FECHA'] = pd.to_datetime(df['FECHA'], format='%Y-%m-%d')
-    df["MONTO"] = df["CREDITO"] - df["DEBITO"]
+    df["CREDITO"] = df["MONTO"].apply(lambda x: x if x > 0 else 0)
+    df["DEBITO"] = df["MONTO"].apply(lambda x: -x if x < 0 else 0)
+    # df["MONTO"] = df["CREDITO"] - df["DEBITO"]
     return df
 
 def normalizar_monto(df,new_file_config:FileProcessingConfig):
@@ -88,7 +98,7 @@ def noramalizar(df,new_file_config:FileProcessingConfig):
 
     df_saldo_norm.rename(columns={new_file_config.fecha_col: 'FECHA', new_file_config.saldo_col: 'SALDO',new_file_config.descripcion_col:"DESCRIPCION"}, inplace=True)
     
-    df_saldo_norm = df_saldo_norm[::-1].reset_index(drop=True)
+    # df_saldo_norm = df_saldo_norm[::-1].reset_index(drop=True)
     return df_saldo_norm[["FECHA","SALDO","DESCRIPCION","DEBITO","CREDITO","MONTO"]]
 
 
@@ -109,22 +119,31 @@ def obtener_todas_cuentas(new_file_config:FileProcessingConfig,ordenar_fecha=Fal
     """ Lee las cuentas guardadas y las une con las cuentas del nuevo archivo si se da, se corta el anterior df para añadir limpiamente el nuevo"""
     
     df_unido_antiguo = leer_datos_guardados_cuenta()
-
-    if new_file_config.path is not None:
-        path_nuevo = new_file_config.path
-        print(f"Leyendo archivo nuevo: {path_nuevo}")
-        df_nuevo = leer_cuenta_nuevo(new_file_config)
-        print("-----------COMPARANDO DATOS NUEVOS CON ANTERIORES")
-        imprimir_cambios(df_nuevo)
-
-        df_antiguo_cortado = df_unido_antiguo[df_unido_antiguo["FECHA"] < df_nuevo["FECHA"].min()]
-
-
-        df_unido_antiguo = pd.concat([df_antiguo_cortado, df_nuevo], ignore_index=True)
-        if ordenar_fecha:
-            # df_unido_antiguo = ordenar_por_saldo(df_unido_antiguo)
-            df_unido_antiguo.sort_values(by='FECHA', inplace=True)
-        df_unido_antiguo.reset_index(drop=True, inplace=True)
+    if new_file_config is None:
         return df_unido_antiguo
+
+    
+    path_nuevo = new_file_config.path
+    print(f"Leyendo archivo nuevo: {path_nuevo}")
+    df_nuevo = leer_cuenta_nuevo(new_file_config)
+    print("-----------COMPARANDO DATOS NUEVOS CON ANTERIORES")
+    imprimir_cambios(df_nuevo)
+    fecha_inicio_nuevo = df_nuevo["FECHA"].min()
+    #quitar los minutos y segundos por si acaso
+    fecha_inicio_nuevo = fecha_inicio_nuevo.normalize()
+    print(f"Fecha inicio nuevo archivo: {fecha_inicio_nuevo}")
+
+    df_antiguo_cortado = df_unido_antiguo[df_unido_antiguo["FECHA"] < fecha_inicio_nuevo].copy()
+
+    print(df_nuevo.head(10))
+    print(df_antiguo_cortado.tail(10))
+
+
+    df_unido_antiguo = pd.concat([df_antiguo_cortado, df_nuevo], ignore_index=True)
+    if ordenar_fecha:
+        # df_unido_antiguo = ordenar_por_saldo(df_unido_antiguo)
+        df_unido_antiguo.sort_values(by='FECHA', inplace=True)
+    df_unido_antiguo.reset_index(drop=True, inplace=True)
+    return df_unido_antiguo
     
     return df_unido_antiguo

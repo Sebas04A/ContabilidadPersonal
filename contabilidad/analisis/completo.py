@@ -21,6 +21,10 @@ class Graficos:
         self.df = df
         self.max_fecha = df['FECHA'].max()
         self.min_fecha = df['FECHA'].min()
+        self.traces = []
+        self.highlighted_days = []
+        self.fig = go.Figure()
+        
 
 
     def add_trace(self, trace: Trace):
@@ -119,6 +123,7 @@ class Graficos:
 
     def plot(self):
         print(self.traces)
+        print(self.df[self.df["FECHA"]>"2025-06-10"][["FECHA","TOTAL"]].head(20))
         for trace in self.traces:
             if trace.tipo == 'scatter':
                 self.fig.add_trace(go.Scatter(

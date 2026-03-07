@@ -1,0 +1,7 @@
+Maestros: 2024-01-06 to 2026-02-06
+Banca: 2024-09-11 to 2026-02-06
+Tarjeta: 2024-01-06 to 2026-02-06
+Maestros in banca range: 1102 of 1444
+Maestros BEFORE banca range: 342
+TIPO values: ['CUENTA', 'TARJETA']
+TIPO counts: {'CUENTA': 792, 'TARJETA': 652}

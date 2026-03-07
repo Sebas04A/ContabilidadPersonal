@@ -13,7 +13,7 @@ class FileProcessingConfig:
     descripcion_col: str = "Concepto"
     fecha_format: str = "%Y-%m-%d, %I:%M %p"
     tiene_monto: bool = True
-    descripcion_a_eliminar: list = field(default_factory=lambda: ["INTERES A SU FAVOR", "IVA COBRADO", "COMISION"])
+    descripcion_a_eliminar: list = field(default_factory=lambda: [])
     print("PATH ACTUAL:", os.getcwd())
 
     def __post_init__(self):
