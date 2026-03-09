@@ -7,7 +7,7 @@ from typing import Dict, Optional
 router = APIRouter()
 
 # Data directory is at contabilidad/../data/backend/
-DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'data', 'backend'))
+DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'data', 'sistema'))
 BUDGET_FILE = os.path.join(DATA_DIR, 'presupuesto_config.json')
 
 class BudgetConfig(BaseModel):

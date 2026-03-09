@@ -8,7 +8,7 @@ from datetime import datetime
 router = APIRouter()
 
 # Path to the new labels-only CSV (no FECHA/DESCRIPCION/MONTO/TIPO duplication)
-LABELS_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'data', 'etiquetado', 'etiquetas.csv'))
+LABELS_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'data','sistema' ,'etiquetado', 'etiquetas.csv'))
 
 # Columns that live in the labels file
 LABEL_COLUMNS = [

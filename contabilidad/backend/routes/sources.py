@@ -28,7 +28,7 @@ DATA_PROCESADA_TARJETA = PATH_TARJETA_PROCESADA
 async def process_bank_sources():
     """
     Lee todos los archivos Excel en data/nuevos/banca, los procesa y los une en un solo archivo.
-    Guarda el resultado en data/procesada/banca.
+    Guarda el resultado en data/sistema/procesada/banca.
     """
     try:
         # Verificar directorios

@@ -2,7 +2,7 @@ import json
 import os
 import pandas as pd
 
-RULES_FILE = '../data/etiquetado/rules.json'
+RULES_FILE = '../data/sistema/etiquetado/rules.json'
 
 def load_rules():
     if os.path.exists(RULES_FILE):

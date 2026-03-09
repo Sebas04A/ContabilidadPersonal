@@ -1,12 +1,12 @@
 
 from collections import Counter
-from contabilidad.config import PATH_ARCHIVO_CUENTA, CUENTAS_COLUMNAS
+from contabilidad.config import CUENTAS_COLUMNAS
 import numpy as np
 import pandas as pd
 import os
 
 def imprimir_cambios(df_nuevo,
-                     path_datos_anteriores=PATH_ARCHIVO_CUENTA,
+                     path_datos_anteriores,
                      columnas_base=CUENTAS_COLUMNAS):
     """
     Imprime:

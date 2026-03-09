@@ -6,7 +6,8 @@ from typing import List, Dict, Any, Optional
 from datetime import date, datetime
 
 # Define paths
-BASE_DATA_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'backend', 'interpolaciones'))
+# BASE_DATA_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'backend', 'interpolaciones'))
+BASE_DATA_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'sistema', 'interpolaciones'))
 
 GROUPS_FILE = os.path.join(BASE_DATA_PATH, 'grupos.csv')
 PAYMENTS_FILE = os.path.join(BASE_DATA_PATH, 'pagos.csv')

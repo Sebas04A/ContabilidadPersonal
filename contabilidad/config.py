@@ -8,11 +8,11 @@ import os
 _CONFIG_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(_CONFIG_DIR)  # Go up from contabilidad/ to Cuentas/
 
-_CONFIG_FILE = os.path.join(_PROJECT_ROOT, 'data', 'config.json')
-with open(_CONFIG_FILE, 'r') as f:
-        config = json.load(f)
+# _CONFIG_FILE = os.path.join(_PROJECT_ROOT, 'data', 'config.json')
+# with open(_CONFIG_FILE, 'r') as f:
+#         config = json.load(f)
 
-        PATH_ACTUAL = config.get("path_actual", "")
+#         PATH_ACTUAL = config.get("path_actual", "")
 
 
 # PATH_DATOS_ANTERIORES = "../datos_anteriores.csv" #todo unido
@@ -28,8 +28,8 @@ with open(_CONFIG_FILE, 'r') as f:
 
 PATH_DATA = os.path.join(_PROJECT_ROOT, "data")
 
-PATH_DATA_ACTUAL = PATH_DATA+"/completos/"+PATH_ACTUAL
-PATH_CUENTAS_ACTUAL = PATH_DATA_ACTUAL+"/banca.xlsx"
+# PATH_DATA_ACTUAL = PATH_DATA+"/completos/"+PATH_ACTUAL
+# PATH_CUENTAS_ACTUAL = PATH_DATA_ACTUAL+"/banca.xlsx"
 
 
 # --------- COMPLETOS
@@ -44,9 +44,9 @@ NOMBRE_BANCA = "banca.xlsx"
 NOMBRE_DESCRIPCIONES = "descripciones.xlsx"
 
 
-PATH_ARCHIVO_COMPLETO = PATH_DATA_ACTUAL+"/"+NOMBRE_COMPLETO
-PATH_ARCHIVO_CUENTA = PATH_DATA_ACTUAL+"/"+NOMBRE_BANCA
-PATH_ARCHIVO_DESCRIPCIONES = PATH_DATA_ACTUAL+"/"+NOMBRE_DESCRIPCIONES
+# PATH_ARCHIVO_COMPLETO = PATH_DATA_ACTUAL+"/"+NOMBRE_COMPLETO
+# PATH_ARCHIVO_CUENTA = PATH_DATA_ACTUAL+"/"+NOMBRE_BANCA
+# PATH_ARCHIVO_DESCRIPCIONES = PATH_DATA_ACTUAL+"/"+NOMBRE_DESCRIPCIONES
 
 # PATH_CUENTAS_UNIDO_NOMBRE = "cuentas_unido.csv" #para que sirve esto? CAMBIADO
 
@@ -91,7 +91,7 @@ PATH_ARCHIVO_DESCRIPCIONES = PATH_DATA_ACTUAL+"/"+NOMBRE_DESCRIPCIONES
 
 
 # ----- PROCESADO
-PATH_PROCESADOS = PATH_DATA+"/procesada"
+PATH_PROCESADOS = PATH_DATA+"/sistema"+"/procesada"
 PATH_TARJETA_PROCESADA_DIR = PATH_PROCESADOS+"/tarjeta"
 PATH_TARJETA_PROCESADA = PATH_TARJETA_PROCESADA_DIR
 PATH_TARJETA_UNIDA = PATH_TARJETA_PROCESADA_DIR + "/tarjeta_unida.xlsx"

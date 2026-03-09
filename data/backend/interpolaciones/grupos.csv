@@ -1,9 +1,0 @@
-id,name,description,type
-0f195c2d-b234-46fa-9a01-38e0ccc60f14,Mensual_Madre,Mensual de Comida y Extras,interpolated
-bd963a38-13b9-4a6f-80a5-b871f9dc38d7,Inversiones_Mias,Mis inversiones,fixed
-e996e29a-1443-4026-bb64-13f6da31ab32,Inversiones_Uni,Inversiones para pagar la universidad,fixed
-5a1076ed-9b20-4e86-bd35-a91c57db1246,Inversiones_Madre,Inversiones de dinero que madre me dejo en mi cuenta,fixed
-bad2a96c-41dc-413f-82da-2c8bc5ce27f2,Mis Depositos,,fixed
-9850d962-59f8-48ad-91aa-f9fc45c6a8a3,Arreglos,Todo lo que necesite un arreglo puntual,fixed
-4615e12b-983b-4dd7-9e4b-814d8487dee5,Pagos Parqueadero,,fixed
-2b318275-ed53-415e-829a-7ee5b16063e2,Pagos_Gasolina,Cuadrar con los pagos que mi ma me paga de gasolina,fixed

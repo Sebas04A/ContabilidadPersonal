@@ -27,6 +27,7 @@ COLUMNAS_EXTRA = {
 
 # --- FUNCIÓN DE CARGA ---
 def cargar_datos():
+    raise NotImplementedError("Esta función ya no esta en funcionamiento. Hay que actualizar los paths")
     archivo_maestro = '../data/etiquetado/gastos_maestros.csv'
     archivo_input = '../data/etiquetado/transacciones_input.csv'
     

@@ -1,5 +1,5 @@
 import pandas as pd
-from contabilidad.config import PATH_CUENTAS_ACTUAL
+# from contabilidad.config import PATH_CUENTAS_ACTUAL
 from contabilidad.cuenta.lectura import FileProcessingConfig as FileProcessingConfig
 from contabilidad.cuenta.validacion import imprimir_cambios
 
@@ -17,6 +17,7 @@ def leer_datos_guardados_cuenta():
     """
     Lee los datos guardados de la cuenta guardados en PATH_CUENTA_UNIDO
     """
+    raise NotImplementedError("Hay que actualizar los paths para volver a correr esta función")
     df= pd.read_excel(PATH_CUENTAS_ACTUAL)
     df['FECHA'] = pd.to_datetime(df['FECHA'], format='%Y-%m-%d')
     df["CREDITO"] = df["MONTO"].apply(lambda x: x if x > 0 else 0)

@@ -22,16 +22,18 @@ import hashlib
 import argparse
 from datetime import datetime
 
+raise NotImplementedError("Hay que actualizar los paths para volver a correr este archivo")
+
 # Setup paths
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 sys.path.insert(0, PROJECT_ROOT)
 
 # Paths
-GASTOS_MAESTROS_PATH = os.path.join(PROJECT_ROOT, 'data', 'etiquetado', 'gastos_maestros.csv')
-ETIQUETAS_PATH = os.path.join(PROJECT_ROOT, 'data', 'etiquetado', 'etiquetas.csv')
-BANCA_PATH = os.path.join(PROJECT_ROOT, 'data', 'procesada', 'banca', 'banca_unida.xlsx')
-TARJETA_PATH = os.path.join(PROJECT_ROOT, 'data', 'procesada', 'tarjeta', 'tarjeta_unida.xlsx')
+GASTOS_MAESTROS_PATH = os.path.join(PROJECT_ROOT, 'data', 'sistema','etiquetado', 'gastos_maestros.csv')
+ETIQUETAS_PATH = os.path.join(PROJECT_ROOT, 'data', 'sistema','etiquetado', 'etiquetas.csv')
+BANCA_PATH = os.path.join(PROJECT_ROOT, 'data', 'sistema','procesada', 'banca', 'banca_unida.xlsx')
+TARJETA_PATH = os.path.join(PROJECT_ROOT, 'data', 'sistema','procesada', 'tarjeta', 'tarjeta_unida.xlsx')
 
 LABEL_COLUMNS = [
     'source_id', 'source_type',

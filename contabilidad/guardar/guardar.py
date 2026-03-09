@@ -167,6 +167,7 @@ def guardar_nuevos_datos_finales(df_completo,df_cuentas,nueva_cuenta_config:File
 
 
 def cambiar_json_archivo_actual(nombre_carpeta):
+    raise NotImplementedError("Hay que actualizar los paths para volver a correr esta función")
     ruta_json = PATH_DATA + "/config.json"
     try:
         with open(ruta_json, 'r', encoding='utf-8') as f:

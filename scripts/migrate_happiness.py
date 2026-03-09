@@ -2,8 +2,8 @@ import os
 import json
 import pandas as pd
 
-CSV_PATH = os.path.join("c:\\", "Users", "andre", "Programacion", "Cuentas", "data", "etiquetado", "etiquetas.csv")
-JSON_PATH = os.path.join("c:\\", "Users", "andre", "Programacion", "Cuentas", "data", "etiquetado", "rules.json")
+CSV_PATH = os.path.join("c:\\", "Users", "andre", "Programacion", "Cuentas", "data", "sistema","etiquetado", "etiquetas.csv")
+JSON_PATH = os.path.join("c:\\", "Users", "andre", "Programacion", "Cuentas", "data", "sistema","etiquetado", "rules.json")
 
 def convert_val(old_val):
     try:
