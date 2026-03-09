@@ -575,6 +575,41 @@
             "es_fijo": false,
             "tags": "Inversion",
             "nota": ""
+        },
+        "SIME POMASQUIECU        Q": {
+            "categoria": "Salud",
+            "prioridad": "Necesidad",
+            "es_fijo": false,
+            "tags": "Enfermo",
+            "nota": ""
+        },
+        "DIFARE S AECUECU        G": {
+            "categoria": "Salud",
+            "prioridad": "---",
+            "es_fijo": false,
+            "tags": "Enfermo",
+            "nota": ""
+        },
+        "KFC K026  PATRIA KS     Q": {
+            "categoria": "Alimentación",
+            "prioridad": "Necesidad",
+            "es_fijo": false,
+            "tags": "Almuerzo",
+            "nota": ""
+        },
+        "TRANSFERENCIA DIRECTA A DERMAAID S.A.S": {
+            "categoria": "Salud",
+            "prioridad": "Necesidad",
+            "es_fijo": false,
+            "tags": "Derma",
+            "nota": ""
+        },
+        "DERMAAID  ECUECU        Q": {
+            "categoria": "Salud",
+            "prioridad": "Necesidad",
+            "es_fijo": false,
+            "tags": "Derma",
+            "nota": ""
         }
     },
     "tag_data": {
@@ -612,6 +647,18 @@
             "categoria": "Tarjeta",
             "prioridad": "Necesidad",
             "es_fijo": true,
+            "nota": ""
+        },
+        "Enfermo": {
+            "categoria": "Salud",
+            "prioridad": "Necesidad",
+            "es_fijo": false,
+            "nota": ""
+        },
+        "Derma": {
+            "categoria": "Salud",
+            "prioridad": "Necesidad",
+            "es_fijo": false,
             "nota": ""
         }
     }
