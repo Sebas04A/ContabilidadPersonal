@@ -88,8 +88,8 @@ def update_payment(payment_id: str, payment: InterpolatedPaymentCreate):
         pipeline.invalidate_cache(scope='transformations')
     except Exception:
         pass
-    
-    return updated
+    return_data = InterpolatedPayment(amount=updated['amount'], start_date=updated['start_date'], end_date=updated['end_date'], note=updated.get('note', ''), id=updated['id'], group_id=updated['group_id'])
+    return return_data
 
 @router.delete("/payments/{payment_id}")
 def delete_payment(payment_id: str):

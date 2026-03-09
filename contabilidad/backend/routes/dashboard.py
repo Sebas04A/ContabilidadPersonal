@@ -93,7 +93,7 @@ class DashboardConfig:
     
     # Date range behavior
     auto_extend_range: bool = True  # Extend range to cover all data sources
-    min_date_override: Optional[date] = date(2024, 9, 20)
+    min_date_override: Optional[date] = date(2024, 3, 12)
     max_date_override: Optional[date] = None
     
     # Metric calculation flags (enable/disable specific calculations)

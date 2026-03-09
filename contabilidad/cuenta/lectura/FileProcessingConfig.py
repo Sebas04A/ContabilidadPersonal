@@ -11,6 +11,9 @@ class FileProcessingConfig:
     fecha_col: str = "Fecha"
     saldo_col: str = "Saldo"
     descripcion_col: str = "Concepto"
+    monto_col: str = "Monto"
+    credito_col: str = "CREDITO"
+    debito_col: str = "DEBITO"
     fecha_format: str = "%Y-%m-%d, %I:%M %p"
     tiene_monto: bool = True
     descripcion_a_eliminar: list = field(default_factory=lambda: [])
@@ -27,7 +30,7 @@ class FileProcessingConfig:
                 raise ValueError("El 'path' debe tener extensión .csv o .xlsx.")
             
         
-        # Validar que los nombres de columna sean cadenas no vacías
+        # Validar que los nombres de columnssa sean cadenas no vacías
         for field_name in ['fecha_col', 'saldo_col', 'descripcion_col']:
             value = getattr(self, field_name)
             if not isinstance(value, str) or not value.strip():

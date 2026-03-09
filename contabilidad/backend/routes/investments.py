@@ -330,6 +330,7 @@ def get_investment_chart_data():
                 'group_name': group_map.get(payment['group_id'], 'Desconocido'),
                 'note': payment.get('note', '')
             })
+        pagos.sort(key=lambda p: p.inicio)  # Sort payments by start date
         
         return prepare_chart_response(df, pagos, marcar_fijos, payment_details)
         
@@ -379,7 +380,6 @@ def prepare_chart_response(df: pd.DataFrame, pagos: list, marcar_fijos_func, pay
             'group_name': group_name,
             'note': note
         })
-    
     return {
         'dates': dates,
         'saldo': saldo_values,

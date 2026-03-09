@@ -3,7 +3,7 @@ import os
 import uuid
 import shutil
 from typing import List, Dict, Any, Optional
-from datetime import date
+from datetime import date, datetime
 
 # Define paths
 BASE_DATA_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'backend', 'interpolaciones'))
@@ -48,14 +48,15 @@ def save_csv(df: pd.DataFrame, file_path: str):
 class InterpolationStorage:
     @staticmethod
     def get_groups(type_filter: str = 'interpolated') -> List[Dict[str, Any]]:
-        df = read_csv(GROUPS_FILE, ['id', 'name', 'description', 'type'])
-        
+        df = read_csv(GROUPS_FILE, ['id', 'name', 'description', 'type'])        
         # Backward compatibility: treat None/NaN type as 'interpolated'
         if 'type' in df.columns:
             df['type'] = df['type'].fillna('interpolated')
         
         if type_filter:
             df = df[df['type'] == type_filter]
+        
+        df["description"] = df["description"].fillna("")  # Ensure description is never None
             
         return df.to_dict('records')
 
@@ -131,6 +132,8 @@ class InterpolationStorage:
         
         if group_id:
             df = df[df['group_id'] == group_id]
+        
+        df["note"] = df["note"].fillna("")  # Ensure note is never None
 
         return df.to_dict('records')
         
@@ -180,15 +183,22 @@ class InterpolationStorage:
     @staticmethod
     def update_payment(payment_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         df = read_csv(PAYMENTS_FILE, ['id', 'group_id', 'amount', 'start_date', 'end_date', 'note'])
+        
         mask = df['id'] == payment_id
         if not mask.any():
             return None
+        if df[mask]["note"].isna().all():
+            df.loc[mask, "note"] = ""  # Ensure note is not NaN for the update process
+        print("Found row to update:" , df[mask])  # Debug log to check existing row
             
         for key, value in updates.items():
             if key in df.columns:
+                if isinstance(value, (date, datetime)):
+                    value = value.isoformat()
                 df.loc[mask, key] = value
-                
+        print("DataFrame after update:" , df[mask])  # Debug log to check updated row
         save_csv(df, PAYMENTS_FILE)
+
         return df[mask].iloc[0].to_dict()
 
     @staticmethod

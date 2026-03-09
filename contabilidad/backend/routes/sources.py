@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 import pandas as pd
 import os
 from typing import List
-from contabilidad.cuenta.lectura.cuenta import leer_cuenta_nuevo
+from contabilidad.cuenta.lectura.cuenta import leer_cuenta_nuevo,leer_cuenta_csv
 from contabilidad.cuenta.lectura.FileProcessingConfig import FileProcessingConfig
 from contabilidad.backend.utils import add_id_column
 
@@ -38,8 +38,8 @@ async def process_bank_sources():
         if not os.path.exists(DATA_PROCESADA_BANCA):
             os.makedirs(DATA_PROCESADA_BANCA)
 
-        files = [f for f in os.listdir(DATA_NUEVOS_BANCA) if f.endswith(".xlsx")]
-        
+        files = [f for f in os.listdir(DATA_NUEVOS_BANCA) if (f.endswith(".xlsx") or f.endswith(".csv"))] 
+        print(f"Files to process: {files}")
         if not files:
             return {"status": "warning", "message": "No hay archivos .xlsx en data/nuevos/banca", "files_processed": 0}
 
@@ -49,10 +49,22 @@ async def process_bank_sources():
         for file_name in files:
             file_path = os.path.join(DATA_NUEVOS_BANCA, file_name)
             try:
-                # Configuración por defecto, ajustar si es necesario según el archivo
-                config = FileProcessingConfig(path=file_path)
-                df = leer_cuenta_nuevo(config)
-                
+                if file_name.endswith(".csv"):
+                    print(f"Procesando CSV: {file_name}")
+                    # Configuración por defecto, ajustar si es necesario según el archivo
+                    config = FileProcessingConfig(path=file_path, tiene_monto=False, saldo_col="SALDO",fecha_col="FECHA", descripcion_col="DESCRIPCION")
+                    print(f"Configuración para {file_name}: {config}")
+                    df = leer_cuenta_csv(config)
+                    print(df.head())
+                else:
+                    # Configuración por defecto, ajustar si es necesario según el archivo
+                    config = FileProcessingConfig(path=file_path)
+                    df = leer_cuenta_nuevo(config)
+                if not df.columns.is_unique:
+                    print(f"¡Bingo! El DataFrame de {file_name} tiene nombres de columnas duplicados.")
+                    duplicados = df.columns[df.columns.duplicated()].unique().tolist()
+                    print(f"Columnas repetidas en {file_name}: {duplicados}")
+                    print(df.head())
                 if 'FECHA' in df.columns:
                     df['FECHA'] = pd.to_datetime(df['FECHA'])
                     if not df.empty:
@@ -73,8 +85,8 @@ async def process_bank_sources():
                 print(f"Error procesando {file_name}: {e}")
                 continue
 
-        if not raw_items:
-             raise HTTPException(status_code=500, detail="No se pudo procesar ningún archivo correctamente.")
+        
+        # return {"status": "success", "message": f"Se procesaron {len(raw_items)} archivos correctamente.", "files_processed": [item['file_name'] for item in raw_items]}
 
         print("\n=== INICIO DE PROCESAMIENTO SECUENCIAL ===")
         # Ordenar por fecha de inicio DESCENDENTE (archivos más nuevos primero)
@@ -134,6 +146,20 @@ async def process_bank_sources():
                 print(f"    -> IGNORADO: No tiene datos anteriores a {current_min_date}")
 
         print("\n=== UNIFICACIÓN Y VERIFICACIÓN DE FLUJO ===")
+        for i, df in enumerate(final_dfs):
+            if not df.index.is_unique:
+                print(f"El DataFrame en la posición {i} tiene índices duplicados.")
+                # Opcional: ver cuáles son los duplicados
+                print(df.index[df.index.duplicated()].unique())
+            else:
+                print(f"El DataFrame en la posición {i} no tiene índices duplicados.")
+        for i, df in enumerate(final_dfs):
+            if not df.columns.is_unique:
+                print(f"¡Bingo! El DataFrame {i} tiene nombres de columnas duplicados.")
+                duplicados = df.columns[df.columns.duplicated()].unique().tolist()
+                print(f"Columnas repetidas: {duplicados}")
+                print(df.head())
+        print(f"Total de fragmentos a unir: {len(final_dfs)}")
         # Unir todos los fragmentos (deberían quedar ordenados de Pasado -> Presente por los insert(0))
         df_unido = pd.concat(final_dfs, ignore_index=True)
         print(f"Total de filas unificadas: {len(df_unido)}")
