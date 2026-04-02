@@ -302,7 +302,7 @@ export const api = {
   // Interpolated / Fixed Groups
   getGroups: async (type?: string): Promise<InterpolationGroup[]> => {
       const params = type ? `?type=${type}` : '';
-      const res = await axios.get(`${API_BASE}/groups${params}`);
+      const res = await axios.get(`${API_BASE}/payments/groups${params}`);
       return res.data;
   },
   

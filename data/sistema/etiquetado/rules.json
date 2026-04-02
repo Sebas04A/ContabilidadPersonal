@@ -111,7 +111,12 @@
         "TRANSF. DIRECTA A PEREZ  GARCIA LILIANA PATRICIA": "Sanduche 1 Dolar",
         "TRANSF. DIRECTA A CARVAJAL  CARVAJAL LUIS ALEXANDER": "Transf. Directa A Carvajal  Carvajal Luis Alexander",
         "DLC*UBER RIDESRI        S": "Uber",
-        "TRANSF. DIRECTA A CHICHANDA LOOR BETTY FABIOLA": "Menestras Simon"
+        "TRANSF. DIRECTA A CHICHANDA LOOR BETTY FABIOLA": "Menestras Simon",
+        "UB *EATS ECUADOR 8 CONSUMO NLD": "Uber Eats",
+        "ATIMASA ESTACION DE SE E CONSUMO ECU": "Gasolinera Atimasa",
+        "DLC*UBER EATSSWE S CONSUMO CRI": "Uber Eats",
+        "SUPERMAXI BICENTENARIO Q CONSUMO ECU": "Supermaxi",
+        "DLC*UBER RIDESCU S CONSUMO CRI": "Uber"
     },
     "entity_data": {
         "Canelazo": {

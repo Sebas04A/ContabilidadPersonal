@@ -27,7 +27,6 @@ raise NotImplementedError("Hay que actualizar los paths para volver a correr est
 # Setup paths
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
-sys.path.insert(0, PROJECT_ROOT)
 
 # Paths
 GASTOS_MAESTROS_PATH = os.path.join(PROJECT_ROOT, 'data', 'sistema','etiquetado', 'gastos_maestros.csv')

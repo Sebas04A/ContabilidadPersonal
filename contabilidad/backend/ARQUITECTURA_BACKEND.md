@@ -271,7 +271,7 @@ SyncResponse:
 **Integración Externa**:
 - Importa módulo `sincronizacion` del proyecto padre
 - Lee datos de:
-  - `contabilidad.cuenta.lectura.cuenta`
+  - `contabilidad.modulos.cuenta.lectura.cuenta`
   - `contabilidad.tarjeta.Lectura`
 
 ---
@@ -497,7 +497,7 @@ def agregar_columnas_tiempo(df):
 
 def marcar_inversiones(df):
     from storage import InterpolationStorage
-    from contabilidad.cuenta.ObtenerVariables import marcar_fijos
+    from contabilidad.modulos.cuenta.ObtenerVariables import marcar_fijos
     
     # ... lógica de marcado ...
     return df
@@ -701,7 +701,7 @@ def get_cache_stats():
        │
        ├─▶ Importa módulo sincronizacion
        │   │
-       │   ├─▶ Lee contabilidad.cuenta (CSV cuenta)
+       │   ├─▶ Lee contabilidad.modulos.cuenta (CSV cuenta)
        │   ├─▶ Lee contabilidad.tarjeta (CSV tarjeta)
        │   └─▶ Unifica datos
        │

@@ -6,12 +6,10 @@ from typing import Dict, Optional
 
 router = APIRouter()
 
-# Data directory is at contabilidad/../data/backend/
-DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'data', 'sistema'))
-BUDGET_FILE = os.path.join(DATA_DIR, 'presupuesto_config.json')
+from contabilidad.config import PATH_DATA
+BUDGET_FILE = os.path.join(PATH_DATA, 'sistema', 'presupuesto_config.json')
 
-class BudgetConfig(BaseModel):
-    tracked_tags: list[str] = []
+from contabilidad.backend.models.budget_models import BudgetConfig
 
 def load_budget() -> BudgetConfig:
     if not os.path.exists(BUDGET_FILE):
@@ -28,7 +26,7 @@ def load_budget() -> BudgetConfig:
         return BudgetConfig()
 
 def save_budget_config(config: BudgetConfig):
-    os.makedirs(DATA_DIR, exist_ok=True)
+    os.makedirs(PATH_DATA, exist_ok=True)
     with open(BUDGET_FILE, 'w', encoding='utf-8') as f:
         json.dump(config.dict(), f, indent=4)
 

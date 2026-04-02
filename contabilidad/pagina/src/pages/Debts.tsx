@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Filter, ArrowUpRight, Wallet, Calendar, BarChart3, Database, DollarSign, User, ArrowRight, CheckCircle2, Clock } from 'lucide-react';
+import { Search, Filter, Wallet, Calendar, BarChart3, Database, User, ArrowRight, CheckCircle2, Clock } from 'lucide-react';
 import { useRefundableTransactions, useSupabaseDebts } from '../hooks/useTransactions';
 import { DebtsChart } from '../components/DebtsChart';
 
@@ -31,12 +31,12 @@ export function Debts() {
     tx.DESCRIPCION.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (tx.nombre_limpio && tx.nombre_limpio.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (tx.deudor && tx.deudor.toLowerCase().includes(searchTerm.toLowerCase()))
-  ) || [];
+  ).sort((a, b) => new Date(b.FECHA).getTime() - new Date(a.FECHA).getTime()) || [];
 
   const filteredRight = supabaseDebts?.filter(debt => 
     debt.DESCRIPCION.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (debt.DEUDOR_NOMBRE && debt.DEUDOR_NOMBRE.toLowerCase().includes(searchTerm.toLowerCase()))
-  ) || [];
+  ).sort((a, b) => new Date(b.FECHA).getTime() - new Date(a.FECHA).getTime()) || [];
 
   return (
     <div className="flex flex-col h-full bg-surface-950 relative overflow-hidden">

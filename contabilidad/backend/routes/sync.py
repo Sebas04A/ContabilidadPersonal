@@ -1,29 +1,13 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from datetime import date
-import sys
-import os
 
-# Add parent directories to path to import existing modules
-current_dir = os.path.dirname(os.path.abspath(__file__))
-etiquetado_dir = os.path.abspath(os.path.join(current_dir, '..', '..'))
-project_root = os.path.abspath(os.path.join(current_dir, '..', '..', '..', '..'))
+from contabilidad.backend.logger import get_logger
 
-if etiquetado_dir not in sys.path:
-    sys.path.insert(0, etiquetado_dir)
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-
+logger = get_logger(__name__)
 router = APIRouter()
 
-class SyncRequest(BaseModel):
-    fecha_inicio: date
-    overwrite: bool = False
-
-class SyncResponse(BaseModel):
-    status: str
-    records_added: int
-    message: str | None = None
+from contabilidad.backend.models.sync_models import SyncRequest, SyncResponse
 
 @router.post("/", response_model=SyncResponse)
 def sync_data(request: SyncRequest):
@@ -43,16 +27,13 @@ def sync_data(request: SyncRequest):
         
         # ⚡ Invalidar TODO el caché (los datos fuente cambiaron)
         try:
-            try:
-                from ..data_pipeline import get_pipeline
-            except ImportError:
-                from data_pipeline import get_pipeline
+            from contabilidad.backend.storage.data_pipeline import get_pipeline
             
             pipeline = get_pipeline()
             pipeline.invalidate_cache(scope='all')
-            print("✓ Caché invalidado después de sincronización")
+            logger.info("Caché invalidado después de sincronización")
         except Exception as cache_error:
-            print(f"⚠ No se pudo invalidar caché: {cache_error}")
+            logger.warning("No se pudo invalidar caché: %s", cache_error)
             # No fallar la sincronización por esto
         
         return SyncResponse(
@@ -85,16 +66,16 @@ def sync_status():
         status["errors"].append(f"sincronizacion module: {e}")
     
     try:
-        from contabilidad.cuenta.lectura.cuenta import leer_datos_guardados_cuenta
+        from contabilidad.backend.services.bank_parser.account import read_saved_account_data
         # Try to load data
-        df = leer_datos_guardados_cuenta()
+        df = read_saved_account_data()
         status["cuenta_source"] = True
         status["cuenta_records"] = len(df)
     except Exception as e:
         status["errors"].append(f"cuenta source: {e}")
     
     try:
-        from contabilidad.tarjeta.Lectura import leer_tarjetas
+        from contabilidad.backend.services.credit_card.Lectura import leer_tarjetas
         from contabilidad.config import PATH_TARJETA_PROCESADA
         _, df = leer_tarjetas(PATH_TARJETA_PROCESADA)
         status["tarjeta_source"] = True

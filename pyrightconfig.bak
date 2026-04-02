@@ -1,0 +1,5 @@
+{
+    "venvPath": "contabilidad/backend",
+    "venv": ".venv",
+    "extraPaths": ["."]
+}

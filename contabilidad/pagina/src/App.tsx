@@ -9,6 +9,7 @@ import { Sources } from './pages/Sources';
 import { DataExplorer } from './pages/DataExplorer';
 import { Labeling } from './pages/Labeling';
 import { MonthlyBudget } from './pages/MonthlyBudget';
+import { AdvancedAnalytics } from './pages/AdvancedAnalytics';
 import { LayoutDashboard, BarChart3, TrendingUp } from 'lucide-react';
 
 function App() {
@@ -83,6 +84,8 @@ function App() {
           <DataExplorer />
         ) : currentView === 'presupuesto' ? (
           <MonthlyBudget />
+        ) : currentView === 'advanced' ? (
+          <AdvancedAnalytics />
         ) : (
           <Labeling />
         )}

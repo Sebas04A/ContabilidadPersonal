@@ -2,20 +2,11 @@ from fastapi import APIRouter, HTTPException, Query
 from typing import List, Optional
 from pydantic import BaseModel
 from datetime import date, datetime
-import sys
-import os
 import pandas as pd
 
-# Add parent directories to path to import existing modules
-current_dir = os.path.dirname(os.path.abspath(__file__))
-etiquetado_dir = os.path.abspath(os.path.join(current_dir, '..', '..'))
-project_root = os.path.abspath(os.path.join(current_dir, '..', '..', '..', '..'))
+from contabilidad.backend.logger import get_logger
 
-if etiquetado_dir not in sys.path:
-    sys.path.insert(0, etiquetado_dir)
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-
+logger = get_logger(__name__)
 router = APIRouter()
 
 class SupabaseDebt(BaseModel):
@@ -40,7 +31,7 @@ def get_supabase_debts(
     Get debts from Supabase using deudas.lectura logic.
     """
     try:
-        from deudas.lectura import obtener_deudas_para_analisis
+        from contabilidad.debts.reading import obtener_deudas_para_analisis
         
         # Convert string dates to datetime if provided
         start_dt = pd.to_datetime(start_date) if start_date else None
@@ -80,7 +71,7 @@ def get_supabase_debts(
             detail=f"Could not import deudas.lectura. Error: {e}"
         )
     except Exception as e:
-        print("Error al obtener deudas")
+        logger.error("Error al obtener deudas: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
 class SupabasePayment(BaseModel):
@@ -126,5 +117,5 @@ def get_supabase_payments(
             detail=f"Could not import deudas.lectura. Error: {e}"
         )
     except Exception as e:
-        print("Error al obtener pagos")
+        logger.error("Error al obtener pagos: %s", e)
         raise HTTPException(status_code=500, detail=str(e))

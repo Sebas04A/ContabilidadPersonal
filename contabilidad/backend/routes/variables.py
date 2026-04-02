@@ -3,6 +3,9 @@ import pandas as pd
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
+from contabilidad.backend.logger import get_logger
+
+logger = get_logger(__name__)
 router = APIRouter()
 
 @router.get("/cards")
@@ -15,59 +18,45 @@ def get_cards_analysis():
     - Líneas Verticales: Fechas límite de pago
     """
     try:
-        # 1. Obtener datos de cuenta procesados (con columnas TARJETA, PAGO_TARJETA, etc.)
-        try:
-            from ..data_pipeline import get_pipeline
-        except ImportError:
-            try:
-                from contabilidad.backend.data_pipeline import get_pipeline
-            except ImportError:
-                 # Fallback for when running directly or different structure
-                 import sys
-                 import os
-                 # Add backend dir to path if needed
-                 current_dir = os.path.dirname(os.path.abspath(__file__)) # routes
-                 backend_dir = os.path.dirname(current_dir) # backend
-                 if backend_dir not in sys.path:
-                     sys.path.append(backend_dir)
-                 from data_pipeline import get_pipeline
+        # 1. Obtener datos de tarjeta procesados (con columnas TARJETA, PAGO_TARJETA, etc.)
+        from contabilidad.backend.storage.data_pipeline import get_pipeline
 
         pipeline = get_pipeline()
         # Aseguramos que se ejecute la transformación 'tarjetas'
-        df_cuenta = pipeline.get_processed_data(source='cuenta')
+        df_cuenta = pipeline.get_daily_data(source='tarjeta')
+        logger.debug('df_cuenta columns: %s', df_cuenta.columns)
+        logger.debug('df_cuenta: %s', df_cuenta.head().to_string())
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error obteniendo datos de cuenta: {str(e)}")
 
     try:
         # 2. Obtener metadatos de tarjetas (Resúmenes de estados de cuenta)
         # Esto usa la función que agregamos al pipeline
-        if hasattr(pipeline, 'get_tarjeta_metadata'):
-            df_resumen = pipeline.get_tarjeta_metadata()
+        if hasattr(pipeline, 'get_credit_card_metadata'):
+            df_resumen = pipeline.get_credit_card_metadata()
         else:
              # Fallback si no se actualizó la instancia en memoria (raro)
-             print("Pipeline no tiene get_tarjeta_metadata, intentando recargar...")
-             try:
-                from ..data_pipeline import reset_pipeline, get_pipeline
-             except ImportError:
-                from contabilidad.backend.data_pipeline import reset_pipeline, get_pipeline
+             logger.warning("Pipeline no tiene get_credit_card_metadata, intentando recargar...")
+             from contabilidad.backend.storage.data_pipeline import reset_pipeline, get_pipeline
                 
              reset_pipeline()
              pipeline = get_pipeline()
-             df_resumen = pipeline.get_tarjeta_metadata()
+             df_resumen = pipeline.get_credit_card_metadata()
     except Exception as e:
-        print(f"Error obteniendo metadatos de tarjeta: {e}")
+        logger.error("Error obteniendo metadatos de tarjeta: %s", e)
         df_resumen = pd.DataFrame()
 
     # 3. Obtener Pagos (Barras)
     try:
-        from contabilidad.cuenta.ObtenerVariables import obtener_pagos_tarjetas
+        from contabilidad.backend.services.bank_parser.get_variables import get_credit_card_payments
         # Usamos df_cuenta tal cual viene del pipeline (debería tener las columnas necesarias)
-        raw_payments = obtener_pagos_tarjetas(df_cuenta)
+        raw_payments = get_credit_card_payments(pipeline.get_raw_data(source='cuenta'))
+        logger.debug('raw_payments: %s', raw_payments)
         
         pagos_data = []
         for p in raw_payments:
              # p es un objeto PAGO con atributos inicio, monto
-             fecha = p.inicio
+             fecha = p.start_date
              if hasattr(fecha, 'strftime'):
                  fecha_str = fecha.strftime('%Y-%m-%d')
              else:
@@ -75,13 +64,13 @@ def get_cards_analysis():
                  
              pagos_data.append({
                  'date': fecha_str,
-                 'amount': float(p.monto)
+                 'amount': float(p.amount)
              })
         # Ordenar pagos
         pagos_data.sort(key=lambda x: x['date'])
         
     except Exception as e:
-        print(f"Error extrayendo pagos: {e}")
+        logger.warning("Error extrayendo pagos: %s", e)
         pagos_data = []
 
     # 4. Construir Datos para el Gráfico (Línea Principal)
@@ -89,6 +78,7 @@ def get_cards_analysis():
     if not df_cuenta.empty:
         # Filtrar y ordenar
         df_chart = df_cuenta.sort_values('FECHA').copy()
+        # logger.debug('df_chart: %s', df_chart[df_chart["MOTN"].notna()].head().to_string())
         
         # Seleccionar columnas relevantes
         cols_to_keep = ['FECHA', 'TARJETA', 'PAGO_TARJETA', 'ACUMULADO_TARJETA']
@@ -114,7 +104,7 @@ def get_cards_analysis():
     
     # Importar mapeo de columnas
     try:
-        from contabilidad.tarjeta.tiposCsvDatos import MAPEO_COLUMNAS
+        from contabilidad.backend.services.credit_card.models import MAPEO_COLUMNAS
     except ImportError:
         MAPEO_COLUMNAS = {}
         
@@ -156,7 +146,7 @@ def get_cards_analysis():
                     'status': 'closed' if f_max < datetime.now() else 'open'
                 })
             except Exception as e:
-                print(f"Error procesando periodo: {e}")
+                logger.warning("Error procesando periodo: %s", e)
                 continue
                 
     # Ordenar periodos
