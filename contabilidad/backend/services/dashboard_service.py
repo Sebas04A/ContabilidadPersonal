@@ -282,6 +282,7 @@ class MetricProcessor:
     
     def _calculate_differences(self, df: pd.DataFrame) -> pd.DataFrame:
         df['diff_total'] = df['TOTAL'].diff().fillna(0.0)
+        df['diff_saldo'] = df[self.config.col_saldo].diff().fillna(0.0)
         df['diff_tarjeta'] = df[self.config.col_tarjeta].diff().fillna(0.0)
         df['diff_pago_tarjeta'] = df[self.config.col_pago_tarjeta].diff().fillna(0.0)
         df['diff_saldo_sin_inversion'] = df['saldo_sin_inversion'].diff().fillna(0.0)
@@ -397,6 +398,7 @@ class DashboardService:
                 diff_total=float(row.get('diff_total', 0.0)),
                 diff_tarjeta=float(row.get('diff_tarjeta', 0.0)),
                 diff_pago_tarjeta=float(row.get('diff_pago_tarjeta', 0.0)),
+                diff_saldo=float(row.get('diff_saldo', 0.0)),
                 diff_saldo_sin_inversion=float(row.get('diff_saldo_sin_inversion', 0.0)),
                 diff_notion=float(row.get('diff_notion', 0.0)),
                 diff_deuda_acumulada=float(row.get('diff_deuda_acumulada', 0.0)),
@@ -445,7 +447,11 @@ class VariationsAnalyzer:
             d_notion = point.diff_notion or 0.0
             d_interpolados = point.diff_interpolados or 0.0
             d_deuda_acum = point.diff_deuda_acumulada or 0.0
-            real_saldo_impact = point.diff_saldo_sin_inversion
+            # Raw bank balance change: this is the pure income-expense of the bank
+            # accounts, so it matches the listed bank transactions. Do NOT use
+            # saldo_sin_inversion here — that already subtracts pagos_fijos, which are
+            # reported as their own separate component (double counting otherwise).
+            real_saldo_impact = point.diff_saldo or 0.0
             d_pagos_fijos = point.diff_pagos_fijos or 0.0
             
             day_drivers = self.drivers_by_date.get(dt_str, [])

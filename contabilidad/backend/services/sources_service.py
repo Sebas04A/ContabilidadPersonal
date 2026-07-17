@@ -26,8 +26,160 @@ DATA_NUEVOS_TARJETA = PATH_TARJETA_NUEVOS
 DATA_PROCESADA_TARJETA = PATH_TARJETA_PROCESADA
 
 class SourcesService:
+    _summary_cache = {"key": None, "data": None}
+
+    def _get_files_mtime_hash(self, directory: str, extensions: tuple) -> str:
+        if not os.path.exists(directory):
+            return ""
+        files = sorted([f for f in os.listdir(directory) if f.lower().endswith(extensions)])
+        info = []
+        for f in files:
+            fp = os.path.join(directory, f)
+            try:
+                info.append(f"{f}:{os.path.getmtime(fp)}:{os.path.getsize(fp)}")
+            except Exception:
+                pass
+        return "|".join(info)
+
+    def get_sources_summary(self) -> dict:
+        banca_key = self._get_files_mtime_hash(DATA_NUEVOS_BANCA, (".xlsx", ".csv"))
+        card_key = self._get_files_mtime_hash(DATA_NUEVOS_TARJETA, (".xls", ".pdf"))
+        cache_key = f"BANCA:{banca_key}||CARD:{card_key}"
+
+        if SourcesService._summary_cache["key"] == cache_key and SourcesService._summary_cache["data"] is not None:
+            return SourcesService._summary_cache["data"]
+
+        bank_sources = []
+        if os.path.exists(DATA_NUEVOS_BANCA):
+            files = sorted([f for f in os.listdir(DATA_NUEVOS_BANCA) if (f.endswith(".xlsx") or f.endswith(".csv"))])
+            for file_name in files:
+                file_path = os.path.join(DATA_NUEVOS_BANCA, file_name)
+                try:
+                    if file_name.endswith(".csv"):
+                        config = FileProcessingConfig(path=file_path, tiene_monto=False, saldo_col="SALDO", fecha_col="FECHA", descripcion_col="DESCRIPCION")
+                        df = read_csv_account(config)
+                    else:
+                        config = FileProcessingConfig(path=file_path)
+                        df = read_new_account(config)
+                    
+                    if df is not None and not df.empty and 'FECHA' in df.columns:
+                        df['FECHA'] = pd.to_datetime(df['FECHA'])
+                        df_sorted = df.sort_values('FECHA')
+                        min_date = df_sorted['FECHA'].min().strftime('%Y-%m-%d')
+                        max_date = df_sorted['FECHA'].max().strftime('%Y-%m-%d')
+                        
+                        monto_col = df_sorted['MONTO'] if 'MONTO' in df_sorted.columns else pd.Series(0.0, index=df_sorted.index)
+                        monto_num = pd.to_numeric(monto_col, errors='coerce').fillna(0)
+                        df_sorted['_monto_clean'] = monto_num.abs()
+
+                        daily = df_sorted.groupby(df_sorted['FECHA'].dt.strftime('%Y-%m-%d')).agg(
+                            count=('FECHA', 'count'),
+                            monto=('_monto_clean', lambda x: round(float(x.sum()), 2))
+                        ).reset_index()
+                        daily.columns = ['date', 'count', 'monto']
+
+                        chart_data = daily.to_dict(orient='records')
+                        bank_sources.append({
+                            "file_name": file_name,
+                            "source_type": "bank",
+                            "total_rows": len(df),
+                            "min_date": min_date,
+                            "max_date": max_date,
+                            "chart_data": chart_data,
+                            "error": None
+                        })
+                    else:
+                        bank_sources.append({
+                            "file_name": file_name,
+                            "source_type": "bank",
+                            "total_rows": 0,
+                            "min_date": None,
+                            "max_date": None,
+                            "chart_data": [],
+                            "error": "Archivo sin datos o sin columna FECHA"
+                        })
+                except Exception as e:
+                    logger.warning("Error leyendo resumen banca para %s: %s", file_name, e)
+                    bank_sources.append({
+                        "file_name": file_name,
+                        "source_type": "bank",
+                        "total_rows": 0,
+                        "min_date": None,
+                        "max_date": None,
+                        "chart_data": [],
+                        "error": str(e)
+                    })
+
+        card_sources = []
+        if os.path.exists(DATA_NUEVOS_TARJETA):
+            files = sorted([f for f in os.listdir(DATA_NUEVOS_TARJETA) if f.lower().endswith(('.xls', '.pdf'))])
+            for file_name in files:
+                file_path = os.path.join(DATA_NUEVOS_TARJETA, file_name)
+                try:
+                    df, flat_meta = self._process_single_card_file(file_path, file_name)
+                    if df is not None and not df.empty and 'FECHA' in df.columns:
+                        df['FECHA'] = pd.to_datetime(df['FECHA'])
+                        df_sorted = df.sort_values('FECHA')
+                        min_date = df_sorted['FECHA'].min().strftime('%Y-%m-%d')
+                        max_date = df_sorted['FECHA'].max().strftime('%Y-%m-%d')
+
+                        monto_col = df_sorted['MONTO'] if 'MONTO' in df_sorted.columns else pd.Series(0.0, index=df_sorted.index)
+                        monto_num = pd.to_numeric(monto_col, errors='coerce').fillna(0)
+                        df_sorted['_monto_clean'] = monto_num.abs()
+
+                        daily = df_sorted.groupby(df_sorted['FECHA'].dt.strftime('%Y-%m-%d')).agg(
+                            count=('FECHA', 'count'),
+                            monto=('_monto_clean', lambda x: round(float(x.sum()), 2))
+                        ).reset_index()
+                        daily.columns = ['date', 'count', 'monto']
+
+                        chart_data = daily.to_dict(orient='records')
+                        card_sources.append({
+                            "file_name": file_name,
+                            "source_type": "card",
+                            "total_rows": len(df),
+                            "min_date": min_date,
+                            "max_date": max_date,
+                            "chart_data": chart_data,
+                            "error": None
+                        })
+                    else:
+                        card_sources.append({
+                            "file_name": file_name,
+                            "source_type": "card",
+                            "total_rows": 0,
+                            "min_date": None,
+                            "max_date": None,
+                            "chart_data": [],
+                            "error": "Archivo sin datos o sin columna FECHA"
+                        })
+                except Exception as e:
+                    logger.warning("Error leyendo resumen tarjeta para %s: %s", file_name, e)
+                    card_sources.append({
+                        "file_name": file_name,
+                        "source_type": "card",
+                        "total_rows": 0,
+                        "min_date": None,
+                        "max_date": None,
+                        "chart_data": [],
+                        "error": str(e)
+                    })
+
+        bank_sources.sort(key=lambda x: x['min_date'] or '')
+        card_sources.sort(key=lambda x: x['min_date'] or '')
+
+        res = {
+            "bank_sources": bank_sources,
+            "card_sources": card_sources
+        }
+
+        SourcesService._summary_cache["key"] = cache_key
+        SourcesService._summary_cache["data"] = res
+        return res
+
     def process_bank_data(self) -> dict:
         if not os.path.exists(DATA_NUEVOS_BANCA):
+
             raise ValueError(f"Directorio no encontrado: {DATA_NUEVOS_BANCA}")
         
         if not os.path.exists(DATA_PROCESADA_BANCA):
@@ -78,33 +230,58 @@ class SourcesService:
                 logger.error("Error procesando %s: %s", file_name, e)
                 continue
 
+        logger.info("=== LIMPIEZA DE LÍMITES Y ORDENAMIENTO ===")
+        cleaned_items = []
+        for item in raw_items:
+            df = item['df']
+            start_d = item['start_date'].date()
+            end_d = item['end_date'].date()
+            
+            # Quitar los días límites (basados en start_date y end_date obtenidos previamente)
+            df_cleaned = df[(df['FECHA'].dt.date > start_d) & (df['FECHA'].dt.date < end_d)].copy()
+            
+            if not df_cleaned.empty:
+                cleaned_items.append({
+                    'file_name': item['file_name'],
+                    'df': df_cleaned,
+                    'start_date': df_cleaned['FECHA'].min(),
+                    'end_date': df_cleaned['FECHA'].max()
+                })
+            else:
+                logger.warning("Archivo %s quedó vacío al quitar los días límites", item['file_name'])
+
+        if not cleaned_items:
+            return {"status": "warning", "message": "No hay datos después de quitar los límites", "files_processed": 0}
+
+        cleaned_items.sort(key=lambda x: x['end_date'], reverse=True)
+        logger.debug('Archivos ordenados y limpios por novedad: %s', [(i['file_name'], i['start_date'], i['end_date']) for i in cleaned_items])
+
         logger.info("=== INICIO PROCESAMIENTO SECUENCIAL ===")
-        raw_items.sort(key=lambda x: x['end_date'], reverse=True)
-        logger.debug('Archivos ordenados por novedad: %s', [(i['file_name'], i['start_date'], i['end_date']) for i in raw_items])
-
-        base_df = raw_items[0]['df']
-        final_dfs = [base_df[base_df['FECHA'] > base_df['FECHA'].min()]]
-        current_min_date = raw_items[0]['start_date']
+        base_df = cleaned_items[0]['df']
+        final_dfs = [base_df]
+        current_min_date = cleaned_items[0]['start_date'].date()
         
-        logger.info('[1] ARCHIVO BASE: %s', raw_items[0]['file_name'])
-        logger.debug('    Rango: %s - %s', raw_items[0]['start_date'], raw_items[0]['end_date'])
-        logger.debug('    Umbral búsqueda: %s', current_min_date)
+        logger.info('[1] ARCHIVO BASE: %s', cleaned_items[0]['file_name'])
+        logger.debug('    Rango: %s - %s', cleaned_items[0]['start_date'], cleaned_items[0]['end_date'])
+        logger.debug('    Umbral búsqueda inicial (fecha estricta): %s', current_min_date)
 
-        for i in range(1, len(raw_items)):
-            item = raw_items[i]
+        for i in range(1, len(cleaned_items)):
+            item = cleaned_items[i]
             df = item['df']
             file_name = item['file_name']
             
             logger.info('[%s] PROCESANDO HISTÓRICO: %s', i+1, file_name)
-            older_slice = df[df['FECHA'] < (current_min_date + pd.Timedelta(days=1))].copy()
+            
+            # Cortar tomando información estrictamente anterior a la fecha mínima actual
+            older_slice = df[df['FECHA'].dt.date < current_min_date].copy()
             
             if not older_slice.empty:
                 rows_added = len(older_slice)
                 is_descending = False
                 if len(older_slice) > 1:
                     first_date = older_slice['FECHA'].iloc[0].date()
-                    for i in range(1, len(older_slice)):
-                        current_date = older_slice['FECHA'].iloc[i].date()
+                    for j in range(1, len(older_slice)):
+                        current_date = older_slice['FECHA'].iloc[j].date()
                         if current_date != first_date:
                             is_descending = first_date > current_date
                             break
@@ -113,9 +290,9 @@ class SourcesService:
                     logger.debug('    -> Orden DESCENDENTE en %s. Invirtiendo...', file_name)
                     older_slice = older_slice[::-1].reset_index(drop=True)
 
-                final_dfs.insert(len(final_dfs), older_slice)
+                final_dfs.append(older_slice)
                 
-                new_min = older_slice['FECHA'].min()
+                new_min = older_slice['FECHA'].min().date()
                 logger.info('    -> Agregadas %s filas de historia.', rows_added)
                 logger.debug('    -> Nuevo punto de inicio histórico: %s', new_min)
                 current_min_date = new_min

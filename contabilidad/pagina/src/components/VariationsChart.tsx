@@ -1,9 +1,10 @@
 import React, { useState } from 'react'
 import ReactECharts from 'echarts-for-react'
 import { useVariations } from '../hooks/useDashboard'
-import { Loader2, AlertCircle, List, BarChart2, Calendar, X } from 'lucide-react'
+import { Loader2, AlertCircle, List, BarChart2, Calendar, X, Table2 } from 'lucide-react'
 import type { EChartsOption } from 'echarts'
-import { TransactionDriver, ComponentType, api } from '../services/api'
+import { TransactionDriver, ComponentType, Transaction, api } from '../services/api'
+import EnrichedLedger from './EnrichedLedger'
 
 interface Props {
     className?: string
@@ -46,7 +47,7 @@ export function VariationsChart({ className }: Props) {
     }
 
     const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
-    const [detailMode, setDetailMode] = useState<'chart' | 'list'>('chart')
+    const [detailMode, setDetailMode] = useState<'chart' | 'list' | 'ledger'>('chart')
     const [dateFilter, setDateFilter] = useState<{ start: string; end: string }>({
         start: '',
         end: '',
@@ -67,6 +68,23 @@ export function VariationsChart({ className }: Props) {
             : Math.max(0, filteredVariations.length - 1)
 
     const echartsRef = React.useRef<any>(null)
+
+    // Full transactions of the selected day, fetched so we can enrich them with debt /
+    // fund / investment context (the backend drivers don't carry those fields).
+    const [dayTx, setDayTx] = useState<Transaction[]>([])
+    const [dayTxLoading, setDayTxLoading] = useState(false)
+    const activeDayDate = filteredVariations[activeIndex]?.date
+
+    React.useEffect(() => {
+        if (!activeDayDate) { setDayTx([]); return }
+        let cancelled = false
+        setDayTxLoading(true)
+        api.getTransactions(activeDayDate)
+            .then(tx => { if (!cancelled) setDayTx(tx) })
+            .catch(e => { console.error('Error cargando transacciones del día', e); if (!cancelled) setDayTx([]) })
+            .finally(() => { if (!cancelled) setDayTxLoading(false) })
+        return () => { cancelled = true }
+    }, [activeDayDate])
 
     React.useEffect(() => {
         // Reset zoom only when filter changes
@@ -450,20 +468,29 @@ export function VariationsChart({ className }: Props) {
                 <div className='w-full lg:w-[400px] h-full flex flex-col animate-in fade-in slide-in-from-right duration-500'>
                     <div className='flex justify-between items-center mb-3'>
                         <h4 className='text-xs font-bold text-slate-500 uppercase tracking-widest'>
-                            {detailMode === 'chart' ? 'Desglose Gráfico' : 'Lista Detallada'}
+                            {detailMode === 'chart' ? 'Desglose Gráfico' : detailMode === 'ledger' ? 'Ledger enriquecido' : 'Lista Detallada'}
                         </h4>
                         <div className='flex bg-slate-800/80 rounded-lg p-1 gap-1'>
                             <button
                                 onClick={() => setDetailMode('chart')}
+                                title='Desglose gráfico'
                                 className={`p-1.5 rounded-md transition-all ${detailMode === 'chart' ? 'bg-purple-500/20 text-purple-300 shadow-sm' : 'text-slate-500 hover:text-white'}`}
                             >
                                 <BarChart2 size={16} />
                             </button>
                             <button
                                 onClick={() => setDetailMode('list')}
+                                title='Lista detallada'
                                 className={`p-1.5 rounded-md transition-all ${detailMode === 'list' ? 'bg-purple-500/20 text-purple-300 shadow-sm' : 'text-slate-500 hover:text-white'}`}
                             >
                                 <List size={16} />
+                            </button>
+                            <button
+                                onClick={() => setDetailMode('ledger')}
+                                title='Ledger enriquecido (fondos, deudas, inversiones)'
+                                className={`p-1.5 rounded-md transition-all ${detailMode === 'ledger' ? 'bg-purple-500/20 text-purple-300 shadow-sm' : 'text-slate-500 hover:text-white'}`}
+                            >
+                                <Table2 size={16} />
                             </button>
                         </div>
                     </div>
@@ -476,6 +503,19 @@ export function VariationsChart({ className }: Props) {
                                     style={{ height: '100%', width: '100%' }}
                                     theme='dark'
                                 />
+                            </div>
+                        ) : detailMode === 'ledger' ? (
+                            <div className='flex-1 overflow-auto custom-scrollbar p-3'>
+                                {activeDay && (
+                                    <div className='flex items-center gap-2 mb-3'>
+                                        <Table2 size={14} className='text-purple-300' />
+                                        <span className='text-[11px] font-bold text-slate-400 uppercase tracking-widest'>
+                                            {activeDay.date}
+                                        </span>
+                                        {dayTxLoading && <Loader2 size={12} className='animate-spin text-slate-500' />}
+                                    </div>
+                                )}
+                                <EnrichedLedger transactions={dayTx} dayDrivers={activeDrivers} variant='compact' date={activeDay?.date} />
                             </div>
                         ) : (
                             <div className='flex-1 overflow-y-auto custom-scrollbar p-4'>
@@ -605,6 +645,20 @@ export function VariationsChart({ className }: Props) {
                     </div>
                 </div>
             </div>
+
+            {/* Full enriched ledger for the selected day (debts / funds / investments) */}
+            {activeDay && (
+                <div className='border-t border-white/5 pt-5'>
+                    <div className='flex items-center gap-2 mb-3'>
+                        <Table2 size={16} className='text-purple-300' />
+                        <h4 className='text-xs font-bold text-slate-400 uppercase tracking-widest'>
+                            Transacciones del {activeDay.date} · contexto
+                        </h4>
+                        {dayTxLoading && <Loader2 size={14} className='animate-spin text-slate-500' />}
+                    </div>
+                    <EnrichedLedger transactions={dayTx} dayDrivers={activeDrivers} date={activeDay.date} />
+                </div>
+            )}
         </div>
     )
 }

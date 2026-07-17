@@ -18,7 +18,7 @@
         "TRANSF. DEUNA A LIBRERIA STUDIUM CIA LTDA LIBRERIA STUDIUM CIA LTDA": "Transf. Deuna A Libreria Studium Cia Ltda Libreria Studium Cia Ltda",
         "SUPERMAXI": "Supermaxi",
         "UBER RIDES": "Uber",
-        "CANCELACION PLAZO FIJO": "Cancelacion Plazo Fijo",
+        "CANCELACION PLAZO FIJO": "Inversion",
         "TRANSFERENCIA INTERIOR": "Interes (Transferencia Interior)",
         "AUTOSERVIPAMPA": "Autoservipampa",
         "TRANSF. DEUNA A MARIA DIGNA EMERITA PASPUEL ISIZAN": "Cevichocho U Esquina",
@@ -111,12 +111,25 @@
         "TRANSF. DIRECTA A PEREZ  GARCIA LILIANA PATRICIA": "Sanduche 1 Dolar",
         "TRANSF. DIRECTA A CARVAJAL  CARVAJAL LUIS ALEXANDER": "Transf. Directa A Carvajal  Carvajal Luis Alexander",
         "DLC*UBER RIDESRI        S": "Uber",
-        "TRANSF. DIRECTA A CHICHANDA LOOR BETTY FABIOLA": "Menestras Simon",
+        "TRANSF. DIRECTA A CHICHANDA LOOR BETTY FABIOLA": "Almuerzo Simon",
         "UB *EATS ECUADOR 8 CONSUMO NLD": "Uber Eats",
         "ATIMASA ESTACION DE SE E CONSUMO ECU": "Gasolinera Atimasa",
         "DLC*UBER EATSSWE S CONSUMO CRI": "Uber Eats",
         "SUPERMAXI BICENTENARIO Q CONSUMO ECU": "Supermaxi",
-        "DLC*UBER RIDESCU S CONSUMO CRI": "Uber"
+        "DLC*UBER RIDESCU S CONSUMO CRI": "Uber",
+        "TRANSF. DIRECTA A VILLACRES CARRILLO ALICIA": "Taurus",
+        "FYBECA S CONSUMO ECU": "Fybeca                  Q",
+        "DLC*UBER EATSECU S CONSUMO CRI": "Uber",
+        "AUTOSERVIPAMPA CIA. LT Q CONSUMO ECU": "Autoservipampa",
+        "DLC*UBER RIDESBR S CONSUMO CRI": "Uber",
+        "SUPERMAXI 12 DE OCTUBR Q CONSUMO ECU": "Supermaxi",
+        "DLC*UBER RIDESRI S CONSUMO CRI": "Uber",
+        "APP MCDONALDS ECUADOR G CONSUMO ECU": "Mc",
+        "ATIMASA 6 DE DICIEMBRE E CONSUMO ECU": "Gasolinera Atimasa",
+        "ATIMASA 9 DE OCTUBRE E CONSUMO ECU": "Gasolinera Atimasa",
+        "DLC*UBER RIDESER S CONSUMO CRI": "Uber",
+        "DLC*UBER EATSCRI S CONSUMO CRI": "Uber",
+        "DLC*UBER EATSUSA S CONSUMO CRI": "Uber"
     },
     "entity_data": {
         "Canelazo": {
@@ -614,6 +627,13 @@
             "prioridad": "Necesidad",
             "es_fijo": false,
             "tags": "Derma",
+            "nota": ""
+        },
+        "Almuerzo Simon": {
+            "categoria": "Alimentación",
+            "prioridad": "Necesidad",
+            "es_fijo": false,
+            "tags": "Almuerzo",
             "nota": ""
         }
     },

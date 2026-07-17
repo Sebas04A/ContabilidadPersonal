@@ -1,0 +1,3 @@
+id,name,description,type
+g_fixed_1,Fondo Rotativo Plazo Fijo,Dinero en cuenta pero reservado para reinversion,fixed
+g_interp_nomina,Nomina Prorrateada,Sueldo recibido dividido gradualmente para net worth,interpolated

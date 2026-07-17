@@ -18,6 +18,7 @@ class ChartDataPoint(BaseModel):
     diff_total: Optional[float] = 0.0
     diff_tarjeta: Optional[float] = 0.0
     diff_pago_tarjeta: Optional[float] = 0.0
+    diff_saldo: Optional[float] = 0.0  # Raw bank balance change (matches bank transactions)
     diff_saldo_sin_inversion: Optional[float] = 0.0
     diff_notion: Optional[float] = 0.0
     diff_deuda_acumulada: Optional[float] = 0.0 

@@ -138,7 +138,7 @@ def get_cards_analysis():
                     'start_date': f_em.strftime('%Y-%m-%d'),
                     'end_date': f_max.strftime('%Y-%m-%d'),
                     'total_to_pay': float(total) if pd.notnull(total) else 0.0,
-                    'max_transaction_date': f_max_trans.strftime('%Y-%m-%d'),
+                    'max_transaction_date': f_max_trans.strftime('%Y-%m-%d') if pd.notnull(f_max_trans) else f_max.strftime('%Y-%m-%d'),
                     'consumption': float(consumo) if pd.notnull(consumo) else 0.0,
                     'period_name': row.get('Periodo', ''),
                     # Datos extra para la lista

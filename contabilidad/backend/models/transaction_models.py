@@ -20,6 +20,7 @@ class TransactionOut(BaseModel):
     nota: Optional[str] = None
     split_group_id: Optional[str] = None
     group_id: Optional[str] = None   # NEW
+    fondo_id: Optional[str] = None   # Fund this transaction belongs to
 
 class TransactionUpdate(BaseModel):
     nombre_limpio: Optional[str] = None
@@ -35,6 +36,7 @@ class TransactionUpdate(BaseModel):
     nota: Optional[str] = None
     group_id: Optional[str] = None   # Can be used to manually set/unset group
     monto_asignado: Optional[float] = None # For splits
+    fondo_id: Optional[str] = None   # Assign/unassign a fund (empty string to clear)
 
 class SplitItem(BaseModel):
     monto: float

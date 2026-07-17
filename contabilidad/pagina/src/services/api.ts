@@ -25,6 +25,7 @@ export interface Transaction {
   nota: string;
   split_group_id: string;
   group_id?: string;
+  fondo_id?: string;
 }
 
 export interface TransactionUpdate {
@@ -39,6 +40,7 @@ export interface TransactionUpdate {
   felicidad?: number;
   revisado?: boolean;
   nota?: string;
+  fondo_id?: string;
 }
 
 export interface Stats {
@@ -136,7 +138,27 @@ export interface BankProcessResponse {
   };
 }
 
+export interface SourceItemSummary {
+  file_name: string;
+  source_type: 'bank' | 'card';
+  total_rows: number;
+  min_date: string | null;
+  max_date: string | null;
+  chart_data: {
+    date: string;
+    count: number;
+    monto: number;
+  }[];
+  error: string | null;
+}
+
+export interface SourcesSummaryResponse {
+  bank_sources: SourceItemSummary[];
+  card_sources: SourceItemSummary[];
+}
+
 // --- API Client ---
+
 export const api = {
   // Transactions
   getTransactions: async (date?: string, pendingOnly?: boolean, esReembolsable?: boolean, startDate?: string, endDate?: string, debtor?: string, search?: string, category?: string, tag?: string): Promise<Transaction[]> => {
@@ -234,29 +256,30 @@ export const api = {
 
   // Rules
   getEntityRule: async (name: string): Promise<any> => {
-    const res = await axios.get(`${API_BASE}/transactions/rules/entity/${encodeURIComponent(name)}`);
+    const res = await axios.get(`${API_BASE}/rules/entity/${encodeURIComponent(name)}`);
     return res.data;
   },
 
   saveEntityRule: async (name: string, rule: any): Promise<void> => {
-    await axios.post(`${API_BASE}/transactions/rules/entity?name=${encodeURIComponent(name)}`, rule);
+    await axios.post(`${API_BASE}/rules/entity?name=${encodeURIComponent(name)}`, rule);
   },
 
   saveMapRule: async (original: string, clean: string): Promise<void> => {
-    await axios.post(`${API_BASE}/transactions/rules/map`, { original, clean });
+    await axios.post(`${API_BASE}/rules/map`, { original, clean });
   },
 
   getTagRule: async (tag: string): Promise<any> => {
-    const res = await axios.get(`${API_BASE}/transactions/rules/tag/${encodeURIComponent(tag)}`);
+    const res = await axios.get(`${API_BASE}/rules/tag/${encodeURIComponent(tag)}`);
     return res.data;
   },
 
   saveTagRule: async (tag: string, rule: any): Promise<void> => {
-    await axios.post(`${API_BASE}/transactions/rules/tag?tag=${encodeURIComponent(tag)}`, rule);
+    await axios.post(`${API_BASE}/rules/tag?tag=${encodeURIComponent(tag)}`, rule);
   },
 
   // Sources
   processBankSource: async (): Promise<BankProcessResponse> => {
+
     const res = await axios.post(`${API_BASE}/sources/bank/process`);
     return res.data;
   },
@@ -265,6 +288,12 @@ export const api = {
     const res = await axios.post(`${API_BASE}/sources/card/process`);
     return res.data;
   },
+
+  getSourcesSummary: async (): Promise<SourcesSummaryResponse> => {
+    const res = await axios.get(`${API_BASE}/sources/summary`);
+    return res.data;
+  },
+
 
   // Variations
   getVariationsAnalysis: async (): Promise<DailyVariation[]> => {
@@ -319,8 +348,144 @@ export const api = {
 
   saveBudget: async (config: BudgetConfig): Promise<void> => {
       await axios.post(`${API_BASE}/budget`, config);
-  }
+  },
+
+  // Funds (Fondos)
+  getFunds: async (): Promise<FundListItem[]> => {
+    const res = await axios.get(`${API_BASE}/funds/`);
+    return res.data;
+  },
+
+  getFund: async (id: string, from?: string): Promise<FundDetail> => {
+    const params = from ? `?from=${from}` : '';
+    const res = await axios.get(`${API_BASE}/funds/${id}${params}`);
+    return res.data;
+  },
+
+  createFund: async (fund: FundCreate): Promise<FundConfig> => {
+    const res = await axios.post(`${API_BASE}/funds/`, fund);
+    return res.data;
+  },
+
+  updateFund: async (id: string, updates: Partial<FundCreate> & { es_fondo?: boolean }): Promise<FundConfig> => {
+    const res = await axios.put(`${API_BASE}/funds/${id}`, updates);
+    return res.data;
+  },
+
+  deleteFund: async (id: string): Promise<void> => {
+    await axios.delete(`${API_BASE}/funds/${id}`);
+  },
+
+  assignToFund: async (id: string, parts: FundPartRef[]): Promise<void> => {
+    await axios.post(`${API_BASE}/funds/${id}/assign`, { parts });
+  },
+
+  unassignFromFund: async (id: string, parts: FundPartRef[]): Promise<void> => {
+    await axios.post(`${API_BASE}/funds/${id}/unassign`, { parts });
+  },
+
+  generateFundPayments: async (
+    id: string,
+    payments: GeneratedPaymentInput[],
+  ): Promise<{ status: string; group: FundConfig; count: number }> => {
+    const res = await axios.post(`${API_BASE}/funds/${id}/generate-payments`, { payments });
+    return res.data;
+  },
 };
+
+// One flattened income→expense pair to materialize as a fixed payment.
+export interface GeneratedPaymentInput {
+  start: string;
+  end: string;
+  amount: number;
+  note?: string;
+}
+
+// Reference to the payments group generated from a fund.
+export interface GeneratedPaymentsInfo {
+  id: string;
+  name: string;
+  payment_count: number;
+}
+
+// A fund member: a whole transaction, or a single split part.
+export interface FundPartRef {
+  transaction_id: string;
+  split_group_id?: string | null;
+}
+
+// --- Fund types ---
+
+export interface FundProjection {
+  status: 'surplus' | 'deficit';
+  weeks_left: number;
+  runs_out_on: string | null;
+}
+
+export interface FundSummary {
+  total_in: number;
+  total_out: number;
+  balance: number;
+  saldo_inicial: number;
+  first_date: string | null;
+  last_date: string | null;
+  movement_count: number;
+  burn_rate_weekly: number | null;
+  projection: FundProjection | null;
+}
+
+export interface FundMovement {
+  id: string;
+  date: string;
+  amount: number;
+  note: string;
+  source: 'transaction' | 'manual' | 'tag';
+  reviewed: boolean;
+  running_balance: number;
+}
+
+export interface FundListItem {
+  id: string;
+  name: string;
+  description: string;
+  tag_vinculado: string | null;
+  fecha_inicio: string | null;
+  summary: FundSummary;
+  sparkline: number[];
+}
+
+export interface FundDetail {
+  id: string;
+  name: string;
+  description: string;
+  es_fondo: boolean;
+  tag_vinculado: string | null;
+  fecha_inicio: string | null;
+  fecha_inicio_auto: boolean;
+  view_start: string | null;
+  summary: FundSummary;
+  movements: FundMovement[];
+  generated_payments: GeneratedPaymentsInfo | null;
+}
+
+export interface FundConfig {
+  id: string;
+  name: string;
+  description: string;
+  type: string;
+  es_fondo: boolean;
+  fecha_inicio: string | null;
+  saldo_inicial: number;
+  tag_vinculado: string | null;
+}
+
+export interface FundCreate {
+  name: string;
+  description?: string;
+  fecha_inicio?: string | null;
+  saldo_inicial?: number;
+  tag_vinculado?: string | null;
+}
 
 export interface SplitItem {
     monto: number;

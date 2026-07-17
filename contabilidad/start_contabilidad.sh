@@ -6,10 +6,17 @@
 #   debug → activa LOG_LEVEL=DEBUG en el backend
 # =================================================================
 
-# ── Nivel de log ──────────────────────────────────────────────────
+# ── Argumentos (Log & Mock) ───────────────────────────────────────
 LOG_LEVEL="INFO"
-[[ "$1" == "debug" ]] && LOG_LEVEL="DEBUG"
+MOCK_MODE="false"
+
+for arg in "$@"; do
+    [[ "$arg" == "debug" ]] && LOG_LEVEL="DEBUG"
+    [[ "$arg" == "mock"  ]] && MOCK_MODE="true"
+done
+
 export LOG_LEVEL
+export MOCK_MODE
 
 # ── Paleta de colores ─────────────────────────────────────────────
 RESET=$'\033[0m'

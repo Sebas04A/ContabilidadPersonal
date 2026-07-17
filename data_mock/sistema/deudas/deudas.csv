@@ -1,0 +1,19 @@
+id,titulo,monto_original,deudor_id,fecha_gasto,estado,deudor_nombre,deudor_token
+deuda_1_1,Prestamo Ana Mes 1,100.0,d2,2024-01-05,PAGADA,Ana Mock,token_d2
+deuda_2_1,Cena Carlos 1,60.0,d1,2024-01-12,PAGADA,Carlos Mock,token_d1
+deuda_3_1,Emergencia Miguel 1,150.0,d3,2024-01-22,PAGADA,Miguel Mock,token_d3
+deuda_1_2,Prestamo Ana Mes 2,100.0,d2,2024-02-05,PAGADA,Ana Mock,token_d2
+deuda_2_2,Cena Carlos 2,60.0,d1,2024-02-12,PAGADA,Carlos Mock,token_d1
+deuda_3_2,Emergencia Miguel 2,150.0,d3,2024-02-22,PAGADA,Miguel Mock,token_d3
+deuda_1_3,Prestamo Ana Mes 3,100.0,d2,2024-03-05,PAGADA,Ana Mock,token_d2
+deuda_2_3,Cena Carlos 3,60.0,d1,2024-03-12,PAGADA,Carlos Mock,token_d1
+deuda_3_3,Emergencia Miguel 3,150.0,d3,2024-03-22,PAGADA,Miguel Mock,token_d3
+deuda_1_4,Prestamo Ana Mes 4,100.0,d2,2024-04-05,PAGADA,Ana Mock,token_d2
+deuda_2_4,Cena Carlos 4,60.0,d1,2024-04-12,PAGADA,Carlos Mock,token_d1
+deuda_3_4,Emergencia Miguel 4,150.0,d3,2024-04-22,PAGADA,Miguel Mock,token_d3
+deuda_1_5,Prestamo Ana Mes 5,100.0,d2,2024-05-05,PAGADA,Ana Mock,token_d2
+deuda_2_5,Cena Carlos 5,60.0,d1,2024-05-12,PAGADA,Carlos Mock,token_d1
+deuda_3_5,Emergencia Miguel 5,150.0,d3,2024-05-22,PAGADA,Miguel Mock,token_d3
+deuda_1_6,Prestamo Ana Mes 6,100.0,d2,2024-06-05,PAGADA,Ana Mock,token_d2
+deuda_2_6,Cena Carlos 6,60.0,d1,2024-06-12,PAGADA,Carlos Mock,token_d1
+deuda_3_6,Emergencia Miguel 6,150.0,d3,2024-06-22,PENDIENTE,Miguel Mock,token_d3

@@ -36,7 +36,11 @@ class Col(str, Enum):
 _CONFIG_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(_CONFIG_DIR)  # Go up from contabilidad/ to Cuentas/
 
-PATH_DATA = os.path.join(_PROJECT_ROOT, "data")
+MOCK_MODE = os.environ.get("MOCK_MODE", "false").lower() == "true"
+if MOCK_MODE:
+    PATH_DATA = os.path.join(_PROJECT_ROOT, "data_mock")
+else:
+    PATH_DATA = os.path.join(_PROJECT_ROOT, "data")
 
 PATH_PROCESADOS = PATH_DATA+"/sistema"+"/procesada"
 PATH_TARJETA_PROCESADA_DIR = PATH_PROCESADOS+"/tarjeta"

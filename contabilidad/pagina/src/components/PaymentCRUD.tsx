@@ -60,7 +60,9 @@ const PaymentCRUD: React.FC<PaymentCRUDProps> = ({ groupType = 'interpolated', o
   const fetchPayments = async (groupId: string) => {
     try {
       const data = await getPayments(groupId);
-      setPayments(data);
+      // Ordenar por fecha de vencimiento (end_date) de forma descendente (más recientes primero)
+      const sortedData = data.sort((a, b) => new Date(b.end_date).getTime() - new Date(a.end_date).getTime());
+      setPayments(sortedData);
     } catch (error) {
       console.error('Error fetching payments:', error);
     }

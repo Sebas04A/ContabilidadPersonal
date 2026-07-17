@@ -30,3 +30,17 @@ async def process_card_sources():
     except Exception as e:
         logger.exception("Error procesando tarjetas")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/summary")
+async def get_sources_summary():
+    """
+    Retorna un resumen de cada archivo fuente individual presente en data/nuevos/banca y data/nuevos/tarjeta,
+    incluyendo rango de fechas, total de filas y datos para gráfico de barras por fuente.
+    """
+    try:
+        service = SourcesService()
+        return service.get_sources_summary()
+    except Exception as e:
+        logger.exception("Error obteniendo resumen de fuentes")
+        raise HTTPException(status_code=500, detail=str(e))
+

@@ -9,7 +9,7 @@ from datetime import date
 # ── Logging central ── (debe ir antes de cualquier otro import del proyecto)
 from contabilidad.backend.logger import configure_logging, get_logger
 
-configure_logging('INFO')
+configure_logging()
 logger = get_logger(__name__)
 
 app = FastAPI(title="Accounting Data Labeler API", version="1.0.0")
@@ -24,7 +24,7 @@ app.add_middleware(
 )
 
 # --- Routers ---
-from contabilidad.backend.routes import transactions, sync, payments, investments, supabase_debts, dashboard, sources, variables, budget, rules
+from contabilidad.backend.routes import transactions, sync, payments, investments, supabase_debts, dashboard, sources, variables, budget, rules, funds
 
 app.include_router(transactions.router, prefix="/api/transactions", tags=["Transactions"])
 app.include_router(sync.router, prefix="/api/sync", tags=["Synchronization"])
@@ -36,7 +36,8 @@ app.include_router(sources.router, prefix="/api/sources", tags=["Sources"])
 app.include_router(variables.router, prefix="/api/variables", tags=["Variables"])
 app.include_router(budget.router, prefix="/api/budget", tags=["Budget"])
 app.include_router(rules.router, prefix="/api/rules", tags=["Rules"])
-logger.info("Routers registrados: Transactions, Sync, Payments, Investments, Supabase Debts, Dashboard, Sources, Variables, Budget, Rules")
+app.include_router(funds.router, prefix="/api/funds", tags=["Funds"])
+logger.info("Routers registrados: Transactions, Sync, Payments, Investments, Supabase Debts, Dashboard, Sources, Variables, Budget, Rules, Funds")
 
 # --- Pipeline Setup ---
 @app.on_event("startup")

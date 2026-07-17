@@ -103,6 +103,21 @@ def obtener_deudas_con_deudor(solo_pendientes: bool = True) -> pd.DataFrame:
     Asumamos que NO estan linkeadas en la vista por ahora.
     Hacemos: SELECT * FROM vista_estado_deudas, luego map de deudores.
     """
+    if os.environ.get("MOCK_MODE", "false").lower() == "true":
+        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        mock_path = os.path.join(base_dir, "data_mock", "sistema", "deudas", "deudas.csv")
+        if os.path.exists(mock_path):
+            df_final = pd.read_csv(mock_path)
+            if solo_pendientes:
+                df_final = df_final[df_final['estado'] != 'PAGADA']
+            if not df_final.empty:
+                df_final['fecha_gasto'] = pd.to_datetime(df_final['fecha_gasto'])
+                df_final['monto'] = pd.to_numeric(df_final['monto_original'])
+                df_final['pagada'] = df_final['estado'] == 'PAGADA'
+                return df_final.sort_values('fecha_gasto', ascending=False).reset_index(drop=True)
+            return pd.DataFrame()
+        return pd.DataFrame()
+
     # 1. Obtener vista
     query = supabase.table('vista_estado_deudas').select('*')
     if solo_pendientes:
@@ -227,6 +242,18 @@ def obtener_todos_pagos() -> pd.DataFrame:
     Returns:
         DataFrame con columnas: id, fecha_pago, monto_total, deudor_id, deudor_nombre
     """
+    if os.environ.get("MOCK_MODE", "false").lower() == "true":
+        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        mock_path = os.path.join(base_dir, "data_mock", "sistema", "deudas", "pagos_deudas.csv")
+        if os.path.exists(mock_path):
+            df = pd.read_csv(mock_path)
+            if not df.empty:
+                df['fecha_pago'] = pd.to_datetime(df['fecha_pago'])
+                df['monto_total'] = pd.to_numeric(df['monto_total'])
+                return df.sort_values('fecha_pago', ascending=False)
+            return pd.DataFrame()
+        return pd.DataFrame()
+
     # 1. Obtener pagos
     response = supabase.table('pagos').select('*').execute()
     

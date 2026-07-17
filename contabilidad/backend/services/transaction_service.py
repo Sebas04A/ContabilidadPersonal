@@ -10,6 +10,7 @@ Centralizes all data-access logic for transactions:
 
 import os
 import shutil
+import uuid
 import pandas as pd
 from typing import Optional, List
 from fastapi import HTTPException
@@ -40,6 +41,7 @@ LABEL_COLUMNS = [
     'split_group_id',
     'group_id',       # Common ID for grouped transactions
     'monto_asignado', # For split transactions
+    'fondo_id',       # Fund (interpolaciones group) this transaction belongs to
 ]
 
 
@@ -170,6 +172,19 @@ def load_data() -> pd.DataFrame:
 
 # ── Label mutations ───────────────────────────────────────────────────────────
 
+def _safe_set(df: pd.DataFrame, mask, key: str, value) -> None:
+    """
+    Assign a value to df.loc[mask, key] without pandas dtype errors.
+    An all-NaN column is inferred as float64; assigning a string to it raises
+    (pandas >= 2.1). Cast the column to object first when writing a string.
+    """
+    if key not in df.columns:
+        df[key] = None
+    if isinstance(value, str) and df[key].dtype != object:
+        df[key] = df[key].astype(object)
+    df.loc[mask, key] = value
+
+
 def save_transaction_labels(transaction_id: str, updates: dict, source_type: str = 'BANCA') -> None:
     """Upsert labels for a single transaction."""
     labels = load_labels()
@@ -178,7 +193,7 @@ def save_transaction_labels(transaction_id: str, updates: dict, source_type: str
     if mask.any():
         for key, value in updates.items():
             if key in LABEL_COLUMNS:
-                labels.loc[mask, key] = value
+                _safe_set(labels, mask, key, value)
     else:
         new_row = {col: None for col in LABEL_COLUMNS}
         new_row['source_id'] = transaction_id
@@ -204,12 +219,59 @@ def save_transaction_split(transaction_id: str, splits: List[dict], source_type:
         for k, v in split.items():
             if k in LABEL_COLUMNS:
                 row[k] = v
+        # Give each part a stable id so a fund can be assigned to a single part.
+        if not row.get('split_group_id'):
+            row['split_group_id'] = str(uuid.uuid4())
         new_rows.append(row)
 
     if new_rows:
         labels = pd.concat([labels, pd.DataFrame(new_rows)], ignore_index=True)
 
     save_labels(labels)
+
+
+def backfill_split_group_ids() -> int:
+    """
+    One-time migration: give every split part (source_id with >1 label row) a
+    unique split_group_id when it lacks one, so funds can target a single part.
+    Returns the number of rows updated.
+    """
+    labels = load_labels()
+    if labels.empty or 'split_group_id' not in labels.columns:
+        return 0
+
+    labels['split_group_id'] = labels['split_group_id'].astype(object)
+    counts = labels['source_id'].value_counts()
+    multi_ids = set(counts[counts > 1].index)
+
+    updated = 0
+    for idx, row in labels.iterrows():
+        if row['source_id'] in multi_ids:
+            sgid = row.get('split_group_id')
+            if sgid is None or (isinstance(sgid, float) and pd.isna(sgid)) or str(sgid).strip() in ('', 'nan'):
+                labels.at[idx, 'split_group_id'] = str(uuid.uuid4())
+                updated += 1
+
+    if updated:
+        save_labels(labels)
+    return updated
+
+
+def set_fondo_for_part(source_id: str, split_group_id: Optional[str], value: str) -> bool:
+    """
+    Assign/unassign a fund on a single transaction OR a single split part.
+    When split_group_id is given, only that part's label row is touched;
+    otherwise the whole transaction (all its rows) is affected.
+    """
+    labels = load_labels()
+    mask = labels['source_id'] == source_id
+    if split_group_id:
+        mask = mask & (labels['split_group_id'].astype(str) == str(split_group_id))
+    if not mask.any():
+        return False
+    _safe_set(labels, mask, 'fondo_id', value)
+    save_labels(labels)
+    return True
 
 
 def propagate_group_update(group_id: str, updates: dict) -> None:
@@ -220,7 +282,7 @@ def propagate_group_update(group_id: str, updates: dict) -> None:
     if mask.any():
         for key, value in updates.items():
             if key in LABEL_COLUMNS and key != 'source_id':
-                labels.loc[mask, key] = value
+                _safe_set(labels, mask, key, value)
         save_labels(labels)
 
 
@@ -238,6 +300,7 @@ def apply_filters(
     source_type: Optional[str] = None,
     category: Optional[str] = None,
     tag: Optional[str] = None,
+    fondo_id: Optional[str] = None,
 ) -> pd.DataFrame:
     """Apply common filters to a transaction DataFrame."""
     logger.debug(
@@ -303,6 +366,12 @@ def apply_filters(
     if tag:
         if 'tags' in df.columns:
             df = df[df['tags'].fillna('').astype(str).str.lower().str.contains(tag.lower(), regex=False)]
+        else:
+            return df.iloc[0:0]
+
+    if fondo_id:
+        if 'fondo_id' in df.columns:
+            df = df[df['fondo_id'].fillna('').astype(str) == str(fondo_id)]
         else:
             return df.iloc[0:0]
 

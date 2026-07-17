@@ -1,0 +1,15 @@
+id,group_id,amount,start_date,end_date,note
+p_fix_1,g_fixed_1,5000.0,2024-01-05,2024-01-25,Reserva Inversion 1/2024
+p_fix_4,g_fixed_1,5000.0,2024-04-05,2024-04-25,Reserva Inversion 4/2024
+p_nomina_1_1,g_interp_nomina,1350.0,2024-01-01,2024-01-15,Nomina Q1 1/2024
+p_nomina_1_2,g_interp_nomina,1350.0,2024-01-16,2024-01-28,Nomina Q2 1/2024
+p_nomina_2_1,g_interp_nomina,1350.0,2024-02-01,2024-02-15,Nomina Q1 2/2024
+p_nomina_2_2,g_interp_nomina,1350.0,2024-02-16,2024-02-28,Nomina Q2 2/2024
+p_nomina_3_1,g_interp_nomina,1350.0,2024-03-01,2024-03-15,Nomina Q1 3/2024
+p_nomina_3_2,g_interp_nomina,1350.0,2024-03-16,2024-03-28,Nomina Q2 3/2024
+p_nomina_4_1,g_interp_nomina,1350.0,2024-04-01,2024-04-15,Nomina Q1 4/2024
+p_nomina_4_2,g_interp_nomina,1350.0,2024-04-16,2024-04-28,Nomina Q2 4/2024
+p_nomina_5_1,g_interp_nomina,1350.0,2024-05-01,2024-05-15,Nomina Q1 5/2024
+p_nomina_5_2,g_interp_nomina,1350.0,2024-05-16,2024-05-28,Nomina Q2 5/2024
+p_nomina_6_1,g_interp_nomina,1350.0,2024-06-01,2024-06-15,Nomina Q1 6/2024
+p_nomina_6_2,g_interp_nomina,1350.0,2024-06-16,2024-06-28,Nomina Q2 6/2024

@@ -49,6 +49,7 @@ def get_all_transactions(
     source_type: Optional[str] = Query(None, description="Filter by source: BANCA or TARJETA"),
     category: Optional[str] = Query(None, description="Filter by exact category"),
     tag: Optional[str] = Query(None, description="Filter by tag presence"),
+    fondo_id: Optional[str] = Query(None, description="Filter by fund id"),
 ):
     """Get all transactions, optionally filtered."""
     df = load_data()
@@ -65,7 +66,7 @@ def get_all_transactions(
         date=date, start_date=start_date, end_date=end_date,
         pending_only=pending_only, es_reembolsable=es_reembolsable,
         deudor=deudor, search=search, source_type=source_type,
-        category=category, tag=tag,
+        category=category, tag=tag, fondo_id=fondo_id,
     )
 
     df = sanitize_for_json(df)
