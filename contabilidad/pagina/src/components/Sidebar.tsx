@@ -1,4 +1,4 @@
-import { LayoutDashboard, Tag, Settings, CreditCard, ChevronLeft, PieChart, User, Calculator, Wallet, Database, Search, Sparkles } from 'lucide-react';
+import { LayoutDashboard, Tag, Settings, CreditCard, ChevronLeft, PieChart, User, Calculator, Wallet, Database, Search, Sparkles, PiggyBank, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 
 interface SidebarProps {
@@ -14,8 +14,10 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
     { id: 'explorer', icon: <Search size={20} />, label: 'Explorar' },
     { id: 'etiquetado', icon: <Tag size={20} />, label: 'Etiquetado' },
     { id: 'deudas', icon: <Wallet size={20} />, label: 'Deudas' },
+    { id: 'fondos', icon: <PiggyBank size={20} />, label: 'Fondos' },
     { id: 'variables', icon: <Calculator size={20} />, label: 'Variables' },
     { id: 'dashboard', icon: <LayoutDashboard size={20} />, label: 'Dashboard' },
+    { id: 'verificacion', icon: <ShieldCheck size={20} />, label: 'Verificación' },
     { id: 'presupuesto', icon: <PieChart size={20} />, label: 'Presupuesto' },
     { id: 'advanced', icon: <Sparkles size={20} className="text-pink-400" />, label: 'Analíticas Avanzadas' },
     // { id: 'reportes', icon: <PieChart size={20} />, label: 'Reportes' },

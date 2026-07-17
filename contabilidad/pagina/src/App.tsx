@@ -5,9 +5,11 @@ import { DashboardChart } from './components/DashboardChart';
 import { VariationsChart } from './components/VariationsChart';
 import Variables from './pages/Variables';
 import { Debts } from './pages/Debts';
+import { Funds } from './pages/Funds';
 import { Sources } from './pages/Sources';
 import { DataExplorer } from './pages/DataExplorer';
 import { Labeling } from './pages/Labeling';
+import { Verification } from './pages/Verification';
 import { MonthlyBudget } from './pages/MonthlyBudget';
 import { AdvancedAnalytics } from './pages/AdvancedAnalytics';
 import { LayoutDashboard, BarChart3, TrendingUp } from 'lucide-react';
@@ -26,6 +28,8 @@ function App() {
           <Variables />
         ) : currentView === 'deudas' ? (
           <Debts />
+        ) : currentView === 'fondos' ? (
+          <Funds />
         ) : currentView === 'dashboard' ? (
           <div className="flex-1 overflow-y-auto px-4 md:px-8 pb-8 custom-scrollbar">
              <div className="max-w-[1600px] mx-auto flex flex-col items-center mt-6 gap-8">
@@ -86,6 +90,8 @@ function App() {
           <MonthlyBudget />
         ) : currentView === 'advanced' ? (
           <AdvancedAnalytics />
+        ) : currentView === 'verificacion' ? (
+          <Verification />
         ) : (
           <Labeling />
         )}

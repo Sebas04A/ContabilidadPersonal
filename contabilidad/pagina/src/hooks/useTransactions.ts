@@ -18,6 +18,14 @@ export function useTransactions(date?: string, pendingOnly?: boolean) {
   });
 }
 
+// Hook for fetching ALL transactions (used by the Verification tab)
+export function useAllTransactions() {
+  return useQuery({
+    queryKey: ['transactions', 'all'],
+    queryFn: () => api.getTransactions(),
+  });
+}
+
 // Hook for searching transactions
 export function useSearchTransactions(query: string) {
   return useQuery({
@@ -52,6 +60,71 @@ export function useSupabasePayments(debtor?: string) {
   });
 }
 
+
+// ── Funds (Fondos) ──────────────────────────────────────────────────────────
+
+export function useFunds() {
+  return useQuery({
+    queryKey: ['funds'],
+    queryFn: api.getFunds,
+  });
+}
+
+export function useFund(id?: string, viewStart?: string) {
+  return useQuery({
+    queryKey: ['fund', id, viewStart],
+    queryFn: () => api.getFund(id!, viewStart || undefined),
+    enabled: !!id,
+  });
+}
+
+export function useAssignToFund() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ fundId, parts, assign }: { fundId: string; parts: import('../services/api').FundPartRef[]; assign: boolean }) =>
+      assign ? api.assignToFund(fundId, parts) : api.unassignFromFund(fundId, parts),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['funds'] });
+      queryClient.invalidateQueries({ queryKey: ['fund'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+    },
+  });
+}
+
+export function useCreateFund() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: api.createFund,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['funds'] }),
+  });
+}
+
+export function useGenerateFundPayments() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ fundId, payments }: { fundId: string; payments: import('../services/api').GeneratedPaymentInput[] }) =>
+      api.generateFundPayments(fundId, payments),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['funds'] });
+      queryClient.invalidateQueries({ queryKey: ['fund', vars.fundId] });
+      // The generated group feeds the dashboard fixed-payment offset.
+      queryClient.invalidateQueries({ queryKey: ['dashboard-chart'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-variations'] });
+    },
+  });
+}
+
+export function useUpdateFund() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: Partial<import('../services/api').FundCreate> & { es_fondo?: boolean } }) =>
+      api.updateFund(id, updates),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['funds'] });
+      queryClient.invalidateQueries({ queryKey: ['fund', vars.id] });
+    },
+  });
+}
 
 // Hook for fetching stats
 export function useStats(date?: string) {
