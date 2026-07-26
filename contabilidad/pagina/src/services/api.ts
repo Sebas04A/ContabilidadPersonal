@@ -175,6 +175,10 @@ export interface EstadoCuentaDeuda {
   monto_original: number;
   monto_pagado: number;
   saldo_pendiente: number;
+  /** Parte del saldo_pendiente cubierta con saldo a favor (pago entregado sin asignar). */
+  abono_saldo_favor: number;
+  /** saldo_pendiente − abono_saldo_favor: lo que falta de verdad. */
+  saldo_real: number;
   estado: string; // PAGADA | PENDIENTE | PARCIAL
   es_tu_deuda: boolean;
   pagos: { pago_id: string; fecha_pago: string | null; monto_asignado: number }[];
@@ -215,7 +219,10 @@ export interface EstadoCuenta {
     total_te_deben: number;
     total_tu_debes: number;
     neto: number;
+    /** Crédito del deudor que quedó sin abonar a ninguna deuda. */
     saldo_favor: number;
+    /** Crédito tuyo que quedó sin abonar a ninguna deuda. */
+    saldo_favor_owner: number;
     count: number;
     count_pagadas: number;
     count_pendientes: number;

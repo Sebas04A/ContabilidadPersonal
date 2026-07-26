@@ -258,7 +258,10 @@ function FlowLedger({ movimientos }: { movimientos: EstadoCuentaMovimiento[] }) 
 function DebtRow({ d }: { d: EstadoCuentaDeuda }) {
   const pagada = d.estado === 'PAGADA';
   const parcial = d.estado === 'PARCIAL';
-  const progreso = d.monto_original > 0 ? Math.min(1, d.monto_pagado / d.monto_original) : 0;
+  const abonoFavor = d.abono_saldo_favor ?? 0;
+  const progreso = d.monto_original > 0
+    ? Math.min(1, (d.monto_pagado + abonoFavor) / d.monto_original)
+    : 0;
 
   return (
     <div className={`px-4 py-3 rounded-xl border transition-all ${pagada ? 'bg-surface-900/20 border-white/5 opacity-75' : 'bg-surface-900/40 border-white/5'}`}>
@@ -276,7 +279,13 @@ function DebtRow({ d }: { d: EstadoCuentaDeuda }) {
           </div>
         </div>
         <div className="text-right shrink-0">
-          <div className={`font-mono font-bold ${pagada ? 'text-surface-500' : 'text-white'}`}>${fmt(pagada ? d.monto_original : d.saldo_pendiente)}</div>
+          {abonoFavor > 0.01 && !pagada && (
+            <div className="text-[10px] text-surface-500 line-through">${fmt(d.saldo_pendiente)}</div>
+          )}
+          <div className={`font-mono font-bold ${pagada ? 'text-surface-500' : 'text-white'}`}>${fmt(pagada ? d.monto_original : d.saldo_real)}</div>
+          {abonoFavor > 0.01 && (
+            <div className="text-[10px] font-bold text-sky-300">−${fmt(abonoFavor)} (saldo a favor)</div>
+          )}
           {parcial && <div className="text-[10px] text-surface-500">de ${fmt(d.monto_original)}</div>}
         </div>
       </div>

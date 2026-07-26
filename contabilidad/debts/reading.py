@@ -141,6 +141,39 @@ def _construir_flujo_cuenta(deudas_raw: list, pagos_raw: list, detalles: list) -
             } for a in allocs],
         })
 
+    # --- Saldo a favor abonado a las deudas ---
+    # El sobrante de un pago (dinero entregado que no se asignó a ninguna deuda) es
+    # crédito de quien pagó, así que cubre automáticamente SUS deudas pendientes, de la
+    # más antigua a la más reciente. Se descuenta igual que un cruce: la deuda conserva
+    # su `saldo_pendiente`, y `abono_saldo_favor` dice cuánto de eso ya está cubierto.
+    favor_owner = round(sum(p['sobrante'] for p in out_pagos
+                            if p['sobrante'] > 0.01 and not p['es_compensacion'] and p['es_mi_pago']), 2)
+    favor_debtor = round(sum(p['sobrante'] for p in out_pagos
+                             if p['sobrante'] > 0.01 and not p['es_compensacion'] and not p['es_mi_pago']), 2)
+
+    credito = {True: favor_owner, False: favor_debtor}
+    for d in out_deudas:
+        d['abono_saldo_favor'] = 0.0
+    for d in sorted((x for x in out_deudas if x['saldo_pendiente'] > 0.01),
+                    key=lambda x: x['fecha_gasto'] or ''):
+        disponible = credito[d['es_tu_deuda']]
+        if disponible <= 0.01:
+            continue
+        abono = round(min(d['saldo_pendiente'], disponible), 2)
+        d['abono_saldo_favor'] = abono
+        credito[d['es_tu_deuda']] = round(disponible - abono, 2)
+
+    # Lo que quedó de crédito sin abonar a ninguna deuda
+    remanente_favor_owner = credito[True]
+    remanente_favor_debtor = credito[False]
+
+    for d in out_deudas:
+        d['saldo_real'] = round(d['saldo_pendiente'] - d['abono_saldo_favor'], 2)
+        if d['saldo_real'] <= 0.01:
+            d['estado'] = 'PAGADA'
+        elif d['monto_pagado'] > 0.01 or d['abono_saldo_favor'] > 0.01:
+            d['estado'] = 'PARCIAL'
+
     # --- Ledger cronológico (ascendente) con saldo acumulado ---
     eventos = []
     for d in out_deudas:
@@ -219,21 +252,22 @@ def _construir_flujo_cuenta(deudas_raw: list, pagos_raw: list, detalles: list) -
     out_deudas.sort(key=lambda d: d['fecha_gasto'] or '', reverse=True)
     out_pagos.sort(key=lambda p: p['fecha_pago'] or '', reverse=True)
 
-    total_te_deben = round(sum(d['saldo_pendiente'] for d in out_deudas if not d['es_tu_deuda']), 2)
-    total_tu_debes = round(sum(d['saldo_pendiente'] for d in out_deudas if d['es_tu_deuda']), 2)
-    saldo_favor = round(sum(p['sobrante'] for p in out_pagos
-                            if p['sobrante'] > 0.01 and not p['es_compensacion']), 2)
+    # Totales sobre el saldo REAL: lo que ya cubre el saldo a favor no se debe.
+    total_te_deben = round(sum(d['saldo_real'] for d in out_deudas if not d['es_tu_deuda']), 2)
+    total_tu_debes = round(sum(d['saldo_real'] for d in out_deudas if d['es_tu_deuda']), 2)
 
     resumen = {
         'total_original': round(sum(d['monto_original'] for d in out_deudas), 2),
         'total_pagado': round(sum(d['monto_pagado'] for d in out_deudas), 2),
-        'total_pendiente': round(sum(d['saldo_pendiente'] for d in out_deudas), 2),
+        'total_pendiente': round(sum(d['saldo_real'] for d in out_deudas), 2),
         'total_te_deben': total_te_deben,
         'total_tu_debes': total_tu_debes,
-        # + te deben, − tú debes. El saldo a favor (sobrante) es crédito del deudor,
-        # así que se resta del neto (dinero que le debes de vuelta).
-        'neto': round(total_te_deben - total_tu_debes - saldo_favor, 2),
-        'saldo_favor': saldo_favor,
+        # + te deben, − tú debes. El crédito que quedó sin abonar es deuda pura: lo que
+        # el deudor pagó de más se lo debes, lo que pagaste de más te lo debe.
+        'neto': round(total_te_deben - total_tu_debes
+                      - remanente_favor_debtor + remanente_favor_owner, 2),
+        'saldo_favor': remanente_favor_debtor,
+        'saldo_favor_owner': remanente_favor_owner,
         'count': len(out_deudas),
         'count_pagadas': sum(1 for d in out_deudas if d['estado'] == 'PAGADA'),
         'count_pendientes': sum(1 for d in out_deudas if d['estado'] != 'PAGADA'),
