@@ -129,7 +129,11 @@
         "ATIMASA 9 DE OCTUBRE E CONSUMO ECU": "Gasolinera Atimasa",
         "DLC*UBER RIDESER S CONSUMO CRI": "Uber",
         "DLC*UBER EATSCRI S CONSUMO CRI": "Uber",
-        "DLC*UBER EATSUSA S CONSUMO CRI": "Uber"
+        "DLC*UBER EATSUSA S CONSUMO CRI": "Uber",
+        "SUPERMAXI POMASQUI 122 Q CONSUMO ECU": "Supermaxi",
+        "DLC*UBER RIDESLD S CONSUMO CRI": "Uber",
+        "TRANSFERENCIA DIRECTA A VALLEJO TRUJILLO JANETH ESTHER": "Poliburger",
+        "TRANSF. DIRECTA A VALLEJO  TRUJILLO JANETH ESTHER": "Poliburger"
     },
     "entity_data": {
         "Canelazo": {
@@ -558,8 +562,9 @@
         "Poliburger": {
             "categoria": "Alimentación",
             "tags": "Almuerzo",
-            "prioridad": "---",
-            "es_fijo": false
+            "prioridad": "Necesidad",
+            "es_fijo": false,
+            "nota": ""
         },
         "Fybeca": {
             "categoria": "Salud",

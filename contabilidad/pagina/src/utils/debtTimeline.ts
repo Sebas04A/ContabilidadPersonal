@@ -12,7 +12,9 @@ export interface DebtItem {
   debtor: string;
   paid: boolean;
   paidDate?: string | null;
-  matchId?: number; // set by detectMatches when paired with the other side
+  matchId?: number; // set by detectMatches when paired heuristically with the other side
+  linked?: boolean; // true when explicitly (manually) linked via deuda_id
+  linkId?: number;  // shared id between the two sides of a manual link
   groupCount?: number; // >1 when this card represents a collapsed group of transactions
   isSplitPart?: boolean; // true when this row is one part of a split transaction
   raw: Transaction | SupabaseDebt;
@@ -34,6 +36,7 @@ export interface Reconciliation {
   countOnlyLocal: number;
   countOnlySupabase: number;
   countMatched: number;
+  countLinked: number; // pares vinculados manualmente (deuda_id)
 }
 
 const MESES = [
@@ -220,38 +223,80 @@ export function groupByPeriod(items: DebtItem[], granularity: Granularity): Peri
   return bands;
 }
 
+/** Clave de día calendario (YYYY-MM-DD) para comparar fechas de forma exacta. */
+function dayKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 /**
- * Empareja items local↔supabase dentro de cada banda por monto+cercanía de fecha.
+ * Empareja items local↔supabase de forma GLOBAL por monto + MISMO DÍA exacto.
+ *
+ * Una deuda y su reembolso local comparten la misma fecha de gasto; si el día difiere,
+ * no se considera la misma deuda. Antes el matching era por banda de mes, lo que rompía
+ * pares que caían cerca de un límite de mes; ahora se recorren todos los items y se exige
+ * día idéntico, sin depender de la banda.
+ *
  * NO usa el nombre del deudor (los nombres nunca coinciden entre ambos lados).
  * Marca `matchId` en ambos items de cada par. Es una sugerencia visual, no una afirmación dura.
+ *
+ * `items` son las MISMAS referencias que viven dentro de las bandas, así que mutar aquí
+ * también actualiza lo que se renderiza en cada banda.
  */
-export function detectMatches(bands: PeriodBand[]): void {
-  let nextMatchId = 1;
+/**
+ * Vincula explícitamente los pares que el usuario unió a mano: una transacción local
+ * con `deuda_id` apuntando a una deuda de Supabase presente. Marca ambos con `linked` y
+ * un `linkId` compartido. Estos pares NO participan del match heurístico.
+ */
+export function detectLinks(items: DebtItem[]): void {
+  const supaById = new Map<string, DebtItem>();
+  for (const it of items) {
+    if (it.side === 'supabase') supaById.set(String((it.raw as SupabaseDebt).ID), it);
+  }
+  let nextLinkId = 1;
+  for (const it of items) {
+    if (it.side !== 'local') continue;
+    const deudaId = (it.raw as Transaction).deuda_id;
+    if (!deudaId) continue;
+    const supa = supaById.get(String(deudaId));
+    if (!supa) continue;
+    if (!supa.linked) {
+      supa.linked = true;
+      supa.linkId = nextLinkId++;
+    }
+    it.linked = true;
+    it.linkId = supa.linkId;
+  }
+}
 
-  for (const band of bands) {
-    // Candidatos: todos los pares (l, r) con monto compatible
-    const candidates: { l: DebtItem; r: DebtItem; amountDiff: number; dateDiff: number }[] = [];
-    for (const l of band.left) {
-      for (const r of band.right) {
-        const tol = Math.max(0.5, l.amount * 0.01);
-        const amountDiff = Math.abs(l.amount - r.amount);
-        if (amountDiff > tol) continue;
-        candidates.push({
-          l,
-          r,
-          amountDiff,
-          dateDiff: Math.abs(l.date.getTime() - r.date.getTime()),
-        });
-      }
+export function detectMatches(items: DebtItem[]): void {
+  // Los pares vinculados manualmente quedan fuera del match heurístico.
+  const locals = items.filter(i => i.side === 'local' && !i.linked);
+  const supas = items.filter(i => i.side === 'supabase' && !i.linked);
+
+  // Candidatos: pares (l, r) con monto compatible y el mismo día exacto
+  const candidates: { l: DebtItem; r: DebtItem; amountDiff: number }[] = [];
+  for (const l of locals) {
+    for (const r of supas) {
+      if (dayKey(l.date) !== dayKey(r.date)) continue;
+      // Los gastos locales se guardan en negativo y las deudas de Supabase en positivo,
+      // así que comparamos por valor absoluto.
+      const la = Math.abs(l.amount);
+      const ra = Math.abs(r.amount);
+      const tol = Math.max(0.8, la * 0.01);
+      const amountDiff = Math.abs(la - ra);
+      if (amountDiff > tol) continue;
+      candidates.push({ l, r, amountDiff });
     }
-    // Emparejar greedy: mejor par primero (menor diferencia de monto, luego de fecha)
-    candidates.sort((a, b) => a.amountDiff - b.amountDiff || a.dateDiff - b.dateDiff);
-    for (const c of candidates) {
-      if (c.l.matchId !== undefined || c.r.matchId !== undefined) continue;
-      const id = nextMatchId++;
-      c.l.matchId = id;
-      c.r.matchId = id;
-    }
+  }
+
+  // Emparejar greedy: mejor par primero (menor diferencia de monto)
+  candidates.sort((a, b) => a.amountDiff - b.amountDiff);
+  let nextMatchId = 1;
+  for (const c of candidates) {
+    if (c.l.matchId !== undefined || c.r.matchId !== undefined) continue;
+    const id = nextMatchId++;
+    c.l.matchId = id;
+    c.r.matchId = id;
   }
 }
 
@@ -261,16 +306,18 @@ export function reconcile(items: DebtItem[]): Reconciliation {
   let totalSupabase = 0;
   let countOnlyLocal = 0;
   let countOnlySupabase = 0;
-  let countMatched = 0; // pares
+  let countMatched = 0; // pares heurísticos
+  let countLinked = 0;  // pares vinculados manualmente
 
   for (const it of items) {
     if (it.side === 'local') {
       totalLocal += it.amount;
-      if (it.matchId === undefined) countOnlyLocal++;
+      if (it.linked) countLinked++;
+      else if (it.matchId === undefined) countOnlyLocal++;
       else countMatched++;
     } else {
       if (!it.paid) totalSupabase += it.amount;
-      if (it.matchId === undefined) countOnlySupabase++;
+      if (!it.linked && it.matchId === undefined) countOnlySupabase++;
     }
   }
 
@@ -281,6 +328,7 @@ export function reconcile(items: DebtItem[]): Reconciliation {
     countOnlyLocal,
     countOnlySupabase,
     countMatched, // cuenta los items locales emparejados = número de pares
+    countLinked,
   };
 }
 
@@ -292,7 +340,8 @@ export function buildTimeline(
 ): { bands: PeriodBand[]; reconciliation: Reconciliation; items: DebtItem[] } {
   const items = toDebtItems(transactions, debts);
   const bands = groupByPeriod(items, granularity);
-  detectMatches(bands);
+  detectLinks(items);
+  detectMatches(items);
   const reconciliation = reconcile(items);
   return { bands, reconciliation, items };
 }

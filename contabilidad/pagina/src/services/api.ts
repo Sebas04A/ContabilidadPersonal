@@ -26,6 +26,7 @@ export interface Transaction {
   split_group_id: string;
   group_id?: string;
   fondo_id?: string;
+  deuda_id?: string;
 }
 
 export interface TransactionUpdate {
@@ -41,6 +42,61 @@ export interface TransactionUpdate {
   revisado?: boolean;
   nota?: string;
   fondo_id?: string;
+  deuda_id?: string;
+}
+
+export interface TransactionFilters {
+  startDate?: string;
+  endDate?: string;
+  pendingOnly?: boolean;
+  search?: string;
+  category?: string;
+  tag?: string;
+  sourceType?: 'BANCA' | 'TARJETA';
+}
+
+export interface BulkUpdateRequest {
+  transactionIds: string[];
+  updates: TransactionUpdate;
+  overwrite?: boolean;
+  tagsMode?: 'append' | 'replace';
+  propagateGroups?: boolean;
+  saveAsRule?: boolean;
+  ruleEntities?: string[];
+  ruleTags?: string[];
+}
+
+export interface BulkUpdateResponse {
+  status: string;
+  requested: number;
+  affected: number;
+  updated: number;
+  applied_fields: Record<string, number>;
+  skipped_fields: Record<string, number>;
+  rules_saved: { type: string; key: string }[];
+  undo_id: string;
+}
+
+export interface EntityRule {
+  categoria?: string;
+  prioridad?: string;
+  es_fijo?: boolean;
+  tags?: string;
+  nota?: string;
+}
+
+export interface TagRule {
+  categoria?: string;
+  prioridad?: string;
+  es_fijo?: boolean;
+  nota?: string;
+}
+
+export interface RulesBook {
+  description_map: Record<string, string>;
+  entity_data: Record<string, EntityRule>;
+  tag_data: Record<string, TagRule>;
+  counts: { description_map: number; entity_data: number; tag_data: number };
 }
 
 export interface Stats {
@@ -98,6 +154,72 @@ export interface SupabasePayment {
   monto_total: number;
   deudor_id: string;
   deudor_nombre: string;
+}
+
+export interface SupabaseDeudor {
+  id: string;
+  nombre: string;
+}
+
+export interface CreateDebtRequest {
+  titulo: string;
+  monto: number;
+  deudor_id: string;
+  fecha_gasto: string; // YYYY-MM-DD
+}
+
+export interface EstadoCuentaDeuda {
+  id: string;
+  titulo: string;
+  fecha_gasto: string | null;
+  monto_original: number;
+  monto_pagado: number;
+  saldo_pendiente: number;
+  estado: string; // PAGADA | PENDIENTE | PARCIAL
+  es_tu_deuda: boolean;
+  pagos: { pago_id: string; fecha_pago: string | null; monto_asignado: number }[];
+}
+
+export interface EstadoCuentaPago {
+  id: string;
+  fecha_pago: string | null;
+  monto_total: number;
+  asignado: number;
+  sobrante: number;
+  deudas: { deuda_id: string; titulo: string; monto_asignado: number }[];
+}
+
+export interface EstadoCuentaMovimiento {
+  fecha: string | null;
+  tipo: 'deuda' | 'pago';
+  id: string;
+  concepto: string;
+  es_tu_deuda: boolean;
+  delta: number;
+  saldo_acumulado: number;
+  sobrante?: number;
+  es_compensacion?: boolean;
+  monto_total?: number;
+  detalle: { titulo: string; monto: number }[];
+  parciales?: { deuda_id: string; titulo: string; monto_original: number; pagado_acumulado: number; saldo: number }[];
+}
+
+export interface EstadoCuenta {
+  deudas: EstadoCuentaDeuda[];
+  pagos: EstadoCuentaPago[];
+  movimientos: EstadoCuentaMovimiento[];
+  resumen: {
+    total_original: number;
+    total_pagado: number;
+    total_pendiente: number;
+    total_te_deben: number;
+    total_tu_debes: number;
+    neto: number;
+    saldo_favor: number;
+    count: number;
+    count_pagadas: number;
+    count_pendientes: number;
+  };
 }
 
 export interface InterpolationGroup {
@@ -176,6 +298,39 @@ export const api = {
     return res.data;
   },
 
+  // Filter-object variant of getTransactions, used by the bulk labeling tab.
+  queryTransactions: async (filters: TransactionFilters): Promise<Transaction[]> => {
+    const params = new URLSearchParams();
+    if (filters.startDate) params.append('start_date', filters.startDate);
+    if (filters.endDate) params.append('end_date', filters.endDate);
+    if (filters.pendingOnly) params.append('pending_only', 'true');
+    if (filters.search) params.append('search', filters.search);
+    if (filters.category) params.append('category', filters.category);
+    if (filters.tag) params.append('tag', filters.tag);
+    if (filters.sourceType) params.append('source_type', filters.sourceType);
+    const res = await axios.get(`${API_BASE}/transactions?${params}`);
+    return res.data;
+  },
+
+  bulkUpdateTransactions: async (req: BulkUpdateRequest): Promise<BulkUpdateResponse> => {
+    const res = await axios.post(`${API_BASE}/transactions/bulk-update`, {
+      transaction_ids: req.transactionIds,
+      updates: req.updates,
+      overwrite: req.overwrite ?? false,
+      tags_mode: req.tagsMode ?? 'append',
+      propagate_groups: req.propagateGroups ?? true,
+      save_as_rule: req.saveAsRule ?? false,
+      rule_entities: req.ruleEntities ?? [],
+      rule_tags: req.ruleTags ?? [],
+    });
+    return res.data;
+  },
+
+  undoBulkUpdate: async (undoId: string): Promise<{ restored: number; rules_restored: number }> => {
+    const res = await axios.post(`${API_BASE}/transactions/bulk-undo/${encodeURIComponent(undoId)}`);
+    return res.data;
+  },
+
   getAnalysisChartData: async (category?: string, tag?: string, startDate?: string, endDate?: string, groupId?: string): Promise<any> => {
     const params = new URLSearchParams();
     if (category) params.append('category', category);
@@ -241,6 +396,21 @@ export const api = {
     return res.data;
   },
 
+  getDeudores: async (): Promise<SupabaseDeudor[]> => {
+    const res = await axios.get(`${API_BASE}/supabase-debts/deudores`);
+    return res.data;
+  },
+
+  createSupabaseDebt: async (req: CreateDebtRequest): Promise<{ id: string | number }> => {
+    const res = await axios.post(`${API_BASE}/supabase-debts/`, req);
+    return res.data;
+  },
+
+  getEstadoCuenta: async (deudorId: string): Promise<EstadoCuenta> => {
+    const res = await axios.get(`${API_BASE}/supabase-debts/estado-cuenta`, { params: { deudor_id: deudorId } });
+    return res.data;
+  },
+
 
   getSyncStatus: async () => {
     const res = await axios.get(`${API_BASE}/sync/status`);
@@ -255,6 +425,27 @@ export const api = {
   },
 
   // Rules
+  getAllRules: async (): Promise<RulesBook> => {
+    const res = await axios.get(`${API_BASE}/rules/`);
+    return res.data;
+  },
+
+  deleteEntityRule: async (name: string): Promise<void> => {
+    await axios.delete(`${API_BASE}/rules/entity/${encodeURIComponent(name)}`);
+  },
+
+  renameEntityRule: async (oldName: string, newName: string): Promise<void> => {
+    await axios.post(`${API_BASE}/rules/entity/rename`, { old_name: oldName, new_name: newName });
+  },
+
+  deleteTagRule: async (tag: string): Promise<void> => {
+    await axios.delete(`${API_BASE}/rules/tag/${encodeURIComponent(tag)}`);
+  },
+
+  deleteMapRule: async (original: string): Promise<void> => {
+    await axios.delete(`${API_BASE}/rules/map?original=${encodeURIComponent(original)}`);
+  },
+
   getEntityRule: async (name: string): Promise<any> => {
     const res = await axios.get(`${API_BASE}/rules/entity/${encodeURIComponent(name)}`);
     return res.data;

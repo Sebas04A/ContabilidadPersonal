@@ -16,8 +16,10 @@ from datetime import datetime
 
 from contabilidad.backend.logger import get_logger
 from contabilidad.backend.storage import rules_storage as rules_service
+from contabilidad.backend.storage import undo_store
 from contabilidad.backend.models.transaction_models import (
     TransactionOut, TransactionUpdate, SplitItem, SplitRequest, GroupRequest,
+    BulkUpdateRequest,
 )
 from contabilidad.backend.services.transaction_service import (
     LABEL_COLUMNS,
@@ -25,6 +27,9 @@ from contabilidad.backend.services.transaction_service import (
     load_labels,
     load_source_data,
     save_transaction_labels,
+    bulk_save_transaction_labels,
+    expand_ids_with_groups,
+    restore_label_snapshot,
     save_transaction_split,
     propagate_group_update,
     apply_filters,
@@ -310,6 +315,123 @@ def update_transaction(transaction_id: str, updates: TransactionUpdate):
         logger.error("Error auto-saving rules: %s", e)
 
     return {"status": "updated", "id": transaction_id, "group_id": group_id, "updated_fields": list(update_dict.keys())}
+
+
+@router.post("/bulk-update")
+def bulk_update_transactions(req: BulkUpdateRequest):
+    """
+    Apply the same set of label updates to many transactions at once.
+
+    By default only empty fields are written (`overwrite=False`); the caller can
+    inspect `skipped_fields` in the response to see what was left untouched and
+    re-send with `overwrite=True`.
+    """
+    if not req.transaction_ids:
+        raise HTTPException(status_code=400, detail="No transaction IDs provided")
+
+    update_dict = req.updates.model_dump(exclude_unset=True, exclude_none=True)
+    if not update_dict:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    ids = expand_ids_with_groups(req.transaction_ids) if req.propagate_groups else req.transaction_ids
+
+    source = load_source_data()
+    source_types = {}
+    if not source.empty:
+        source_types = source.set_index('id')['TIPO'].to_dict()
+
+    result = bulk_save_transaction_labels(
+        ids,
+        update_dict,
+        overwrite=req.overwrite,
+        tags_mode=req.tags_mode,
+        source_types=source_types,
+    )
+
+    # Optionally persist the same attributes as a reusable rule.
+    # The previous rule (or its absence) is snapshotted so undo can restore it.
+    rules_saved = []
+    rules_before = []
+    if req.save_as_rule:
+        rule_attrs = {
+            k: v for k, v in update_dict.items()
+            if k in ('categoria', 'prioridad', 'es_fijo', 'tags', 'nota')
+        }
+        if rule_attrs:
+            existing_rules = rules_service.load_rules()
+            for name in req.rule_entities or []:
+                rules_before.append({
+                    "type": "entity", "key": name,
+                    "rule": existing_rules.get("entity_data", {}).get(name),
+                })
+                rules_service.save_entity_rule(name, rule_attrs)
+                rules_saved.append({"type": "entity", "key": name})
+            for tag in req.rule_tags or []:
+                rules_before.append({
+                    "type": "tag", "key": tag,
+                    "rule": existing_rules.get("tag_data", {}).get(tag),
+                })
+                rules_service.save_tag_rule(
+                    tag, {k: v for k, v in rule_attrs.items() if k != 'tags'}
+                )
+                rules_saved.append({"type": "tag", "key": tag})
+
+    undo_id = undo_store.save_snapshot({
+        "labels_before": result["before"],
+        "rules_before": rules_before,
+        "summary": {
+            "updated": result["updated"],
+            "applied_fields": result["applied_fields"],
+            "fields": update_dict,
+        },
+    })
+
+    logger.info(
+        "Bulk update: %s transacciones, campos %s, overwrite=%s, undo=%s",
+        result['updated'], list(update_dict.keys()), req.overwrite, undo_id,
+    )
+    return {
+        "status": "updated",
+        "requested": len(req.transaction_ids),
+        "affected": len(ids),
+        "updated": result["updated"],
+        "applied_fields": result["applied_fields"],
+        "skipped_fields": result["skipped_fields"],
+        "rules_saved": rules_saved,
+        "undo_id": undo_id,
+    }
+
+
+@router.post("/bulk-undo/{undo_id}")
+def undo_bulk_update(undo_id: str):
+    """Revert a previous bulk update, restoring labels and any rule it wrote."""
+    snapshot = undo_store.load_snapshot(undo_id)
+    if snapshot is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Esta operación ya no se puede deshacer (revertida o expirada)",
+        )
+
+    restored = restore_label_snapshot(snapshot.get("labels_before", []))
+
+    rules_restored = 0
+    for entry in snapshot.get("rules_before", []):
+        previous = entry.get("rule")
+        if entry["type"] == "entity":
+            # Delete first: save_* merges, and the restored rule must be exact.
+            rules_service.delete_entity_rule(entry["key"])
+            if previous is not None:
+                rules_service.save_entity_rule(entry["key"], previous)
+        else:
+            rules_service.delete_tag_rule(entry["key"])
+            if previous is not None:
+                rules_service.save_tag_rule(entry["key"], previous)
+        rules_restored += 1
+
+    undo_store.discard_snapshot(undo_id)
+    logger.info("Undo %s: %s transacciones restauradas", undo_id, restored)
+
+    return {"status": "reverted", "restored": restored, "rules_restored": rules_restored}
 
 
 @router.post("/group")

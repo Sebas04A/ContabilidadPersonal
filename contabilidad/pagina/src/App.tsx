@@ -12,7 +12,7 @@ import { Labeling } from './pages/Labeling';
 import { Verification } from './pages/Verification';
 import { MonthlyBudget } from './pages/MonthlyBudget';
 import { AdvancedAnalytics } from './pages/AdvancedAnalytics';
-import { LayoutDashboard, BarChart3, TrendingUp } from 'lucide-react';
+import { BarChart3, TrendingUp } from 'lucide-react';
 
 function App() {
   const [currentView, setCurrentView] = useState('etiquetado');

@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { Transaction, TransactionUpdate, api, SplitItem } from '../services/api';
-import { 
-  X, Tag, ArrowUpRight, ArrowDownLeft, Check, 
-  CreditCard, Flame, Heart, Sparkles, User, 
-  Frown, Meh, DollarSign, StickyNote, Save, AlertCircle
+import { Transaction, TransactionUpdate, api, SplitItem, SupabaseDebt, SupabaseDeudor } from '../services/api';
+import {
+  X, Tag, ArrowUpRight, ArrowDownLeft, Check,
+  CreditCard, Flame, Heart, Sparkles, User,
+  Frown, Meh, DollarSign, StickyNote, Save, AlertCircle,
+  Link2, Plus, CheckCircle2, Loader2
 } from 'lucide-react';
 
 interface EditModalProps {
@@ -21,7 +22,11 @@ const CATEGORY_OPTIONS = [
   'Mujeres', 'Aseo', 'Deudas', 'Tarjeta', 'Ropa', 'Viajes', 'Otro'
 ];
 
-const PERSON_OPTIONS = ['---', 'Yo', 'Mamá', 'Hermana', 'Familia', 'Amigo', 'Trabajo', 'Otro'];
+// "¿De quién es?": opciones fijas + todas las personas de Supabase (deudores).
+const PERTENECE_BASE = ['---', 'Yo', 'Familia', 'Amigos'];
+
+/** Fecha (YYYY-MM-DD) desde el FECHA de la transacción, sin corrimiento de zona horaria. */
+const fechaDia = (fecha: string) => (fecha || '').slice(0, 10);
 
 // --- Subcomponents for "Control Console" Look ---
 
@@ -82,6 +87,17 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
   const [savingTagRule, setSavingTagRule] = useState(false);
   const [showTagSelect, setShowTagSelect] = useState(false);
   const tagInputRef = useRef<HTMLInputElement>(null);
+
+  // --- Deuda / Supabase ---
+  const [deudores, setDeudores] = useState<SupabaseDeudor[]>([]);
+  const [sameDayDebts, setSameDayDebts] = useState<SupabaseDebt[]>([]);
+  const [debtMode, setDebtMode] = useState<'associate' | 'create'>('create');
+  const [selectedDeudaId, setSelectedDeudaId] = useState<string>('');
+  const [debtTitulo, setDebtTitulo] = useState('');
+  const [debtMonto, setDebtMonto] = useState<number>(0);
+  const [debtDeudorId, setDebtDeudorId] = useState<string>('');
+  const [creatingDebt, setCreatingDebt] = useState(false);
+  const [debtError, setDebtError] = useState('');
 
   // Initialize form and splits when opening
   useEffect(() => {
@@ -154,6 +170,16 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
         setTagInput('');
         setIsClosing(false);
         setSavingRule(false);
+
+        // Estado de deuda
+        const existingDeuda = transaction.deuda_id ? String(transaction.deuda_id) : '';
+        setSelectedDeudaId(existingDeuda);
+        setDebtMode(existingDeuda ? 'associate' : 'create');
+        setDebtTitulo(transaction.nombre_limpio || transaction.DESCRIPCION);
+        setDebtMonto(Math.abs(transaction.MONTO));
+        setDebtDeudorId('');
+        setDebtError('');
+        setSameDayDebts([]);
     }
   }, [transaction]);
 
@@ -198,6 +224,28 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
       const timer = setTimeout(fetchRule, 500);
       return () => clearTimeout(timer);
   }, [formData.nombre_limpio, isOpen]);
+
+  // Cargar deudores + deudas del mismo día cuando la transacción es reembolsable
+  useEffect(() => {
+      if (!isOpen || !transaction || !formData.es_reembolsable) return;
+      let cancelled = false;
+      const day = fechaDia(transaction.FECHA);
+      (async () => {
+          try {
+              const [ds, debts] = await Promise.all([
+                  deudores.length ? Promise.resolve(deudores) : api.getDeudores(),
+                  api.getSupabaseDebts(day, day),
+              ]);
+              if (cancelled) return;
+              setDeudores(ds);
+              setSameDayDebts(debts);
+          } catch (e) {
+              // silencioso: la sección seguirá funcionando sin datos remotos
+          }
+      })();
+      return () => { cancelled = true; };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, transaction, formData.es_reembolsable]);
 
 
   const [selectedSplitIndex, setSelectedSplitIndex] = useState<number>(0);
@@ -309,7 +357,36 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
         await api.splitTransaction(transaction.id, processedSplits);
         onSave(transaction.id, {}); // Trigger refresh
     } else {
-        onSave(transaction.id, formData);
+        const updates: TransactionUpdate = { ...formData };
+
+        if (formData.es_reembolsable) {
+            if (debtMode === 'associate') {
+                updates.deuda_id = selectedDeudaId || '';
+            } else if (debtMode === 'create' && debtDeudorId) {
+                // Crear deuda PENDIENTE en Supabase y vincularla
+                setCreatingDebt(true);
+                setDebtError('');
+                try {
+                    const created = await api.createSupabaseDebt({
+                        titulo: (debtTitulo || formData.nombre_limpio || transaction.DESCRIPCION).trim(),
+                        monto: Math.abs(debtMonto || 0),
+                        deudor_id: debtDeudorId,
+                        fecha_gasto: fechaDia(transaction.FECHA),
+                    });
+                    updates.deuda_id = String(created.id);
+                } catch (e) {
+                    setDebtError('No se pudo crear la deuda en Supabase. Revisa la conexión e intenta de nuevo.');
+                    setCreatingDebt(false);
+                    return; // aborta el guardado
+                }
+                setCreatingDebt(false);
+            }
+        } else {
+            // Ya no es reembolsable: desvincular cualquier deuda previa
+            updates.deuda_id = '';
+        }
+
+        onSave(transaction.id, updates);
     }
     handleClose();
   };
@@ -359,6 +436,11 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
   // Helpers
   const isExpense = transaction.MONTO < 0;
   const currentTags = formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
+  const perteneceOptions = Array.from(new Set([
+    ...PERTENECE_BASE,
+    ...deudores.map(d => d.nombre),
+    ...(formData.pertenece_a ? [formData.pertenece_a] : []),
+  ]));
   
   const addTag = async (tag: string) => {
     if (!currentTags.includes(tag)) {
@@ -421,9 +503,11 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
                  <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest bg-surface-800 text-surface-400 border border-white/5">
                    {transaction.id.slice(0, 8)}
                  </span>
-                 <span className="text-[10px] font-bold uppercase tracking-widest text-surface-500">
-                   {new Date(transaction.FECHA).toLocaleDateString()}
-                 </span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-surface-500 flex items-center gap-1.5">
+                    <span>{new Date(transaction.FECHA).toLocaleDateString()}</span>
+                    <span className="opacity-40">•</span>
+                    <span className="text-primary-400">{new Date(transaction.FECHA).toLocaleTimeString('es-EC', {hour: '2-digit', minute:'2-digit'})}</span>
+                  </span>
               </div>
               <h1 className="text-xl font-bold text-white line-clamp-1 max-w-md tracking-tight">
                 {transaction.DESCRIPCION}
@@ -585,7 +669,13 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
                          </label>
                          <ConsoleSelect 
                             value={formData.categoria || '---'} 
-                            onChange={val => setFormData({...formData, categoria: val})}
+                            onChange={val => {
+                              const updates: any = { categoria: val };
+                              if (val.toLowerCase() === 'regalo') {
+                                updates.prioridad = 'Deseo';
+                              }
+                              setFormData(prev => ({ ...prev, ...updates }));
+                            }}
                             options={CATEGORY_OPTIONS}
                             icon={Tag}
                          />
@@ -813,29 +903,147 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
                       {/* Expanded Content */}
                       <div className={`
                          px-5 pb-5 transition-all duration-300 ease-in-out space-y-4
-                         ${formData.es_reembolsable ? 'max-h-60 opacity-100' : 'max-h-0 opacity-0 overflow-hidden pb-0'}
+                         ${formData.es_reembolsable ? 'max-h-[720px] opacity-100 overflow-y-auto custom-scrollbar' : 'max-h-0 opacity-0 overflow-hidden pb-0'}
                       `}>
                          <div className="h-px bg-purple-500/20 w-full mb-4" />
+
+                         {/* ¿De quién es? / ¿Quién paga? */}
                          <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1.5">
                                <label className="text-[10px] uppercase font-bold text-purple-300/70 ml-1">¿De quién es?</label>
-                               <ConsoleSelect 
-                                  value={formData.pertenece_a || '---'} 
-                                  onChange={val => setFormData({...formData, pertenece_a: val})} 
-                                  options={PERSON_OPTIONS} 
+                               <ConsoleSelect
+                                  value={formData.pertenece_a || '---'}
+                                  onChange={val => setFormData({...formData, pertenece_a: val})}
+                                  options={perteneceOptions}
                                   icon={User}
                                />
                             </div>
                             <div className="space-y-1.5">
-                               <label className="text-[10px] uppercase font-bold text-purple-300/70 ml-1">¿Quién paga?</label>
-                               <ConsoleSelect 
-                                  value={formData.deudor || '---'} 
-                                  onChange={val => setFormData({...formData, deudor: val})} 
-                                  options={PERSON_OPTIONS} 
-                                  icon={CreditCard}
-                               />
+                               <label className="text-[10px] uppercase font-bold text-purple-300/70 ml-1 flex items-center gap-1">
+                                  ¿Quién paga? <span className="text-purple-400/50 normal-case">(deudor Supabase)</span>
+                               </label>
+                               <div className="relative group">
+                                  <select
+                                     value={debtDeudorId}
+                                     onChange={(e) => {
+                                        const id = e.target.value;
+                                        setDebtDeudorId(id);
+                                        const d = deudores.find(x => String(x.id) === id);
+                                        setFormData(prev => ({ ...prev, deudor: d ? d.nombre : '' }));
+                                     }}
+                                     className="w-full appearance-none bg-surface-900 border border-white/5 rounded-xl px-4 py-3.5 pr-10 text-surface-50 font-medium focus:outline-none focus:border-purple-500/50 focus:bg-surface-800 cursor-pointer transition-all hover:border-white/20 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]"
+                                  >
+                                     <option value="">{deudores.length ? '— Selecciona —' : 'Cargando…'}</option>
+                                     {deudores.map(d => (
+                                        <option key={d.id} value={String(d.id)}>{d.nombre}</option>
+                                     ))}
+                                  </select>
+                                  <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-surface-500">
+                                     <CreditCard size={16} />
+                                  </div>
+                               </div>
                             </div>
                          </div>
+
+                         {/* Modo: asociar deuda del mismo día / crear nueva */}
+                         <div className="space-y-2">
+                            <label className="text-[10px] uppercase font-bold text-purple-300/70 ml-1">Deuda en Supabase</label>
+                            <div className="flex gap-2">
+                               <button
+                                  type="button"
+                                  onClick={() => setDebtMode('create')}
+                                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-bold uppercase tracking-wider transition-all ${debtMode === 'create' ? 'bg-purple-500/15 border-purple-500/40 text-purple-200' : 'bg-surface-900 border-white/5 text-surface-400 hover:text-white'}`}
+                               >
+                                  <Plus size={14} /> Crear nueva
+                               </button>
+                               <button
+                                  type="button"
+                                  onClick={() => setDebtMode('associate')}
+                                  disabled={sameDayDebts.length === 0}
+                                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-40 disabled:cursor-not-allowed ${debtMode === 'associate' ? 'bg-purple-500/15 border-purple-500/40 text-purple-200' : 'bg-surface-900 border-white/5 text-surface-400 hover:text-white'}`}
+                               >
+                                  <Link2 size={14} /> Asociar existente
+                                  {sameDayDebts.length > 0 && <span className="px-1.5 py-0.5 rounded bg-purple-500/20 text-[9px]">{sameDayDebts.length}</span>}
+                               </button>
+                            </div>
+                         </div>
+
+                         {debtMode === 'associate' ? (
+                            <div className="space-y-2">
+                               <div className="text-[10px] text-surface-500 ml-1">Deudas del {fechaDia(transaction.FECHA)}</div>
+                               {sameDayDebts.length === 0 ? (
+                                  <div className="text-xs text-surface-500 bg-surface-900/50 border border-dashed border-white/10 rounded-xl px-4 py-3 text-center">
+                                     No hay deudas registradas ese día
+                                  </div>
+                               ) : (
+                                  <div className="space-y-2 max-h-44 overflow-y-auto custom-scrollbar pr-1">
+                                     {sameDayDebts.map(d => {
+                                        const active = selectedDeudaId === String(d.ID);
+                                        return (
+                                           <button
+                                              type="button"
+                                              key={String(d.ID)}
+                                              onClick={() => {
+                                                 setSelectedDeudaId(String(d.ID));
+                                                 setFormData(prev => ({ ...prev, deudor: d.DEUDOR_NOMBRE || prev.deudor }));
+                                              }}
+                                              className={`w-full flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border text-left transition-all ${active ? 'bg-purple-500/15 border-purple-500/50' : 'bg-surface-900 border-white/5 hover:border-white/15'}`}
+                                           >
+                                              <div className="min-w-0">
+                                                 <div className="text-sm font-bold text-surface-100 truncate">{d.DESCRIPCION}</div>
+                                                 <div className="text-[10px] text-surface-500 flex items-center gap-2">
+                                                    <span className="text-sky-300">{d.DEUDOR_NOMBRE}</span>
+                                                    <span className={d.PAGADA ? 'text-emerald-400' : 'text-rose-400'}>{d.PAGADA ? 'PAGADA' : 'PENDIENTE'}</span>
+                                                 </div>
+                                              </div>
+                                              <div className="flex items-center gap-2 shrink-0">
+                                                 <span className="font-mono font-bold text-white text-sm">${d.MONTO.toFixed(2)}</span>
+                                                 {active && <CheckCircle2 size={16} className="text-purple-300" />}
+                                              </div>
+                                           </button>
+                                        );
+                                     })}
+                                  </div>
+                               )}
+                            </div>
+                         ) : (
+                            <div className="grid grid-cols-2 gap-4">
+                               <div className="space-y-1.5">
+                                  <label className="text-[10px] uppercase font-bold text-purple-300/70 ml-1">Nombre de la deuda</label>
+                                  <ConsoleInput
+                                     value={debtTitulo}
+                                     onChange={e => setDebtTitulo(e.target.value)}
+                                     placeholder="Ej: 4 almuerzos"
+                                  />
+                               </div>
+                               <div className="space-y-1.5">
+                                  <label className="text-[10px] uppercase font-bold text-purple-300/70 ml-1 flex items-center gap-1">
+                                     Monto <span className="text-purple-400/50 normal-case">(diferido si aplica)</span>
+                                  </label>
+                                  <div className="relative">
+                                     <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-surface-500">$</span>
+                                     <input
+                                        type="number"
+                                        step="0.01"
+                                        value={debtMonto}
+                                        onChange={e => setDebtMonto(parseFloat(e.target.value) || 0)}
+                                        className="w-full bg-surface-900 border border-white/5 rounded-xl pl-8 pr-4 py-3.5 text-surface-50 font-mono font-bold focus:outline-none focus:border-purple-500/50 focus:bg-surface-800 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all"
+                                     />
+                                  </div>
+                               </div>
+                               {!debtDeudorId && (
+                                  <div className="col-span-2 text-[11px] text-amber-300/80 flex items-center gap-1.5">
+                                     <AlertCircle size={12} /> Elige "¿Quién paga?" para crear la deuda al guardar.
+                                  </div>
+                               )}
+                            </div>
+                         )}
+
+                         {debtError && (
+                            <div className="text-xs text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-xl px-3 py-2 flex items-center gap-2">
+                               <AlertCircle size={14} /> {debtError}
+                            </div>
+                         )}
                       </div>
                   </div>
     
@@ -906,18 +1114,22 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
               </button>
               <button
                 onClick={handleSave}
+                disabled={creatingDebt}
                 className="
                   px-8 py-3.5 rounded-xl text-sm font-bold text-white
-                  bg-gradient-to-r from-primary-600 to-primary-500 
+                  bg-gradient-to-r from-primary-600 to-primary-500
                   hover:from-primary-500 hover:to-primary-400
                   shadow-lg shadow-primary-600/50
                   hover:shadow-xl hover:shadow-primary-500/60
                   transform active:scale-[0.98] transition-all
                   flex items-center gap-2 border border-white/10
+                  disabled:opacity-60 disabled:cursor-not-allowed
                 "
               >
-                <Check size={18} className="stroke-[3]" />
-                <span className="uppercase tracking-wider">Guardar {isSplitting ? 'Divisiones' : 'Cambios'}</span>
+                {creatingDebt ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} className="stroke-[3]" />}
+                <span className="uppercase tracking-wider">
+                  {creatingDebt ? 'Creando deuda…' : `Guardar ${isSplitting ? 'Divisiones' : 'Cambios'}`}
+                </span>
               </button>
           </div>
         </div>

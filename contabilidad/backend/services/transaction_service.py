@@ -42,6 +42,7 @@ LABEL_COLUMNS = [
     'group_id',       # Common ID for grouped transactions
     'monto_asignado', # For split transactions
     'fondo_id',       # Fund (interpolaciones group) this transaction belongs to
+    'deuda_id',       # Linked Supabase debt id (when refundable + associated/created)
 ]
 
 
@@ -204,6 +205,163 @@ def save_transaction_labels(transaction_id: str, updates: dict, source_type: str
         labels = pd.concat([labels, pd.DataFrame([new_row])], ignore_index=True)
 
     save_labels(labels)
+
+
+# Columnas donde el valor "apagado" (False / 0) equivale a no haber sido
+# etiquetado nunca, no a una decisión del usuario.
+FALSY_AS_EMPTY_COLUMNS = ('es_fijo', 'revisado', 'es_reembolsable', 'felicidad')
+
+
+def is_empty_label(val, column: Optional[str] = None) -> bool:
+    """True si el valor cuenta como 'vacío' para efectos de etiquetado."""
+    if val is None:
+        return True
+    try:
+        if pd.isna(val):
+            return True
+    except (TypeError, ValueError):
+        pass
+
+    text = str(val).strip()
+    if column in FALSY_AS_EMPTY_COLUMNS and text in ('False', 'false', '0', '0.0'):
+        return True
+    return text in ('', 'nan', 'None', '---', 'Sin Categoría')
+
+
+def _merge_tags(current, incoming: str) -> str:
+    """Une tags existentes con los nuevos, sin duplicar y preservando el orden."""
+    result: List[str] = []
+    for chunk in (current, incoming):
+        if is_empty_label(chunk):
+            continue
+        for tag in str(chunk).split(','):
+            tag = tag.strip()
+            if tag and tag not in result:
+                result.append(tag)
+    return ', '.join(result)
+
+
+def bulk_save_transaction_labels(
+    transaction_ids: List[str],
+    updates: dict,
+    overwrite: bool = False,
+    tags_mode: str = 'append',
+    source_types: Optional[dict] = None,
+) -> dict:
+    """
+    Aplica el mismo conjunto de updates a muchas transacciones en una sola
+    lectura/escritura del CSV de etiquetas.
+
+    overwrite=False  → un campo solo se escribe si el valor actual está vacío.
+    tags_mode='append' → los tags nuevos se suman a los existentes en vez de
+                         reemplazarlos (ignora `overwrite` para ese campo).
+
+    Retorna {'updated': n, 'skipped_fields': {…}, 'applied_fields': {…},
+             'before': [...]}, donde `before` es el snapshot necesario para
+    deshacer la operación.
+    """
+    updates = {k: v for k, v in updates.items() if k in LABEL_COLUMNS}
+    if not transaction_ids or not updates:
+        return {"updated": 0, "skipped_fields": {}, "applied_fields": {}, "before": []}
+
+    source_types = source_types or {}
+    labels = load_labels()
+    skipped: dict = {}
+    applied: dict = {}
+    updated_ids = set()
+    new_rows = []
+    before: List[dict] = []
+
+    for tid in transaction_ids:
+        mask = labels['source_id'] == tid
+
+        if not mask.any():
+            row = {col: None for col in LABEL_COLUMNS}
+            row['source_id'] = tid
+            row['source_type'] = source_types.get(tid, 'BANCA')
+            for key, value in updates.items():
+                row[key] = _merge_tags(None, value) if key == 'tags' and tags_mode == 'append' else value
+                applied[key] = applied.get(key, 0) + 1
+            new_rows.append(row)
+            updated_ids.add(tid)
+            # Undo de una fila creada = eliminarla.
+            before.append({"source_id": tid, "created": True, "values": {}})
+            continue
+
+        previous: dict = {}
+        for key, value in updates.items():
+            current = labels.loc[mask, key].iloc[0] if key in labels.columns else None
+
+            if key == 'tags' and tags_mode == 'append':
+                _safe_set(labels, mask, key, _merge_tags(current, str(value)))
+            elif overwrite or is_empty_label(current, key):
+                _safe_set(labels, mask, key, value)
+            else:
+                skipped[key] = skipped.get(key, 0) + 1
+                continue
+
+            previous[key] = None if (current is None or pd.isna(current)) else current
+            applied[key] = applied.get(key, 0) + 1
+            updated_ids.add(tid)
+
+        if previous:
+            before.append({"source_id": tid, "created": False, "values": previous})
+
+    if new_rows:
+        labels = pd.concat([labels, pd.DataFrame(new_rows)], ignore_index=True)
+
+    save_labels(labels)
+    return {
+        "updated": len(updated_ids),
+        "skipped_fields": skipped,
+        "applied_fields": applied,
+        "before": before,
+    }
+
+
+def restore_label_snapshot(before: List[dict]) -> int:
+    """
+    Revierte una operación masiva: repone los valores previos y elimina las
+    filas de etiquetas que la operación había creado desde cero.
+    """
+    if not before:
+        return 0
+
+    labels = load_labels()
+    created_ids = [e['source_id'] for e in before if e.get('created')]
+    restored = 0
+
+    for entry in before:
+        if entry.get('created'):
+            continue
+        mask = labels['source_id'] == entry['source_id']
+        if not mask.any():
+            continue
+        for key, value in entry.get('values', {}).items():
+            if key in LABEL_COLUMNS:
+                _safe_set(labels, mask, key, value)
+        restored += 1
+
+    if created_ids:
+        labels = labels[~labels['source_id'].isin(created_ids)]
+        restored += len(created_ids)
+
+    save_labels(labels)
+    return restored
+
+
+def expand_ids_with_groups(transaction_ids: List[str]) -> List[str]:
+    """Añade a la selección todas las transacciones que comparten group_id."""
+    labels = load_labels()
+    if labels.empty or 'group_id' not in labels.columns:
+        return list(transaction_ids)
+
+    selected = set(transaction_ids)
+    groups = labels[labels['source_id'].isin(selected)]['group_id'].dropna()
+    groups = {g for g in groups if not is_empty_label(g)}
+    if groups:
+        selected |= set(labels[labels['group_id'].isin(groups)]['source_id'].dropna())
+    return list(selected)
 
 
 def save_transaction_split(transaction_id: str, splits: List[dict], source_type: str = 'BANCA') -> None:

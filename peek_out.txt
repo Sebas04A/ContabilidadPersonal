@@ -1,0 +1,92 @@
+=== banca_unida ===
+Columns & Types:
+id                        str
+FECHA          datetime64[us]
+DESCRIPCION               str
+MONTO                 float64
+FUENTE                    str
+SALDO                 float64
+dtype: object
+
+Head (5 rows):
+                                 id      FECHA                          DESCRIPCION  MONTO FUENTE     SALDO
+0  4b4068d3a3207283a89ec772d66742fd 2024-03-11  TRANSFERENCIA INTERBANCARIA ENVIADA  -2.50  BANCO  31850.39
+1  5f4499c5212ada7446102f6d5dcafd81 2024-03-11  TRANSFERENCIA INTERBANCARIA ENVIADA  -2.00  BANCO  31848.39
+2  e0540c86de6217d17f20658eec31a3aa 2024-03-11               TRANSFERENCIA INTERNET  -9.00  BANCO  31839.39
+3  a7df03655db99fff113f74128655ea18 2024-03-11  TRANSFERENCIA INTERBANCARIA ENVIADA -16.00  BANCO  31823.39
+4  52f5bf861287ed3f2c881048704be86f 2024-03-12  TRANSFERENCIA INTERBANCARIA ENVIADA  -3.99  BANCO  31819.40
+
+Pagos de Tarjeta en la banca (últimos 5):
+                                   id               FECHA                                                         DESCRIPCION   MONTO FUENTE     SALDO
+830  fcf726405165962eecc928e5ea8d997f 2026-02-02 13:06:00                         COMISION PAGO TARJETA INTERBANCARIA ENVIADA   -0.34  BANCO    566.30
+832  dd0c241afed34fd26b6c2046e3a6c84a 2026-02-02 13:06:00                                  PAGO TARJETA INTERBANCARIA ENVIADA  -13.27  BANCO    552.98
+857  4060a953ef156161d481df31ad19400c 2026-02-23 09:34:00                                     PAGO TARJETA:  2230670000895647  -33.85  BANCO  28609.82
+863  cc3f63025737ea87adc7a61e8e52242e 2026-02-27 10:15:00  PAGO TARJETA DE CREDITO MASTERCARD BANCO PICHINCHA  22306700007562 -248.43  BANCO  28339.64
+865  100626d6670611f3758521637175030e 2026-03-02 22:16:00  PAGO TARJETA DE CREDITO MASTERCARD BANCO PICHINCHA  54660500045502 -647.00  BANCO  27692.67
+
+========================================
+
+=== tarjeta_metadata ===
+Columns & Types:
+EMPRESA                                     str
+NUM_TARJETA                                 str
+FECHA_EMISION                    datetime64[us]
+FECHA_MAX_PAGO                   datetime64[us]
+saldo_anterior                          float64
+subtotal_pagado                         float64
+total_a_pagar                           float64
+minimo_a_pagar                          float64
+total_consumo                           float64
+num_transacciones                         int64
+fecha_min                        datetime64[us]
+fecha_max                        datetime64[us]
+total_mes                               float64
+total_a_pagar_despues                   float64
+source_file                                 str
+verificacion_monto_ok                      bool
+verificacion_transacciones_ok              bool
+dtype: object
+
+Head (5 rows):
+                          EMPRESA       NUM_TARJETA FECHA_EMISION FECHA_MAX_PAGO  saldo_anterior  subtotal_pagado  total_a_pagar  minimo_a_pagar  total_consumo  num_transacciones  fecha_min  fecha_max  total_mes  total_a_pagar_despues    source_file  verificacion_monto_ok  verificacion_transacciones_ok
+0  ARCENTALES ARCINIEGA ANDRE SEB  2230XXXXXXXX5647    2024-02-06     2024-02-21          842.83           842.83         106.22           26.05          83.14                 24 2024-01-06 2024-02-06     106.22                 212.44  Febrero24.xls                   True                           True
+1  ARCENTALES ARCINIEGA ANDRE SEB  2230XXXXXXXX5647    2024-03-06     2024-03-21          106.22           132.27         510.98           21.75         533.39                 32 2024-02-06 2024-03-06     537.03                1048.01    Marzo24.xls                   True                           True
+2  ARCENTALES ARCINIEGA ANDRE SEB  2230XXXXXXXX5647    2024-04-06     2024-04-21          510.98          1021.96        -175.44            0.00         340.30                 23 2024-03-08 2024-04-06     335.54                 160.10    Abril24.xls                   True                           True
+3  ARCENTALES ARCINIEGA ANDRE SEB  2230XXXXXXXX5647    2024-05-06     2024-05-21         -175.44             0.00          -4.98            0.00         165.94                 24 2024-04-05 2024-05-06     170.46                 165.48     Mayo24.xls                   True                           True
+4  ARCENTALES ARCINIEGA ANDRE SEB  2230XXXXXXXX5647    2024-06-06     2024-06-21           -4.98             0.00         478.28           24.76         475.29                 27 2024-05-01 2024-06-03     483.26                 961.54    Junio24.xls                   True                           True
+
+Últimos 10 metadata:
+                           EMPRESA       NUM_TARJETA FECHA_EMISION FECHA_MAX_PAGO  saldo_anterior  subtotal_pagado  total_a_pagar  minimo_a_pagar  total_consumo  num_transacciones  fecha_min  fecha_max  total_mes  total_a_pagar_despues       source_file  verificacion_monto_ok  verificacion_transacciones_ok
+16  ARCENTALES ARCINIEGA ANDRE SEB  2230XXXXXXXX5647    2025-06-06     2025-06-23          789.73           789.73         216.10           20.00         206.06                 29 2025-05-05 2025-06-01     216.10                 432.20       Junio25.xls                   True                           True
+17  ARCENTALES ARCINIEGA ANDRE SEB  2230XXXXXXXX5647    2025-07-06     2025-07-21          216.10           236.10         248.82           20.00         261.62                 37 2025-06-06 2025-07-01     268.82                 517.64       Julio25.xls                   True                           True
+18  ARCENTALES ARCINIEGA ANDRE SEB  2230XXXXXXXX5647    2025-08-06     2025-08-21          248.82           268.82         321.54           20.00         334.09                 31 2025-07-04 2025-08-01     341.54                 663.08      Agosto25.xls                   True                           True
+19  ARCENTALES ARCINIEGA ANDRE SEB  2230XXXXXXXX5647    2025-09-06     2025-09-22          321.54            20.00         411.77           22.60         102.04                 19 2025-08-04 2025-09-06     110.23                 522.00  Septiembre25.xls                   True                           True
+20  ARCENTALES ARCINIEGA ANDRE SEB  2230XXXXXXXX5647    2025-10-06     2025-10-21          411.77           409.71         161.95           20.00         155.40                 32 2025-09-06 2025-10-06     159.89                 321.84     Octubre25.xls                   True                           True
+21  ARCENTALES ARCINIEGA ANDRE SEB  2230XXXXXXXX5647    2025-11-06     2025-11-21          161.95           161.95         226.37           20.00         223.42                 26 2025-10-03 2025-11-06     226.37                 452.74   Noviembre25.xls                   True                           True
+22  ARCENTALES ARCINIEGA ANDRE SEB  2230XXXXXXXX5647    2025-12-06     2025-12-22          226.37           226.37         163.72           20.00         160.91                 23 2025-11-06 2025-12-06     163.72                 327.44   Diciembre25.xls                   True                           True
+23  ARCENTALES ARCINIEGA ANDRE SEB  2230XXXXXXXX5647    2026-01-06     2026-01-21          163.72           163.72         439.79           21.39         433.89                 35 2025-12-05 2026-01-04     439.79                 879.58       Enero26.xls                   True                           True
+24  ARCENTALES ARCINIEGA ANDRE SEB  2230XXXXXXXX5647    2026-02-06     2026-02-23          439.79           439.79         282.28           33.85         257.63                 28 2026-01-07 2026-02-06     282.28                 564.56     Febrero26.xls                   True                           True
+25                 BANCO PICHINCHA    3067XXXXXX5647    2026-03-06            NaT          282.28           282.28         230.32            0.00         227.69                 15 2026-02-05 2026-02-27     229.65                 459.97       Marzo26.pdf                  False                           True
+
+========================================
+
+=== tarjeta_unida ===
+Columns & Types:
+id                        str
+FECHA          datetime64[us]
+DESCRIPCION               str
+MONTO                 float64
+FUENTE                    str
+OPERACION                 str
+dtype: object
+
+Head (5 rows):
+                                 id      FECHA                DESCRIPCION  MONTO   FUENTE OPERACION
+0  691181bf59add7034ede63ea41b766de 2024-01-06  MCDONALDS EC KSU        G   6.98  TARJETA   CONSUMO
+1  1c5fc02d06c9f4271f3eea699e78505e 2024-01-06  MEGAMAXI EL CONDADO LC  Q  13.62  TARJETA   CONSUMO
+2  511381a13bbeb848ddddf708ea854721 2024-01-06  PYCCA CONDADOECU        Q   3.19  TARJETA   CONSUMO
+3  3907fdbb2f82f617ed49123e00945b55 2024-01-08  GOOGLE *Google Storage  6   1.99  TARJETA   CONSUMO
+4  824c9ba3e9237c615df39e8560a9bfec 2024-01-08  RET IVA SERV DIGITAL 100%   0.24  TARJETA       N/D
+
+========================================
+

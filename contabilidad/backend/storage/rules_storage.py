@@ -98,6 +98,60 @@ def save_tag_rule(tag: str, attrs: dict) -> dict:
     return existing
 
 
+def delete_entity_rule(name: str) -> bool:
+    """Elimina la regla de una entidad. Retorna True si existía."""
+    rules = load_rules()
+    if name not in rules["entity_data"]:
+        return False
+    del rules["entity_data"][name]
+    save_rules(rules)
+    logger.info("Regla de entidad eliminada: '%s'", name)
+    return True
+
+
+def delete_tag_rule(tag: str) -> bool:
+    """Elimina la regla de un tag. Retorna True si existía."""
+    rules = load_rules()
+    if tag not in rules["tag_data"]:
+        return False
+    del rules["tag_data"][tag]
+    save_rules(rules)
+    logger.info("Regla de tag eliminada: '%s'", tag)
+    return True
+
+
+def delete_rule_map(original: str) -> bool:
+    """Elimina un mapeo descripción → nombre limpio. Retorna True si existía."""
+    rules = load_rules()
+    if original not in rules["description_map"]:
+        return False
+    del rules["description_map"][original]
+    save_rules(rules)
+    logger.info("Mapeo eliminado: '%s'", original)
+    return True
+
+
+def rename_entity_rule(old_name: str, new_name: str) -> bool:
+    """
+    Renombra una entidad: mueve su regla y reapunta todos los mapeos de
+    descripción que la referenciaban.
+    """
+    if not new_name or old_name == new_name:
+        return False
+    rules = load_rules()
+    if old_name not in rules["entity_data"]:
+        return False
+
+    rules["entity_data"][new_name] = rules["entity_data"].pop(old_name)
+    for desc, clean in list(rules["description_map"].items()):
+        if clean == old_name:
+            rules["description_map"][desc] = new_name
+
+    save_rules(rules)
+    logger.info("Entidad renombrada: '%s' -> '%s'", old_name, new_name)
+    return True
+
+
 # ── Motor de aplicación ───────────────────────────────────────────────────────
 
 def apply_rules_to_dataframe(df: pd.DataFrame) -> pd.DataFrame:

@@ -39,6 +39,239 @@ def obtener_todos_deudores() -> pd.DataFrame:
     return df
 
 
+def listar_deudores() -> pd.DataFrame:
+    """
+    Lista simple de deudores (id, nombre) para poblar selects en el frontend.
+    Robusta ante nombres vacíos. Soporta MOCK_MODE derivando de las deudas mock.
+    """
+    if os.environ.get("MOCK_MODE", "false").lower() == "true":
+        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        mock_path = os.path.join(base_dir, "data_mock", "sistema", "deudas", "deudas.csv")
+        if os.path.exists(mock_path):
+            m = pd.read_csv(mock_path)
+            if {'deudor_id', 'deudor_nombre'}.issubset(m.columns):
+                d = m[['deudor_id', 'deudor_nombre']].drop_duplicates()
+                d = d.rename(columns={'deudor_id': 'id', 'deudor_nombre': 'nombre'})
+                return d.sort_values('nombre').reset_index(drop=True)
+        return pd.DataFrame(columns=['id', 'nombre'])
+
+    response = supabase.table('deudores').select('id, nombre').execute()
+    if not response.data:
+        return pd.DataFrame(columns=['id', 'nombre'])
+
+    df = pd.DataFrame(response.data)
+    df = df[df['nombre'].notna() & (df['nombre'].astype(str).str.strip() != '')]
+    return df.sort_values('nombre').reset_index(drop=True)
+
+
+def _ec_num(v, default=0.0):
+    try:
+        return float(v) if v is not None else default
+    except (TypeError, ValueError):
+        return default
+
+
+def _ec_fecha(v):
+    return str(v)[:10] if v is not None else None
+
+
+def _construir_flujo_cuenta(deudas_raw: list, pagos_raw: list, detalles: list) -> dict:
+    """
+    Arma el estado de cuenta completo a partir de listas crudas de deudas, pagos y
+    detalle_pagos (asignaciones pago→deuda). Devuelve deudas (con qué pagos las
+    abonaron), pagos (con a qué deudas fueron + sobrante), un ledger cronológico con
+    saldo acumulado, y un resumen con neto y saldo a favor.
+
+    Convención de signo del ledger (POV = dueño): las deudas "te deben" suman al saldo
+    por cobrar (+), las "tú debes" restan (−), y cada asignación de pago reduce el saldo.
+    """
+    pago_by_id = {str(p.get('id')): p for p in pagos_raw}
+    titulo_by_deuda = {str(d.get('id')): (d.get('titulo') or 'Deuda') for d in deudas_raw}
+
+    det_by_deuda: dict = {}
+    det_by_pago: dict = {}
+    for det in detalles:
+        det_by_deuda.setdefault(str(det.get('deuda_id')), []).append(det)
+        det_by_pago.setdefault(str(det.get('pago_id')), []).append(det)
+
+    # --- Deudas ---
+    out_deudas = []
+    for d in deudas_raw:
+        did = str(d.get('id'))
+        allocs = det_by_deuda.get(did, [])
+        pagado = round(sum(_ec_num(a.get('monto_asignado')) for a in allocs), 2)
+        mo = _ec_num(d.get('monto') if d.get('monto') is not None else d.get('monto_original'))
+        saldo = round(mo - pagado, 2)
+        estado = 'PAGADA' if saldo <= 0.01 else ('PARCIAL' if pagado > 0.01 else 'PENDIENTE')
+        out_deudas.append({
+            'id': did,
+            'titulo': d.get('titulo') or 'Deuda',
+            'fecha_gasto': _ec_fecha(d.get('fecha_gasto')),
+            'monto_original': mo,
+            'monto_pagado': pagado,
+            'saldo_pendiente': max(saldo, 0.0),
+            'estado': estado,
+            'es_tu_deuda': bool(d.get('es_mi_deuda')),
+            'pagos': [{
+                'pago_id': str(a.get('pago_id')),
+                'fecha_pago': _ec_fecha((pago_by_id.get(str(a.get('pago_id'))) or {}).get('fecha_pago')),
+                'monto_asignado': _ec_num(a.get('monto_asignado')),
+            } for a in allocs],
+        })
+
+    # --- Pagos ---
+    out_pagos = []
+    for p in pagos_raw:
+        pid = str(p.get('id'))
+        allocs = det_by_pago.get(pid, [])
+        asignado = round(sum(_ec_num(a.get('monto_asignado')) for a in allocs), 2)
+        mt = _ec_num(p.get('monto_total'))
+        out_pagos.append({
+            'id': pid,
+            'fecha_pago': _ec_fecha(p.get('fecha_pago')),
+            'monto_total': mt,
+            'asignado': asignado,
+            'sobrante': round(mt - asignado, 2),
+            'es_mi_pago': bool(p.get('es_mi_pago')),
+            'es_compensacion': bool(p.get('es_compensacion')),
+            'deudas': [{
+                'deuda_id': str(a.get('deuda_id')),
+                'titulo': titulo_by_deuda.get(str(a.get('deuda_id')), '—'),
+                'monto_asignado': _ec_num(a.get('monto_asignado')),
+            } for a in allocs],
+        })
+
+    # --- Ledger cronológico (ascendente) con saldo acumulado ---
+    eventos = []
+    for d in out_deudas:
+        sign = -1 if d['es_tu_deuda'] else 1
+        eventos.append({
+            'fecha': d['fecha_gasto'], 'tipo': 'deuda', 'id': d['id'],
+            'concepto': d['titulo'], 'es_tu_deuda': d['es_tu_deuda'],
+            'delta': round(sign * d['monto_original'], 2), 'detalle': [],
+        })
+    for p in out_pagos:
+        # Signo del pago (POV dueño = igual que edge function get_historial):
+        #  - pago recibido (no es_mi_pago): resta del saldo por el TOTAL pagado.
+        #  - pago entregado (es_mi_pago): suma al saldo por el total.
+        #  - compensación (cruce): NO altera el saldo (el offset ya se refleja en las
+        #    deudas de ambos lados); solo se muestra como movimiento informativo.
+        # Se usa monto_total (asignado + sobrante) para que el saldo a favor quede
+        # reflejado como crédito del deudor.
+        if p['es_compensacion']:
+            concepto, delta = 'Cruce de cuentas', 0.0
+        elif p['es_mi_pago']:
+            concepto, delta = 'Pago entregado', round(p['monto_total'], 2)
+        else:
+            concepto, delta = 'Pago recibido', round(-p['monto_total'], 2)
+        eventos.append({
+            'fecha': p['fecha_pago'], 'tipo': 'pago', 'id': p['id'],
+            'concepto': concepto, 'es_tu_deuda': False,
+            'delta': delta, 'sobrante': p['sobrante'],
+            'es_compensacion': p['es_compensacion'], 'monto_total': p['monto_total'],
+            'detalle': [{'titulo': a['titulo'], 'monto': a['monto_asignado']} for a in p['deudas']],
+        })
+    # Saldo acumulado se calcula en orden cronológico (pasado→presente).
+    eventos.sort(key=lambda e: ((e['fecha'] or ''), 0 if e['tipo'] == 'deuda' else 1))
+    saldo = 0.0
+    for e in eventos:
+        saldo = round(saldo + e['delta'], 2)
+        e['saldo_acumulado'] = saldo
+
+    # --- Deudas que quedan PARCIALMENTE cubiertas tras cada pago ---
+    # Recorriendo los pagos cronológicamente, acumulamos lo abonado por deuda; si tras un
+    # pago una deuda que ese pago tocó sigue con saldo (0 < pagado < original), se repite
+    # bajo el pago con su saldo restante en ese momento.
+    from collections import defaultdict
+    deuda_orig = {d['id']: d['monto_original'] for d in out_deudas}
+    deuda_titulo = {d['id']: d['titulo'] for d in out_deudas}
+    cum: dict = defaultdict(float)
+    for p in sorted(out_pagos, key=lambda x: (x['fecha_pago'] or '')):
+        for a in p['deudas']:
+            cum[a['deuda_id']] += a['monto_asignado']
+        parciales, seen = [], set()
+        for a in p['deudas']:
+            did = a['deuda_id']
+            if did in seen:
+                continue
+            seen.add(did)
+            orig = deuda_orig.get(did, 0.0)
+            pagado = round(cum[did], 2)
+            saldo_d = round(orig - pagado, 2)
+            if pagado > 0.01 and saldo_d > 0.01:  # parcialmente cubierta
+                parciales.append({
+                    'deuda_id': did, 'titulo': deuda_titulo.get(did, '—'),
+                    'monto_original': orig, 'pagado_acumulado': pagado, 'saldo': saldo_d,
+                })
+        p['_parciales'] = parciales
+    parciales_by_pago = {p['id']: p.get('_parciales', []) for p in out_pagos}
+    for e in eventos:
+        if e['tipo'] == 'pago':
+            e['parciales'] = parciales_by_pago.get(e['id'], [])
+    for p in out_pagos:
+        p.pop('_parciales', None)
+
+    # --- Orden de presentación: presente→pasado (cronológico descendente) ---
+    # El pago tiene fecha posterior a las deudas que abonó, así que queda ARRIBA
+    # (más actual) que ellas. En misma fecha, el pago va sobre la deuda.
+    movimientos = list(reversed(eventos))
+
+    out_deudas.sort(key=lambda d: d['fecha_gasto'] or '', reverse=True)
+    out_pagos.sort(key=lambda p: p['fecha_pago'] or '', reverse=True)
+
+    total_te_deben = round(sum(d['saldo_pendiente'] for d in out_deudas if not d['es_tu_deuda']), 2)
+    total_tu_debes = round(sum(d['saldo_pendiente'] for d in out_deudas if d['es_tu_deuda']), 2)
+    saldo_favor = round(sum(p['sobrante'] for p in out_pagos
+                            if p['sobrante'] > 0.01 and not p['es_compensacion']), 2)
+
+    resumen = {
+        'total_original': round(sum(d['monto_original'] for d in out_deudas), 2),
+        'total_pagado': round(sum(d['monto_pagado'] for d in out_deudas), 2),
+        'total_pendiente': round(sum(d['saldo_pendiente'] for d in out_deudas), 2),
+        'total_te_deben': total_te_deben,
+        'total_tu_debes': total_tu_debes,
+        # + te deben, − tú debes. El saldo a favor (sobrante) es crédito del deudor,
+        # así que se resta del neto (dinero que le debes de vuelta).
+        'neto': round(total_te_deben - total_tu_debes - saldo_favor, 2),
+        'saldo_favor': saldo_favor,
+        'count': len(out_deudas),
+        'count_pagadas': sum(1 for d in out_deudas if d['estado'] == 'PAGADA'),
+        'count_pendientes': sum(1 for d in out_deudas if d['estado'] != 'PAGADA'),
+    }
+    return {'deudas': out_deudas, 'pagos': out_pagos, 'movimientos': movimientos, 'resumen': resumen}
+
+
+def obtener_estado_cuenta(deudor_id: str) -> dict:
+    """
+    Estado de cuenta completo de un deudor: deudas con qué pagos las abonaron, pagos con
+    a qué deudas fueron (+ sobrante), ledger cronológico con saldo acumulado y resumen.
+    Modela el flujo real de dinero usando las tablas `deudas`, `pagos` y `detalle_pagos`.
+    """
+    if os.environ.get("MOCK_MODE", "false").lower() == "true":
+        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        dpath = os.path.join(base_dir, "data_mock", "sistema", "deudas", "deudas.csv")
+        ppath = os.path.join(base_dir, "data_mock", "sistema", "deudas", "pagos_deudas.csv")
+        deudas_raw, pagos_raw = [], []
+        if os.path.exists(dpath):
+            m = pd.read_csv(dpath)
+            m = m[m['deudor_id'].astype(str) == str(deudor_id)]
+            deudas_raw = m.to_dict(orient='records')
+        if os.path.exists(ppath):
+            p = pd.read_csv(ppath)
+            p = p[p['deudor_id'].astype(str) == str(deudor_id)]
+            pagos_raw = p.to_dict(orient='records')
+        # El mock no tiene detalle_pagos; los pagos quedan como saldo a favor.
+        return _construir_flujo_cuenta(deudas_raw, pagos_raw, [])
+
+    deudas_raw = supabase.table('deudas').select('*').eq('deudor_id', deudor_id).execute().data or []
+    pagos_raw = supabase.table('pagos').select('*').eq('deudor_id', deudor_id).execute().data or []
+    deuda_ids = [d.get('id') for d in deudas_raw if d.get('id') is not None]
+    detalles = []
+    if deuda_ids:
+        detalles = supabase.table('detalle_pagos').select('*').in_('deuda_id', deuda_ids).execute().data or []
+    return _construir_flujo_cuenta(deudas_raw, pagos_raw, detalles)
+
+
 def obtener_todas_deudas(solo_pendientes: bool = True) -> pd.DataFrame:
     """
     Obtiene todas las deudas registradas desde la vista de estado.

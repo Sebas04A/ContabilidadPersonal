@@ -1,5 +1,5 @@
 import React from 'react';
-import { Flame, Info, AlertTriangle, ArrowRight } from 'lucide-react';
+import { Flame, Info, ArrowRight } from 'lucide-react';
 
 export const SurvivalBreakEven: React.FC = () => {
     // Mock Data

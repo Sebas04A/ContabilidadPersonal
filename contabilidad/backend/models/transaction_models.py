@@ -21,6 +21,7 @@ class TransactionOut(BaseModel):
     split_group_id: Optional[str] = None
     group_id: Optional[str] = None   # NEW
     fondo_id: Optional[str] = None   # Fund this transaction belongs to
+    deuda_id: Optional[str] = None   # Linked Supabase debt id
 
 class TransactionUpdate(BaseModel):
     nombre_limpio: Optional[str] = None
@@ -37,6 +38,7 @@ class TransactionUpdate(BaseModel):
     group_id: Optional[str] = None   # Can be used to manually set/unset group
     monto_asignado: Optional[float] = None # For splits
     fondo_id: Optional[str] = None   # Assign/unassign a fund (empty string to clear)
+    deuda_id: Optional[str] = None   # Link/unlink a Supabase debt (empty string to clear)
 
 class SplitItem(BaseModel):
     monto: float
@@ -58,3 +60,13 @@ class SplitRequest(BaseModel):
 class GroupRequest(BaseModel):
     transaction_ids: List[str]
     master_data: Optional[TransactionUpdate] = None
+
+class BulkUpdateRequest(BaseModel):
+    transaction_ids: List[str]
+    updates: TransactionUpdate
+    overwrite: bool = False          # False = solo rellenar campos vacíos
+    tags_mode: str = 'append'        # 'append' suma tags, 'replace' los sustituye
+    propagate_groups: bool = True    # Incluir transacciones del mismo group_id
+    save_as_rule: bool = False       # Guardar también en rules.json
+    rule_entities: Optional[List[str]] = None   # nombres limpios -> entity_data
+    rule_tags: Optional[List[str]] = None       # tags -> tag_data

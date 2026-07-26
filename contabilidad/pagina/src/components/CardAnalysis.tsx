@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import CardChart, { CardData } from './CardChart';
-import { Calendar, ChevronRight, ChevronLeft, CreditCard, AlertCircle, CheckCircle2, DollarSign } from 'lucide-react';
+import { Calendar, ChevronRight, ChevronLeft, CreditCard, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useState } from 'react';
 
 export default function CardAnalysis() {

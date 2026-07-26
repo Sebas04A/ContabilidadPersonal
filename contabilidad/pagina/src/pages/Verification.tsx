@@ -18,10 +18,24 @@ const catMissing = (t: Transaction) => {
 };
 const tagsMissing = (t: Transaction) => !(t.tags || '').trim();
 const prioridadMissing = (t: Transaction) => {
+  const cat = (t.categoria || '').trim().toLowerCase();
+  const isExcluded = cat === 'inversion' || cat === 'inversión' || cat === 'inversiones' ||
+                     cat === 'deuda' || cat === 'deudas' ||
+                     cat === 'tarjeta' || cat === 'tarjetas';
+  if (isExcluded) return false;
+
   const p = (t.prioridad || '').trim().toLowerCase();
   return !p || p === '---';
 };
 const felicidadMissing = (t: Transaction) => {
+  if (t.es_reembolsable) return false;
+
+  const cat = (t.categoria || '').trim().toLowerCase();
+  const isExcluded = cat === 'inversion' || cat === 'inversión' || cat === 'inversiones' ||
+                     cat === 'deuda' || cat === 'deudas' ||
+                     cat === 'tarjeta' || cat === 'tarjetas';
+  if (isExcluded) return false;
+
   const f = Number(t.felicidad);
   return t.felicidad == null || Number.isNaN(f) || f === 0;
 };
@@ -121,7 +135,7 @@ export function Verification() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  const allTx = useMemo(() => groupSplits(rawTx || []), [rawTx]);
+  const allTx = useMemo(() => groupSplits((rawTx || []).filter(t => !t.es_reembolsable)), [rawTx]);
 
   // Full available date span (for presets / input bounds).
   const dateBounds = useMemo(() => {
@@ -174,6 +188,10 @@ export function Verification() {
   }, [displayTx]);
 
   const total = displayTx.length;
+
+  const totalSumAmount = useMemo(() => {
+    return displayTx.reduce((sum, t) => sum + Math.abs(t.MONTO), 0);
+  }, [displayTx]);
 
   const health = useMemo(() => {
     if (total === 0) return 100;
@@ -351,6 +369,7 @@ export function Verification() {
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
                 {ISSUES.map((issue, idx) => {
                   const count = buckets[issue.key].length;
+                  const sumAmount = buckets[issue.key].reduce((sum, t) => sum + Math.abs(t.MONTO), 0);
                   const okPct = total === 0 ? 100 : Math.round(((total - count) / total) * 100);
                   const isActive = activeIssue === issue.key;
                   const Icon = issue.icon;
@@ -378,13 +397,36 @@ export function Verification() {
                           <span className="text-[10px] font-bold text-gray-400 mt-0.5">{okPct}%</span>
                         </div>
                       </div>
-                      <div className="min-w-0">
-                        <p className={`text-3xl font-bold font-mono leading-none tracking-tight ${count > 0 ? 'text-white' : 'text-emerald-400'}`}>
-                          {count}
-                        </p>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-baseline gap-1.5">
+                          <span className={`text-3xl font-bold font-mono leading-none tracking-tight ${count > 0 ? 'text-white' : 'text-emerald-400'}`}>
+                            {count}
+                          </span>
+                          {count > 0 && (
+                            <span className="text-xs font-semibold text-gray-500 font-mono">
+                              ({((count / total) * 100).toFixed(1)}%)
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mt-1.5">{issue.label}</p>
-                        <p className="text-[11px] text-gray-600 mt-0.5 flex items-center gap-1">
-                          {count > 0 ? <>pendientes <ChevronRight size={12} /></> : 'todo listo ✓'}
+                        <p className="text-[11px] text-gray-600 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                          {count > 0 ? (
+                            <>
+                              <span className="font-mono font-semibold text-gray-400">
+                                ${sumAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                              {totalSumAmount > 0 && (
+                                <span className="font-mono text-gray-500 text-[10px]">
+                                  ({((sumAmount / totalSumAmount) * 100).toFixed(1)}%)
+                                </span>
+                              )}
+                              <span className="text-[9px] text-gray-500">•</span>
+                              <span>pendientes</span>
+                              <ChevronRight size={12} className="text-gray-500 shrink-0" />
+                            </>
+                          ) : (
+                            'todo listo ✓'
+                          )}
                         </p>
                       </div>
                     </button>
@@ -498,11 +540,12 @@ export function Verification() {
                   const isFull = activeIssue === issue.key;
                   const shown = isFull ? txs : txs.slice(0, SECTION_LIMIT);
                   const Icon = issue.icon;
+                  const sectionSum = txs.reduce((sum, t) => sum + Math.abs(t.MONTO), 0);
                   return (
                     <div key={issue.key} className="glass-card rounded-2xl overflow-hidden">
                       {/* Section header */}
                       <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 flex-wrap">
                           <div className={`p-2 rounded-xl bg-white/[0.03] border border-white/5 ${issue.color}`}>
                             <Icon size={18} />
                           </div>
@@ -510,8 +553,20 @@ export function Verification() {
                           <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${issue.sevColor}`}>
                             {issue.severity}
                           </span>
-                          <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-white/5 text-gray-300 border border-white/5">
-                            {txs.length}
+                          <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-white/5 text-gray-300 border border-white/5 flex items-center gap-1.5 flex-wrap">
+                            <span>
+                              {txs.length} {txs.length === 1 ? 'transacción' : 'transacciones'}{' '}
+                              <span className="text-gray-500 font-normal">({((txs.length / total) * 100).toFixed(1)}%)</span>
+                            </span>
+                            <span className="text-white/20">|</span>
+                            <span className="text-emerald-400 font-mono">
+                              ${sectionSum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{' '}
+                              {totalSumAmount > 0 && (
+                                <span className="text-emerald-500/70 font-normal text-[10px]">
+                                  ({((sectionSum / totalSumAmount) * 100).toFixed(1)}%)
+                                </span>
+                              )}
+                            </span>
                           </span>
                         </div>
                         {!isFull && txs.length > SECTION_LIMIT && (

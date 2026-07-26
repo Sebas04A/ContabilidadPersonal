@@ -138,7 +138,7 @@ export default function InvestmentChart({ data, loading }: InvestmentChartProps)
     ];
 
     // Add investment period markers - amber/gold for active periods
-    data.investment_periods.forEach((period, index) => {
+    data.investment_periods.forEach((period) => {
       const startIndex = data.dates.findIndex(d => d >= period.start_date);
       const endIndex = data.dates.findIndex(d => d >= period.end_date);
       

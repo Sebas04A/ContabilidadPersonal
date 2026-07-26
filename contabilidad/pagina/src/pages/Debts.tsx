@@ -1,7 +1,10 @@
-import { useMemo, useState } from 'react';
-import { Search, Filter, Wallet, Calendar, BarChart3, User, ArrowRight, CheckCircle2, Clock, Link2, Scale, Layers, Scissors } from 'lucide-react';
-import { useRefundableTransactions, useSupabaseDebts } from '../hooks/useTransactions';
+import { useMemo, useState, useEffect } from 'react';
+import { Search, Filter, Wallet, Calendar, BarChart3, User, ArrowRight, Check, CheckCircle2, Clock, Link2, Link as LinkIcon, Unlink, MousePointerClick, Scale, Layers, Scissors, X } from 'lucide-react';
+import { useRefundableTransactions, useSupabaseDebts, useUpdateTransaction, useTags } from '../hooks/useTransactions';
 import { DebtsChart } from '../components/DebtsChart';
+import { EditModal } from '../components/EditModal';
+import { AccountStatementModal } from '../components/AccountStatementModal';
+import type { Transaction, SupabaseDebt, TransactionUpdate } from '../services/api';
 import { buildTimeline, type DebtItem, type Granularity } from '../utils/debtTimeline';
 
 const fmt = (n: number) =>
@@ -11,7 +14,22 @@ export function Debts() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState<{ startDate?: string; endDate?: string; debtor?: string }>({});
   const [showChart, setShowChart] = useState(false);
+  const [showAccount, setShowAccount] = useState(false);
   const [granularity, setGranularity] = useState<Granularity>('month');
+  const [onlyMatches, setOnlyMatches] = useState(false);
+  const [hoveredMatch, setHoveredMatch] = useState<number | null>(null);
+
+  // Vinculación manual: selección de un lado local y uno de Supabase
+  const [selLocal, setSelLocal] = useState<{ key: string; txId: string } | null>(null);
+  const [selSupa, setSelSupa] = useState<{ key: string; debtId: string } | null>(null);
+  const updateTx = useUpdateTransaction();
+
+  // Modal de etiquetado (clic normal en una transacción local)
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const { data: existingTags } = useTags();
+  const handleSaveLabel = (id: string, updates: TransactionUpdate) => {
+    updateTx.mutate({ id, updates });
+  };
 
   // Left Side Data (Local Refundables)
   const { data: transactions, isLoading: isLoadingLeft } = useRefundableTransactions(filters);
@@ -29,7 +47,7 @@ export function Debts() {
   };
 
   // Client-side search filter (applied before grouping)
-  const { bands, reconciliation } = useMemo(() => {
+  const { bands, reconciliation, items } = useMemo(() => {
     const q = searchTerm.toLowerCase();
     const matchesSearch = (title: string, description: string, debtor: string) =>
       !q ||
@@ -48,6 +66,46 @@ export function Debts() {
   }, [transactions, supabaseDebts, searchTerm, granularity]);
 
   const isLoading = isLoadingLeft || isLoadingRight;
+
+  // Cuando hay un local y un Supabase seleccionados → vincular (guardar deuda_id)
+  useEffect(() => {
+    if (selLocal && selSupa && !updateTx.isPending) {
+      updateTx.mutate(
+        { id: selLocal.txId, updates: { deuda_id: selSupa.debtId } },
+        { onSettled: () => { setSelLocal(null); setSelSupa(null); } },
+      );
+    }
+  }, [selLocal, selSupa]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Checkbox → seleccionar para vincular
+  const handleToggleSelect = (item: DebtItem) => {
+    if (item.linked) return;
+    if (item.side === 'local') {
+      const txId = (item.raw as Transaction).id;
+      setSelLocal(prev => (prev?.key === item.key ? null : { key: item.key, txId }));
+    } else {
+      const debtId = String((item.raw as SupabaseDebt).ID);
+      setSelSupa(prev => (prev?.key === item.key ? null : { key: item.key, debtId }));
+    }
+  };
+
+  // Clic normal en el cuerpo → abrir el modal de etiquetado (solo transacciones locales)
+  const handleOpenModal = (item: DebtItem) => {
+    if (item.side === 'local') setEditingTransaction(item.raw as Transaction);
+  };
+
+  const handleUnlink = (item: DebtItem) => {
+    // Encontrar la transacción local del par (para limpiar su deuda_id)
+    const localPart = item.side === 'local'
+      ? item
+      : items.find(i => i.side === 'local' && i.linkId === item.linkId);
+    if (!localPart) return;
+    const txId = (localPart.raw as Transaction).id;
+    updateTx.mutate({ id: txId, updates: { deuda_id: '' } });
+  };
+
+  const clearSelection = () => { setSelLocal(null); setSelSupa(null); };
+  const selecting = !!(selLocal || selSupa);
 
   return (
     <div className="flex flex-col h-full bg-surface-950 relative overflow-hidden">
@@ -98,6 +156,28 @@ export function Debts() {
                   </button>
                 ))}
               </div>
+
+              {/* Solo coincidencias toggle */}
+              <button
+                onClick={() => setOnlyMatches(v => !v)}
+                className={`px-3.5 py-2.5 rounded-xl border transition-all shadow-lg active:scale-95 flex items-center gap-2 text-sm font-semibold ${
+                  onlyMatches
+                    ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
+                    : 'bg-surface-900 border-white/10 text-surface-300 hover:text-white hover:border-amber-500/30'
+                }`}
+                title="Mostrar solo transacciones emparejadas con una deuda de Supabase"
+              >
+                <Link2 size={18} />
+                <span>Solo coincidencias</span>
+              </button>
+
+              <button
+                onClick={() => setShowAccount(true)}
+                className="group relative px-5 py-2.5 bg-surface-900 hover:bg-surface-800 text-surface-200 hover:text-white rounded-xl border border-white/10 transition-all shadow-lg hover:shadow-emerald-500/20 hover:border-emerald-500/30 active:scale-95 flex items-center gap-2"
+              >
+                <User size={18} />
+                <span className="font-semibold text-sm">Por persona</span>
+              </button>
 
               <button
                 onClick={() => setShowChart(true)}
@@ -164,7 +244,9 @@ export function Debts() {
               icon={<Scale size={14} />}
             />
             <div className="flex flex-col justify-center gap-1.5 rounded-2xl bg-surface-900/40 border border-white/10 px-4 py-3">
-              <div className="flex items-center gap-2 text-[11px] font-semibold">
+              <div className="flex items-center gap-3 text-[11px] font-semibold">
+                <span className="flex items-center gap-1 text-emerald-300"><LinkIcon size={12} />{reconciliation.countLinked} vinculados</span>
+                <span className="text-surface-600">·</span>
                 <span className="flex items-center gap-1 text-amber-300"><Link2 size={12} />{reconciliation.countMatched} coincidentes</span>
               </div>
               <div className="flex items-center gap-3 text-[11px] text-surface-400">
@@ -173,6 +255,29 @@ export function Debts() {
                 <span>{reconciliation.countOnlySupabase} solo Supabase</span>
               </div>
             </div>
+          </div>
+
+          {/* Selection helper / linking bar */}
+          <div className={`flex items-center gap-3 rounded-xl border px-4 py-2.5 text-sm transition-all ${
+            selecting
+              ? 'bg-indigo-500/10 border-indigo-500/40 text-indigo-100'
+              : 'bg-surface-900/40 border-white/5 text-surface-400'
+          }`}>
+            <MousePointerClick size={16} className={selecting ? 'text-indigo-300' : 'text-surface-500'} />
+            {updateTx.isPending ? (
+              <span className="flex items-center gap-2"><span className="w-3.5 h-3.5 border-2 border-indigo-400/40 border-t-indigo-400 rounded-full animate-spin" /> Guardando vínculo…</span>
+            ) : selecting ? (
+              <>
+                <span className="font-medium">
+                  {selLocal ? 'Transacción local marcada' : 'Deuda de Supabase marcada'} — marca el check de {selLocal ? 'una deuda de Supabase' : 'una transacción local'} para vincular.
+                </span>
+                <button onClick={clearSelection} className="ml-auto flex items-center gap-1 text-xs font-semibold text-surface-400 hover:text-white transition-colors">
+                  <X size={13} /> Cancelar
+                </button>
+              </>
+            ) : (
+              <span>Marca el <span className="text-indigo-300 font-medium">check</span> de una transacción local y una deuda de Supabase para vincularlas. El clic normal abre el <span className="text-emerald-300 font-medium">etiquetado</span>.</span>
+            )}
           </div>
         </div>
 
@@ -204,7 +309,11 @@ export function Debts() {
             </div>
           ) : (
             <div className="flex flex-col">
-              {bands.map(band => (
+              {bands.map(band => {
+                const left = onlyMatches ? band.left.filter(i => i.matchId !== undefined || i.linked) : band.left;
+                const right = onlyMatches ? band.right.filter(i => i.matchId !== undefined || i.linked) : band.right;
+                if (onlyMatches && left.length === 0 && right.length === 0) return null;
+                return (
                 <section key={band.key}>
                   {/* Period header (sticky, shared time axis) */}
                   <div className="sticky top-[45px] z-20 flex items-center gap-3 py-3 bg-surface-950/90 backdrop-blur-md">
@@ -220,28 +329,61 @@ export function Debts() {
                   {/* Two halves of this period band */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-0 lg:divide-x lg:divide-white/5 pb-4">
                     <div className="flex flex-col gap-2.5 lg:pr-4">
-                      {band.left.length === 0 ? (
+                      {left.length === 0 ? (
                         <EmptySide />
                       ) : (
-                        band.left.map(item => <DebtCard key={item.key} item={item} />)
+                        left.map(item => (
+                          <DebtCard
+                            key={item.key}
+                            item={item}
+                            hoveredMatch={hoveredMatch}
+                            onHover={setHoveredMatch}
+                            selected={selLocal?.key === item.key || selSupa?.key === item.key}
+                            onToggleSelect={() => handleToggleSelect(item)}
+                            onOpen={() => handleOpenModal(item)}
+                            onUnlink={() => handleUnlink(item)}
+                          />
+                        ))
                       )}
                     </div>
                     <div className="flex flex-col gap-2.5 lg:pl-4">
-                      {band.right.length === 0 ? (
+                      {right.length === 0 ? (
                         <EmptySide />
                       ) : (
-                        band.right.map(item => <DebtCard key={item.key} item={item} />)
+                        right.map(item => (
+                          <DebtCard
+                            key={item.key}
+                            item={item}
+                            hoveredMatch={hoveredMatch}
+                            onHover={setHoveredMatch}
+                            selected={selLocal?.key === item.key || selSupa?.key === item.key}
+                            onToggleSelect={() => handleToggleSelect(item)}
+                            onOpen={() => handleOpenModal(item)}
+                            onUnlink={() => handleUnlink(item)}
+                          />
+                        ))
                       )}
                     </div>
                   </div>
                 </section>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
       </div>
 
       {showChart && <DebtsChart onClose={() => setShowChart(false)} />}
+      {showAccount && <AccountStatementModal onClose={() => setShowAccount(false)} />}
+
+      <EditModal
+        transaction={editingTransaction}
+        isOpen={!!editingTransaction}
+        onClose={() => setEditingTransaction(null)}
+        onSave={handleSaveLabel}
+        categories={[]}
+        existingTags={existingTags || []}
+      />
     </div>
   );
 }
@@ -278,27 +420,74 @@ function EmptySide() {
   );
 }
 
-function DebtCard({ item }: { item: DebtItem }) {
+function DebtCard({ item, hoveredMatch, onHover, selected, onToggleSelect, onOpen, onUnlink }: {
+  item: DebtItem;
+  hoveredMatch: number | null;
+  onHover: (m: number | null) => void;
+  selected?: boolean;
+  onToggleSelect?: () => void;
+  onOpen?: () => void;
+  onUnlink?: () => void;
+}) {
   const isLocal = item.side === 'local';
   const matched = item.matchId !== undefined;
+  const linked = !!item.linked;
   const paidDebt = item.side === 'supabase' && item.paid;
+  const isHighlighted = matched && item.matchId === hoveredMatch;
+  const clickableBody = isLocal && !linked; // solo las locales abren el modal de etiquetado
 
-  const baseClass = matched
-    ? 'border-amber-500/40 bg-amber-500/[0.04] hover:bg-amber-500/[0.07]'
-    : paidDebt
-      ? 'bg-surface-900/20 border-white/5 opacity-60 hover:opacity-100'
-      : isLocal
-        ? 'bg-surface-900/40 border-white/5 hover:border-indigo-500/30 hover:bg-surface-800/60'
-        : 'bg-surface-900/40 border-white/5 hover:border-emerald-500/30 hover:bg-surface-800/60';
+  const baseClass = linked
+    ? 'border-emerald-400/70 bg-emerald-500/[0.12] ring-1 ring-emerald-400/40'
+    : selected
+      ? 'border-indigo-400 bg-indigo-500/[0.12] ring-2 ring-indigo-400/60'
+      : isHighlighted
+        ? 'border-amber-400 bg-amber-500/[0.12] ring-2 ring-amber-400/50'
+        : matched
+          ? 'border-amber-500/40 bg-amber-500/[0.04] hover:bg-amber-500/[0.07]'
+          : paidDebt
+            ? 'bg-surface-900/20 border-white/5 opacity-60 hover:opacity-100'
+            : isLocal
+              ? 'bg-surface-900/40 border-white/5 hover:border-indigo-500/30 hover:bg-surface-800/60'
+              : 'bg-surface-900/40 border-white/5 hover:border-emerald-500/30 hover:bg-surface-800/60';
 
   return (
     <div
-      className={`group relative p-3.5 rounded-2xl border transition-all overflow-hidden ${baseClass}`}
-      title={matched ? 'Posible misma deuda (mismo monto y fecha cercana)' : undefined}
+      className={`group relative p-3.5 ${linked ? '' : 'pl-11'} rounded-2xl border transition-all overflow-hidden ${baseClass} ${clickableBody ? 'cursor-pointer' : ''}`}
+      title={clickableBody ? 'Clic para etiquetar' : undefined}
+      onClick={clickableBody ? onOpen : undefined}
+      onMouseEnter={matched ? () => onHover(item.matchId!) : undefined}
+      onMouseLeave={matched ? () => onHover(null) : undefined}
     >
-      {matched && (
+      {/* Checkbox de selección para vincular (no en los ya vinculados) */}
+      {!linked && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onToggleSelect?.(); }}
+          title="Seleccionar para vincular"
+          className={`absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-md border flex items-center justify-center transition-all z-20 ${
+            selected
+              ? 'bg-indigo-500 border-indigo-400 text-white'
+              : 'bg-surface-950/60 border-white/20 text-transparent hover:border-indigo-400/60'
+          }`}
+        >
+          <Check size={13} className="stroke-[3]" />
+        </button>
+      )}
+      {linked && (
+        <span className="absolute top-2 right-2 flex items-center gap-1 text-[9px] font-bold text-emerald-200 bg-emerald-500/20 border border-emerald-400/30 pl-1.5 pr-1 py-0.5 rounded-md">
+          <LinkIcon size={9} /> VINCULADO
+          <button
+            onClick={(e) => { e.stopPropagation(); onUnlink?.(); }}
+            className="ml-0.5 p-0.5 rounded hover:bg-emerald-400/20 text-emerald-200/80 hover:text-white transition-colors"
+            title="Desvincular"
+          >
+            <Unlink size={9} />
+          </button>
+        </span>
+      )}
+      {!linked && matched && (
         <span className="absolute top-2 right-2 flex items-center gap-1 text-[9px] font-bold text-amber-300/90 bg-amber-500/10 px-1.5 py-0.5 rounded-md">
-          <Link2 size={9} /> POSIBLE MATCH
+          <Link2 size={9} /> MATCH #{item.matchId}
         </span>
       )}
 

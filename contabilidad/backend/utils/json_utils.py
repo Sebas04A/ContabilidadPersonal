@@ -5,7 +5,7 @@ def sanitize_for_json(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     
     # String columns
-    str_cols = ['DESCRIPCION', 'TIPO', 'nombre_limpio', 'categoria', 'tags', 'prioridad', 'pertenece_a', 'deudor', 'nota', 'split_group_id', 'id', 'group_id', 'fondo_id']
+    str_cols = ['DESCRIPCION', 'TIPO', 'nombre_limpio', 'categoria', 'tags', 'prioridad', 'pertenece_a', 'deudor', 'nota', 'split_group_id', 'id', 'group_id', 'fondo_id', 'deuda_id']
 
     for col in str_cols:
         if col in df.columns:

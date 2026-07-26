@@ -74,6 +74,75 @@ def get_supabase_debts(
         logger.error("Error al obtener deudas: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
+class Deudor(BaseModel):
+    id: str | int
+    nombre: str
+
+@router.get("/deudores", response_model=List[Deudor])
+def get_deudores():
+    """Lista de deudores de Supabase para poblar los selects del etiquetado."""
+    try:
+        from contabilidad.debts.reading import listar_deudores
+        df = listar_deudores()
+        if df.empty:
+            return []
+        df = df.copy()
+        df['nombre'] = df['nombre'].fillna('').astype(str)
+        return df[['id', 'nombre']].to_dict(orient='records')
+    except Exception as e:
+        logger.error("Error al obtener deudores: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/estado-cuenta")
+def get_estado_cuenta(deudor_id: str = Query(..., description="ID del deudor")):
+    """Estado de cuenta de un deudor: deudas (pagadas/pendientes) + pagos + resumen."""
+    try:
+        from contabilidad.debts.reading import obtener_estado_cuenta
+        return obtener_estado_cuenta(deudor_id)
+    except Exception as e:
+        logger.error("Error al obtener estado de cuenta: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class CreateDebtRequest(BaseModel):
+    titulo: str
+    monto: float
+    deudor_id: str
+    fecha_gasto: str  # YYYY-MM-DD
+
+@router.post("/")
+def create_debt(req: CreateDebtRequest):
+    """
+    Crea una deuda PENDIENTE en Supabase a partir de una transacción reembolsable.
+    Devuelve la deuda creada (incluye su `id` para vincularla a la transacción).
+    """
+    try:
+        from contabilidad.debts.escritura import crear_deuda
+
+        try:
+            fecha = datetime.strptime(req.fecha_gasto[:10], '%Y-%m-%d')
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"fecha_gasto inválida: {e}")
+
+        if not req.deudor_id:
+            raise HTTPException(status_code=400, detail="deudor_id es requerido")
+
+        deuda = crear_deuda(
+            titulo=req.titulo.strip() or "Deuda",
+            monto=abs(req.monto),
+            deudor_id=req.deudor_id,
+            fecha_gasto=fecha,
+            pagada=False,
+        )
+        return deuda
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error al crear deuda: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 class SupabasePayment(BaseModel):
     id: str | int
     fecha_pago: str

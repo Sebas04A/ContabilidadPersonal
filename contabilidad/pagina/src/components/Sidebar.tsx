@@ -1,4 +1,4 @@
-import { LayoutDashboard, Tag, Settings, CreditCard, ChevronLeft, PieChart, User, Calculator, Wallet, Database, Search, Sparkles, PiggyBank, ShieldCheck } from 'lucide-react';
+import { LayoutDashboard, Tag, ChevronLeft, PieChart, User, Calculator, Wallet, Database, Search, Sparkles, PiggyBank, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 
 interface SidebarProps {

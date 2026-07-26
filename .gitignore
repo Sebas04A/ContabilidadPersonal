@@ -17,3 +17,6 @@ __pycache__/
 # Archivos temporales de Linux
 *.swp
 *~
+
+# Snapshots para deshacer etiquetado masivo
+data/sistema/etiquetado/undo/

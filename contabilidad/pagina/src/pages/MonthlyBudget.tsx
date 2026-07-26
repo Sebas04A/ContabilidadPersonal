@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
+import ReactECharts from 'echarts-for-react';
 import { api, Transaction, BudgetConfig } from '../services/api';
-import { Wallet, X, TrendingDown, Heart, Scale, Filter } from 'lucide-react';
+import { Wallet, X, TrendingDown, Heart, Scale, Filter, BarChart3, List } from 'lucide-react';
 
 
 import { GeneralBudgetTab } from '../components/budget/GeneralBudgetTab';
@@ -11,14 +12,37 @@ import { CategoriesTagsTab } from '../components/budget/CategoriesTagsTab';
 const CATEGORIES = ['Alimentación', 'Transporte', 'Ocio', 'Salud', 'Subscripciones', 'Mensual', 'Inversion', 'Regalo', 'Mujeres', 'Aseo', 'Deudas', 'Tarjeta', 'Ropa', 'Viajes', 'Otro'];
 
 export function MonthlyBudget() {
-  const [activeTab, setActiveTab] = useState<'budget' | 'happiness' | 'needs' | 'categories'>('budget');
+  const [activeTab, setActiveTab] = useState<'budget' | 'happiness' | 'needs' | 'categories'>(() => {
+    const saved = localStorage.getItem('budget_activeTab');
+    return (saved as any) || 'budget';
+  });
   const [budgetConfig, setBudgetConfig] = useState<BudgetConfig>({ tracked_tags: [] });
   const [allPeriodTransactions, setAllPeriodTransactions] = useState<Transaction[]>([]);
-  const [labeledFilter, setLabeledFilter] = useState<'all' | 'labeled' | 'unlabeled'>('all');
-  const [reimbursableFilter, setReimbursableFilter] = useState<'all' | 'included' | 'excluded'>('all');
+  const [labeledFilter, setLabeledFilter] = useState<'all' | 'labeled' | 'unlabeled'>(() => {
+    const saved = localStorage.getItem('budget_labeledFilter');
+    return (saved as any) || 'all';
+  });
+  const [reimbursableFilter, setReimbursableFilter] = useState<'all' | 'included' | 'excluded'>(() => {
+    const saved = localStorage.getItem('budget_reimbursableFilter');
+    return (saved as any) || 'all';
+  });
   
-  const [excludedCategories, setExcludedCategories] = useState<string[]>([]);
-  const [excludedTags, setExcludedTags] = useState<string[]>([]);
+  const [excludedCategories, setExcludedCategories] = useState<string[]>(() => {
+    const saved = localStorage.getItem('budget_excludedCategories');
+    try {
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [excludedTags, setExcludedTags] = useState<string[]>(() => {
+    const saved = localStorage.getItem('budget_excludedTags');
+    try {
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [showExclusionModal, setShowExclusionModal] = useState(false);
   
   const filteredByReimbursable = useMemo(() => {
@@ -73,17 +97,58 @@ export function MonthlyBudget() {
   const [editTags, setEditTags] = useState<string[]>([]);
   const [newTagKey, setNewTagKey] = useState("");
 
-  const [selectedPeriod, setSelectedPeriod] = useState<string>('current');
-  const [customStartDate, setCustomStartDate] = useState<string>('');
-  const [customEndDate, setCustomEndDate] = useState<string>('');
+  const [selectedPeriod, setSelectedPeriod] = useState<string>(() => {
+    return localStorage.getItem('budget_selectedPeriod') || 'current';
+  });
+  const [customStartDate, setCustomStartDate] = useState<string>(() => {
+    return localStorage.getItem('budget_customStartDate') || '';
+  });
+  const [customEndDate, setCustomEndDate] = useState<string>(() => {
+    return localStorage.getItem('budget_customEndDate') || '';
+  });
   const [currentMonthName, setCurrentMonthName] = useState("");
   const [availableTags, setAvailableTags] = useState<string[]>([]);
+
+  // Local Storage sync effects
+  useEffect(() => {
+    localStorage.setItem('budget_activeTab', activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
+    localStorage.setItem('budget_labeledFilter', labeledFilter);
+  }, [labeledFilter]);
+
+  useEffect(() => {
+    localStorage.setItem('budget_reimbursableFilter', reimbursableFilter);
+  }, [reimbursableFilter]);
+
+  useEffect(() => {
+    localStorage.setItem('budget_excludedCategories', JSON.stringify(excludedCategories));
+  }, [excludedCategories]);
+
+  useEffect(() => {
+    localStorage.setItem('budget_excludedTags', JSON.stringify(excludedTags));
+  }, [excludedTags]);
+
+  useEffect(() => {
+    localStorage.setItem('budget_selectedPeriod', selectedPeriod);
+  }, [selectedPeriod]);
+
+  useEffect(() => {
+    localStorage.setItem('budget_customStartDate', customStartDate);
+  }, [customStartDate]);
+
+  useEffect(() => {
+    localStorage.setItem('budget_customEndDate', customEndDate);
+  }, [customEndDate]);
 
   // Modal State
   const [modalTitle, setModalTitle] = useState<string | null>(null);
   const [modalDescription, setModalDescription] = useState<string>("");
   const [modalTransactions, setModalTransactions] = useState<Transaction[]>([]);
   const [loadingModal, setLoadingModal] = useState(false);
+  const [modalSortBy, setModalSortBy] = useState<'amount' | 'date'>('amount');
+  const [modalViewMode, setModalViewMode] = useState<'list' | 'chart'>('list');
 
   const periodOptions = useMemo(() => {
     const options = [
@@ -263,7 +328,9 @@ export function MonthlyBudget() {
     setModalDescription('Todas las transacciones de ingreso (positivas) para este tag en todo el tiempo, con los filtros actuales aplicados.');
     
     const txs = allTimeFiltered.filter(t => t.tags && t.tags.split(',').map(tg => tg.trim()).includes(tag) && t.MONTO > 0);
-    setModalTransactions(txs.sort((a,b) => new Date(b.FECHA).getTime() - new Date(a.FECHA).getTime()));
+    setModalTransactions(txs);
+    setModalSortBy('amount');
+    setModalViewMode('list');
   };
 
   const openLocalModal = (title: string, desc: string, txs: Transaction[]) => {
@@ -271,6 +338,8 @@ export function MonthlyBudget() {
       setModalDescription(desc);
       setModalTransactions(txs);
       setLoadingModal(false);
+      setModalSortBy('amount');
+      setModalViewMode('list');
   };
 
   // UI Components
@@ -290,7 +359,209 @@ export function MonthlyBudget() {
     );
   };
 
+  const sortedModalTransactions = useMemo(() => {
+      const txs = [...modalTransactions];
+      if (modalSortBy === 'amount') {
+          return txs.sort((a, b) => Math.abs(b.MONTO) - Math.abs(a.MONTO));
+      } else {
+          return txs.sort((a, b) => new Date(b.FECHA).getTime() - new Date(a.FECHA).getTime());
+      }
+  }, [modalTransactions, modalSortBy]);
 
+  const modalChartsData = useMemo(() => {
+      if (!modalTitle || modalTransactions.length === 0) return null;
+
+      const titleLower = modalTitle.toLowerCase();
+      const isCategory = titleLower.includes('categoría') || titleLower.includes('categoría:') || titleLower.includes('distribución:');
+      const isTag = titleLower.includes('tag') || titleLower.includes('etiqueta') || titleLower.includes('balance en:') || titleLower.includes('ingresos presupuestados:');
+
+      const expenses = modalTransactions.filter(t => t.MONTO < 0);
+      const totalNegative = expenses.reduce((acc, t) => acc + Math.abs(t.MONTO), 0);
+
+      // 1. Top Comercios
+      const groupedComercios: Record<string, number> = {};
+      expenses.forEach(t => {
+          const name = t.nombre_limpio || t.DESCRIPCION || "Desconocido";
+          groupedComercios[name] = (groupedComercios[name] || 0) + Math.abs(t.MONTO);
+      });
+      const sortedComercios = Object.entries(groupedComercios)
+          .map(([name, value]) => ({ name, value }))
+          .sort((a, b) => b.value - a.value)
+          .slice(0, 5);
+
+      // 2. Tags con distribución proporcional (para evitar duplicaciones)
+      const groupedTags: Record<string, number> = {};
+      expenses.forEach(t => {
+          if (!t.tags || t.tags.trim() === '') {
+              groupedTags['Sin Etiqueta'] = (groupedTags['Sin Etiqueta'] || 0) + Math.abs(t.MONTO);
+          } else {
+              const tTags = t.tags.split(',').map(tag => tag.trim()).filter(Boolean);
+              if (tTags.length === 0) {
+                  groupedTags['Sin Etiqueta'] = (groupedTags['Sin Etiqueta'] || 0) + Math.abs(t.MONTO);
+              } else {
+                  const proportionalAmount = Math.abs(t.MONTO) / tTags.length;
+                  tTags.forEach(tag => {
+                      groupedTags[tag] = (groupedTags[tag] || 0) + proportionalAmount;
+                  });
+              }
+          }
+      });
+      const sortedTags = Object.entries(groupedTags)
+          .map(([name, value]) => ({ name, value }))
+          .sort((a, b) => b.value - a.value);
+
+      // 3. Categorías
+      const groupedCategories: Record<string, number> = {};
+      expenses.forEach(t => {
+          const cat = (!t.categoria || t.categoria === '---') ? 'Sin Categoría' : t.categoria;
+          groupedCategories[cat] = (groupedCategories[cat] || 0) + Math.abs(t.MONTO);
+      });
+      const sortedCategories = Object.entries(groupedCategories)
+          .map(([name, value]) => ({ name, value }))
+          .sort((a, b) => b.value - a.value);
+
+      // Bar Chart for Top Comercios
+      let barChartOption = null;
+      if (sortedComercios.length > 0) {
+          const dataReversed = [...sortedComercios].reverse();
+          barChartOption = {
+              tooltip: {
+                  trigger: 'axis',
+                  axisPointer: { type: 'shadow' },
+                  formatter: (params: any) => {
+                      const d = params[0].data;
+                      return `<strong class="text-white">${d.name}</strong><br/>Monto: $${d.value.toLocaleString('es-CO')}`;
+                  },
+                  backgroundColor: '#1f2937', borderColor: '#374151', textStyle: { color: '#f3f4f6' }
+              },
+              grid: { left: '3%', right: '4%', bottom: '3%', top: '5%', containLabel: true },
+              xAxis: { 
+                  type: 'value', 
+                  splitLine: { show: true, lineStyle: { color: 'rgba(255,255,255,0.05)' } },
+                  axisLabel: { color: '#9ca3af', formatter: (val: number) => val >= 1000 ? (val/1000) + 'k' : val }
+              },
+              yAxis: { 
+                  type: 'category', 
+                  data: dataReversed.map(d => d.name), 
+                  axisLabel: { color: '#e5e7eb', fontWeight: 'bold' },
+                  axisTick: { show: false }, 
+                  axisLine: { show: false } 
+              },
+              series: [{
+                  name: 'Monto',
+                  type: 'bar',
+                  data: dataReversed.map(d => ({
+                      value: d.value,
+                      name: d.name,
+                      itemStyle: { color: '#a855f7', borderRadius: [0, 4, 4, 0] }
+                  }))
+              }]
+          };
+      }
+
+      // Pie Chart for distribution
+      let pieChartOption = null;
+      let pieTitle = "";
+      if (isCategory) {
+          pieTitle = "Distribución de Etiquetas (Treemap Proporcional)";
+          const treemapData = sortedTags.map(item => ({ 
+              name: item.name, 
+              value: parseFloat(item.value.toFixed(0)) 
+          }));
+          pieChartOption = {
+              tooltip: {
+                  trigger: 'item',
+                  formatter: (params: any) => {
+                      const percentage = totalNegative > 0 ? (params.value / totalNegative) * 100 : 0;
+                      return `<strong class="text-white">${params.name}</strong><br/>Monto Distribuido: $${params.value.toLocaleString('es-CO')}<br/>Proporción: ${percentage.toFixed(1)}%`;
+                  },
+                  backgroundColor: '#1f2937', borderColor: '#374151', textStyle: { color: '#f3f4f6' }
+              },
+              series: [
+                  {
+                      name: 'Etiquetas',
+                      type: 'treemap',
+                      visibleMin: 300,
+                      label: {
+                          show: true,
+                          formatter: '{b}\n$ {c}',
+                          fontSize: 11,
+                          fontWeight: 'bold',
+                          color: '#fff'
+                      },
+                      itemStyle: {
+                          borderColor: '#111827',
+                          borderWidth: 2,
+                          gapWidth: 1
+                      },
+                      breadcrumb: {
+                          show: false
+                      },
+                      data: treemapData
+                  }
+              ]
+          };
+      } else if (isTag) {
+          pieTitle = "Distribución de Categorías";
+          const pieData = sortedCategories.map(item => ({ value: item.value, name: item.name }));
+          pieChartOption = {
+              tooltip: {
+                  trigger: 'item',
+                  formatter: (params: any) => {
+                      return `<strong class="text-white">${params.data.name}</strong><br/>Monto: $${params.data.value.toLocaleString('es-CO')} (${params.percent.toFixed(1)}%)`;
+                  },
+                  backgroundColor: '#1f2937', borderColor: '#374151', textStyle: { color: '#f3f4f6' }
+              },
+              legend: { show: false },
+              series: [
+                  {
+                      name: 'Categorías',
+                      type: 'pie',
+                      radius: ['40%', '70%'],
+                      avoidLabelOverlap: true,
+                      itemStyle: { borderRadius: 8, borderColor: '#111827', borderWidth: 2 },
+                      label: { show: true, formatter: '{b}\n{d}%', color: '#9ca3af', fontSize: 10 },
+                      labelLine: { length: 10, length2: 10, lineStyle: { color: '#4b5563' } },
+                      data: pieData
+                  }
+              ]
+          };
+      } else {
+          pieTitle = "Distribución por Categorías";
+          const pieData = sortedCategories.map(item => ({ value: item.value, name: item.name }));
+          pieChartOption = {
+              tooltip: {
+                  trigger: 'item',
+                  formatter: (params: any) => {
+                      return `<strong class="text-white">${params.data.name}</strong><br/>Monto: $${params.data.value.toLocaleString('es-CO')} (${params.percent.toFixed(1)}%)`;
+                  },
+                  backgroundColor: '#1f2937', borderColor: '#374151', textStyle: { color: '#f3f4f6' }
+              },
+              legend: { show: false },
+              series: [
+                  {
+                      name: 'Categorías',
+                      type: 'pie',
+                      radius: ['40%', '70%'],
+                      avoidLabelOverlap: true,
+                      itemStyle: { borderRadius: 8, borderColor: '#111827', borderWidth: 2 },
+                      label: { show: true, formatter: '{b}\n{d}%', color: '#9ca3af', fontSize: 10 },
+                      labelLine: { length: 10, length2: 10, lineStyle: { color: '#4b5563' } },
+                      data: pieData
+                  }
+              ]
+          };
+      }
+
+      return {
+          barChartOption,
+          pieChartOption,
+          pieTitle,
+          totalNegative,
+          isCategory,
+          isTag
+      };
+  }, [modalTitle, modalTransactions]);
 
   return (
     <div className="flex-1 overflow-y-auto px-4 md:px-8 pb-8 custom-scrollbar">
@@ -541,17 +812,37 @@ export function MonthlyBudget() {
       {/* Transaction Modal */}
       {modalTitle && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-              <div className="bg-surface-900 border border-white/10 rounded-2xl w-full max-w-3xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
-                  <div className="p-6 border-b border-white/10 flex justify-between items-center bg-surface-800/50">
+              <div className="bg-surface-900 border border-white/10 rounded-2xl w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+                  <div className="p-6 border-b border-white/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-surface-800/50">
                       <div>
                           <h2 className="text-2xl font-bold text-white flex items-center gap-2">
                               {modalTitle}
                           </h2>
                           <p className="text-surface-400 text-sm mt-1">{modalDescription}</p>
                       </div>
-                      <button onClick={() => setModalTitle(null)} className="p-2 text-surface-400 hover:text-white transition-colors bg-surface-950 rounded-xl hover:bg-surface-700">
-                          <X size={24} />
-                      </button>
+                      <div className="flex items-center gap-3 self-end sm:self-center shrink-0">
+                          {modalTransactions.length > 0 && (
+                              <button
+                                  onClick={() => setModalViewMode(modalViewMode === 'list' ? 'chart' : 'list')}
+                                  className="px-4 py-2 bg-gradient-to-r from-primary-600 to-indigo-600 hover:from-primary-500 hover:to-indigo-500 text-white font-bold rounded-xl transition-all shadow-lg flex items-center gap-2 text-sm"
+                              >
+                                  {modalViewMode === 'list' ? (
+                                      <>
+                                          <BarChart3 size={16} />
+                                          Ver Gráfica
+                                      </>
+                                  ) : (
+                                      <>
+                                          <List size={16} />
+                                          Ver Lista
+                                      </>
+                                  )}
+                              </button>
+                          )}
+                          <button onClick={() => setModalTitle(null)} className="p-2 text-surface-400 hover:text-white transition-colors bg-surface-950 rounded-xl hover:bg-surface-700">
+                              <X size={24} />
+                          </button>
+                      </div>
                   </div>
                   
                   <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
@@ -578,23 +869,76 @@ export function MonthlyBudget() {
                                   </div>
                               </div>
                               
-                              <div className="space-y-3">
-                                  {modalTransactions.length === 0 ? (
-                                      <div className="text-center py-10 text-surface-500">No hay transacciones para este tag.</div>
-                                  ) : (
-                                      modalTransactions.map((tx) => (
-                                          <div key={tx.id} className="flex justify-between items-center p-4 bg-surface-950/50 hover:bg-surface-800 rounded-xl border border-white/5 transition-colors group">
-                                              <div className="flex flex-col">
-                                                  <span className="font-bold text-white group-hover:text-primary-300 transition-colors uppercase text-sm">{tx.nombre_limpio || tx.DESCRIPCION}</span>
-                                                  <span className="text-xs text-surface-500">{new Date(tx.FECHA).toLocaleDateString('es-CO')} &bull; {tx.categoria}</span>
+                              {modalViewMode === 'chart' && modalChartsData ? (
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                                      {/* Top Comercios */}
+                                      {modalChartsData.barChartOption ? (
+                                          <div className="bg-surface-950/40 border border-white/5 p-5 rounded-2xl flex flex-col">
+                                              <h3 className="text-base font-bold text-white mb-3">Top 5 Comercios / Conceptos</h3>
+                                              <div className="h-[300px] w-full relative flex items-center justify-center">
+                                                  <ReactECharts option={modalChartsData.barChartOption} style={{ height: '100%', width: '100%' }} />
                                               </div>
-                                              <span className={`font-mono font-bold ${tx.MONTO > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                                  {tx.MONTO > 0 ? '+' : ''}{formatCurrency(tx.MONTO)}
-                                              </span>
                                           </div>
-                                      ))
-                                  )}
-                              </div>
+                                      ) : (
+                                          <div className="bg-surface-950/40 border border-white/5 p-5 rounded-2xl flex items-center justify-center h-[350px]">
+                                              <p className="text-surface-500 italic text-sm">No hay suficientes gastos para graficar comercios.</p>
+                                          </div>
+                                      )}
+
+                                      {/* Distribution Pie Chart */}
+                                      {modalChartsData.pieChartOption ? (
+                                          <div className="bg-surface-950/40 border border-white/5 p-5 rounded-2xl flex flex-col">
+                                              <h3 className="text-base font-bold text-white mb-3">{modalChartsData.pieTitle}</h3>
+                                              <div className="h-[300px] w-full relative flex items-center justify-center">
+                                                  <ReactECharts option={modalChartsData.pieChartOption} style={{ height: '100%', width: '100%' }} />
+                                              </div>
+                                          </div>
+                                      ) : (
+                                          <div className="bg-surface-950/40 border border-white/5 p-5 rounded-2xl flex items-center justify-center h-[350px]">
+                                              <p className="text-surface-500 italic text-sm">No hay suficientes datos para graficar la distribución.</p>
+                                          </div>
+                                      )}
+                                  </div>
+                              ) : (
+                                  <>
+                                      {/* Ordenamiento */}
+                                      <div className="flex justify-between items-center mb-4 px-1">
+                                          <span className="text-xs font-bold uppercase tracking-wider text-surface-400">Transacciones del periodo</span>
+                                          <div className="flex gap-2 bg-surface-950 p-1 rounded-xl border border-white/5">
+                                              <button 
+                                                  onClick={() => setModalSortBy('amount')}
+                                                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${modalSortBy === 'amount' ? 'bg-primary-600 text-white shadow-md' : 'text-surface-400 hover:text-white'}`}
+                                              >
+                                                  Por Monto
+                                              </button>
+                                              <button 
+                                                  onClick={() => setModalSortBy('date')}
+                                                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${modalSortBy === 'date' ? 'bg-primary-600 text-white shadow-md' : 'text-surface-400 hover:text-white'}`}
+                                              >
+                                                  Por Fecha
+                                              </button>
+                                          </div>
+                                      </div>
+
+                                      <div className="space-y-3">
+                                          {sortedModalTransactions.length === 0 ? (
+                                              <div className="text-center py-10 text-surface-500">No hay transacciones para mostrar.</div>
+                                          ) : (
+                                              sortedModalTransactions.map((tx) => (
+                                                  <div key={tx.id} className="flex justify-between items-center p-4 bg-surface-950/50 hover:bg-surface-800 rounded-xl border border-white/5 transition-colors group">
+                                                      <div className="flex flex-col">
+                                                          <span className="font-bold text-white group-hover:text-primary-300 transition-colors uppercase text-sm">{tx.nombre_limpio || tx.DESCRIPCION}</span>
+                                                          <span className="text-xs text-surface-500">{new Date(tx.FECHA).toLocaleDateString('es-CO')} &bull; {tx.categoria}</span>
+                                                      </div>
+                                                      <span className={`font-mono font-bold ${tx.MONTO > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                          {tx.MONTO > 0 ? '+' : ''}{formatCurrency(tx.MONTO)}
+                                                      </span>
+                                                  </div>
+                                              ))
+                                          )}
+                                      </div>
+                                  </>
+                              )}
                           </>
                       )}
                   </div>

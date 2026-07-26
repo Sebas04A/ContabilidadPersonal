@@ -5,7 +5,7 @@ CRUD endpoints for entity rules, tag rules, and description-map rules.
 All rule storage is delegated to contabilidad.backend.storage.rules_storage.
 """
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from typing import Optional
 
@@ -39,6 +39,28 @@ class MapRule(BaseModel):
     original: str
     clean: str
 
+class RenameRequest(BaseModel):
+    old_name: str
+    new_name: str
+
+
+# ── Overview ──────────────────────────────────────────────────────────────────
+
+@router.get("/")
+def get_all_rules():
+    """Return the whole rulebook: description_map, entity_data and tag_data."""
+    rules = rules_service.load_rules()
+    return {
+        "description_map": rules.get("description_map", {}),
+        "entity_data": rules.get("entity_data", {}),
+        "tag_data": rules.get("tag_data", {}),
+        "counts": {
+            "description_map": len(rules.get("description_map", {})),
+            "entity_data": len(rules.get("entity_data", {})),
+            "tag_data": len(rules.get("tag_data", {})),
+        },
+    }
+
 
 # ── Entity rules ──────────────────────────────────────────────────────────────
 
@@ -64,6 +86,22 @@ def save_entity_rule(
 
     rules_service.save_rules(rules)
     return {"status": "saved", "name": name, "rule": existing}
+
+
+@router.delete("/entity/{name}")
+def delete_entity_rule(name: str):
+    """Delete an entity rule."""
+    if not rules_service.delete_entity_rule(name):
+        raise HTTPException(status_code=404, detail=f"Regla no encontrada: {name}")
+    return {"status": "deleted", "name": name}
+
+
+@router.post("/entity/rename")
+def rename_entity_rule(req: RenameRequest):
+    """Rename an entity, repointing every description mapping that used it."""
+    if not rules_service.rename_entity_rule(req.old_name, req.new_name):
+        raise HTTPException(status_code=400, detail="No se pudo renombrar la entidad")
+    return {"status": "renamed", "old_name": req.old_name, "new_name": req.new_name}
 
 
 # ── Tag rules ─────────────────────────────────────────────────────────────────
@@ -92,6 +130,14 @@ def save_tag_rule(
     return {"status": "saved", "tag": tag, "rule": existing}
 
 
+@router.delete("/tag/{tag}")
+def delete_tag_rule(tag: str):
+    """Delete a tag rule."""
+    if not rules_service.delete_tag_rule(tag):
+        raise HTTPException(status_code=404, detail=f"Regla no encontrada: {tag}")
+    return {"status": "deleted", "tag": tag}
+
+
 # ── Map rules ─────────────────────────────────────────────────────────────────
 
 @router.post("/map")
@@ -99,3 +145,11 @@ def save_map_rule(rule: MapRule):
     """Manually save a description-to-clean-name mapping rule."""
     rules_service.save_rule_map(rule.original, rule.clean)
     return {"status": "saved", "original": rule.original, "clean": rule.clean}
+
+
+@router.delete("/map")
+def delete_map_rule(original: str = Query(..., description="Original description key to remove")):
+    """Delete a description-to-clean-name mapping rule."""
+    if not rules_service.delete_rule_map(original):
+        raise HTTPException(status_code=404, detail=f"Mapeo no encontrado: {original}")
+    return {"status": "deleted", "original": original}

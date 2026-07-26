@@ -31,28 +31,7 @@ serve(async (req) => {
 
     if (deudasError) throw deudasError
 
-    // 2. Fetch pagos con detalles
-    const { data: pagosData, error: pagosError } = await supabaseClient
-      .from('pagos')
-      .select(`
-        id, monto_total, es_mi_pago, fecha_pago, es_compensacion, created_at,
-        detalle_pagos (monto_asignado, deudas(titulo, es_mi_deuda))
-      `)
-      .eq('deudor_id', deudor_id)
-
-    if (pagosError) throw pagosError
-
-    // 3. Procesar montos pagados por deuda
-    const pagosPorDeuda: Record<string, number> = {}
-    pagosData?.forEach(pago => {
-      pago.detalle_pagos?.forEach((det: any) => {
-        // En este mock simplificado, si tuvieras el deuda_id en el detach, lo sumarias.
-        // Dado que la query trae deudas(...), necesitamos el ID de la deuda (no pedido arriba pero necesario).
-        // Si no está, lo asociaremos genéricamente, o deberíamos pedirlo.
-      })
-    })
-
-    // Corregimos la query para pedir deuda_id en detalles
+    // 2. Fetch pagos con detalles (incluye deuda_id para asignaciones)
     const { data: pagosFullData, error: pagosFullError } = await supabaseClient
       .from('pagos')
       .select(`
@@ -60,14 +39,15 @@ serve(async (req) => {
         detalle_pagos (monto_asignado, deuda_id, deudas(titulo, es_mi_deuda))
       `)
       .eq('deudor_id', deudor_id)
-      
+
     if (pagosFullError) throw pagosFullError
 
+    // 3. Monto total pagado por deuda (para mostrar progreso en cada deuda)
     const montoPagadoPorDeuda: Record<string, number> = {}
     pagosFullData?.forEach(pago => {
       pago.detalle_pagos?.forEach((det: any) => {
-        if (!montoPagadoPorDeuda[det.deuda_id]) montoPagadoPorDeuda[det.deuda_id] = 0;
-        montoPagadoPorDeuda[det.deuda_id] += det.monto_asignado;
+        if (!montoPagadoPorDeuda[det.deuda_id]) montoPagadoPorDeuda[det.deuda_id] = 0
+        montoPagadoPorDeuda[det.deuda_id] += det.monto_asignado
       })
     })
 
@@ -109,225 +89,102 @@ serve(async (req) => {
       })
     })
 
-    // Sort Ascending (Oldest First)
+    // Orden cronológico ascendente (más antiguo primero) para el saldo acumulado
     history.sort((a, b) => a.createdAt - b.createdAt)
 
-    // Calculate Running Balance
+    // Saldo acumulado GLOBAL (perspectiva 'owner'): + te deben, − tú debes.
     let balance = 0
     history.forEach(item => {
       if (item.type === 'deuda') {
-        if (item.esMiDeuda) balance -= item.amount;
-        else balance += item.amount;
-      } else if (!item.esCompensacion) { 
-        if (item.esMiPago) balance += item.amount;
-        else balance -= item.amount;
+        if (item.esMiDeuda) balance -= item.amount
+        else balance += item.amount
+      } else if (!item.esCompensacion) {
+        if (item.esMiPago) balance += item.amount
+        else balance -= item.amount
       }
-      item.balance = balance;
+      item.balance = balance
     })
+    // NOTA: item.balance queda SIEMPRE en perspectiva 'owner' (+ te deben, − tú debes).
+    // Cada cliente aplica su POV: la app (owner) lo usa directo; el visor (debtor) lo niega.
 
-    const deudaItems = new Map<string, any>()
-    history.forEach(item => {
-      if (item.type === 'deuda') deudaItems.set(item.id, item)
-    })
+    const deudaById = new Map<string, any>()
+    deudasData?.forEach(d => deudaById.set(d.id, d))
 
-    // Agrupar Pagos y sus Cruces adyacentes estrictamente por tiempo
-    let pagosHistory = history.filter(h => h.type === 'pago') // ASC (Chronological)
-    let logicalPagos: any[] = []
-    
+    // --- Bundle de cruces (compensaciones) en el pago manual adyacente (<2s) ---
+    // Se preserva la lógica de cruces: cada bundle deja un "pago principal" que
+    // arrastra el cruce (linkedCruce*) y combina los detalles de asignación.
+    const pagosHistory = history.filter(h => h.type === 'pago') // ASC cronológico
+    const displayPagos: any[] = []
     for (let i = 0; i < pagosHistory.length; i++) {
-        let curr = pagosHistory[i]
-        let bundle = [curr]
+        const curr = pagosHistory[i]
+        const bundle = [curr]
         let j = i + 1
-        
-        while (j < pagosHistory.length) {
-            let next = pagosHistory[j]
-            // Agrupar si ocurrieron con menos de 2 segundos de diferencia (Cruce + Pago manual)
-            if (Math.abs(next.createdAt - curr.createdAt) < 2000) {
-                bundle.push(next)
-                j++
-            } else {
-                break
-            }
+        while (j < pagosHistory.length && Math.abs(pagosHistory[j].createdAt - curr.createdAt) < 2000) {
+            bundle.push(pagosHistory[j]); j++
         }
-        
-        let assignedIds = new Set<string>()
+
         let cruceAmount = 0
-        let cruceDetails: any[] = []
-
+        const cruceDetails: any[] = []
+        const bundleDetalles: any[] = []
         bundle.forEach(p => {
-             if (p.esCompensacion) {
-                 cruceAmount += p.amount
-                 if (p.detalles) cruceDetails.push(...p.detalles)
-             }
-             if (p.detalles) {
-                 p.detalles.forEach((d:any) => { if(d.deuda_id) assignedIds.add(d.deuda_id) })
-             }
+            if (p.esCompensacion) {
+                cruceAmount += p.amount
+                if (p.detalles) cruceDetails.push(...p.detalles)
+            }
+            if (p.detalles) bundleDetalles.push(...p.detalles)
         })
 
-        // Anotar cruce logic en el pago manual principal
-        let mainPago = bundle.find(p => !p.esCompensacion)
-        if (mainPago && cruceAmount > 0) {
-             mainPago.linkedCruceAmount = cruceAmount
-             mainPago.linkedCruceDetails = cruceDetails
-        } else if (!mainPago && bundle.length > 0) {
-             // Es un cruce solitario sin pago manual asociado
-             mainPago = bundle[0]
-             mainPago.linkedCruceAmount = cruceAmount
-             mainPago.linkedCruceDetails = cruceDetails
+        const mainPago = bundle.find(p => !p.esCompensacion) || bundle[0]
+        if (!mainPago.esCompensacion && cruceAmount > 0) {
+            mainPago.linkedCruceAmount = cruceAmount
+            mainPago.linkedCruceDetails = cruceDetails
         }
-
-        let deudas = Array.from(assignedIds).map(id => deudaItems.get(id)).filter(Boolean)
-
-        logicalPagos.push({
-             pagos: bundle,
-             deudas: deudas,
-             saldoPosterior: bundle[bundle.length - 1].balance
-        })
-
+        // Detalles combinados del bundle (a qué deudas fue el pago; para parciales y UI)
+        mainPago.detalles = bundleDetalles
+        displayPagos.push(mainPago)
         i = j - 1
     }
 
-    let mergedGroups: any[] = []
-
-    for (let lp of logicalPagos) {
-        let matchingGroupIndices: number[] = []
-        
-        for (let i = 0; i < mergedGroups.length; i++) {
-            let mg = mergedGroups[i]
-            let sharesDebt = lp.deudas.some((d1: any) => mg.deudaMap.has(d1.id))
-            if (sharesDebt) {
-                matchingGroupIndices.push(i)
-            }
-        }
-
-        let newDeudasMap = new Map<string, any>()
-        lp.deudas.forEach((d: any) => newDeudasMap.set(d.id, d))
-
-        if (matchingGroupIndices.length === 0) {
-            mergedGroups.push({
-                pagos: [...lp.pagos],
-                deudaMap: newDeudasMap
-            })
-        } else {
-            let targetGroup = mergedGroups[matchingGroupIndices[0]]
-            
-            lp.deudas.forEach((d: any) => targetGroup.deudaMap.set(d.id, d))
-            targetGroup.pagos.push(...lp.pagos)
-
-            for (let i = 1; i < matchingGroupIndices.length; i++) {
-                let otherGroup = mergedGroups[matchingGroupIndices[i]]
-                for (let [id, d] of otherGroup.deudaMap.entries()) {
-                    targetGroup.deudaMap.set(id, d)
-                }
-                targetGroup.pagos.push(...otherGroup.pagos)
-            }
-            
-            for (let i = matchingGroupIndices.length - 1; i >= 1; i--) {
-                mergedGroups.splice(matchingGroupIndices[i], 1)
-            }
-        }
-    }
-
-    let groupedData = mergedGroups.map(mg => {
-        let deudas = Array.from(mg.deudaMap.values())
-        let allPagos = mg.pagos
-
-        // Separar cruces de manuales
-        let manualPagos = allPagos.filter((p: any) => !p.esCompensacion)
-        let cruces = allPagos.filter((p: any) => p.esCompensacion)
-
-        // Si no hay pagos manuales pero sí hay cruces (grupo solo de cruces)
-        // Dejaremos 1 cruce principal en pagos manuales para que la UI renderice la tarjeta de transacción
-        if (manualPagos.length === 0 && cruces.length > 0) {
-            manualPagos.push(cruces[0])
-            cruces = cruces.slice(1)
-        }
-
-        let totalDeudas = 0
-        deudas.forEach((d: any) => {
-            if (pov === 'owner') {
-                if (d.esMiDeuda) totalDeudas -= d.amount
-                else totalDeudas += d.amount
-            } else {
-                if (d.esMiDeuda) totalDeudas += d.amount
-                else totalDeudas -= d.amount
+    // --- Parciales: deudas que quedan PARCIALMENTE cubiertas tras cada pago ---
+    // displayPagos está en orden cronológico ascendente (por construcción del bundle).
+    const cumPaid: Record<string, number> = {}
+    displayPagos.forEach(mp => {
+        ;(mp.detalles || []).forEach((det: any) => {
+            if (det.deuda_id == null) return
+            cumPaid[det.deuda_id] = (cumPaid[det.deuda_id] || 0) + (det.monto_asignado || 0)
+        })
+        const seen = new Set<string>()
+        const parciales: any[] = []
+        ;(mp.detalles || []).forEach((det: any) => {
+            const did = det.deuda_id
+            if (did == null || seen.has(did)) return
+            seen.add(did)
+            const d = deudaById.get(did)
+            if (!d) return
+            const orig = d.monto
+            const pagado = Math.round(cumPaid[did] * 100) / 100
+            const saldo = Math.round((orig - pagado) * 100) / 100
+            if (pagado > 0.01 && saldo > 0.01) {
+                parciales.push({
+                    deuda_id: did, titulo: d.titulo,
+                    monto_original: orig, pagado_acumulado: pagado, saldo,
+                })
             }
         })
-
-        let totalPagos = 0
-        manualPagos.forEach((p: any) => {
-             if (!p.esCompensacion) {
-                 if (pov === 'owner') {
-                     if (p.esMiPago) totalPagos -= p.amount
-                     else totalPagos += p.amount
-                 } else {
-                     if (p.esMiPago) totalPagos += p.amount
-                     else totalPagos -= p.amount
-                 }
-             }
-        })
-
-        let saldoPosteriorLocal = totalDeudas - totalPagos
-        
-        // Sorting items from newest to oldest for display
-        const descSort = (a: any, b: any) => {
-             let tA = new Date(a.date).getTime()
-             let tB = new Date(b.date).getTime()
-             if (tA === tB) return b.createdAt - a.createdAt
-             return tB - tA
-        }
-        manualPagos.sort(descSort)
-        deudas.sort(descSort)
-
-        // Asignar los "saldos" progresivos visuales de cada item usando orden cronológico (fecha semántica > createdAt)
-        let currentVisualBalance = 0
-        let progressiveItems = [...manualPagos, ...deudas].sort((a: any, b: any) => {
-             let tA = new Date(a.date).getTime()
-             let tB = new Date(b.date).getTime()
-             if (tA === tB) return a.createdAt - b.createdAt
-             return tA - tB
-        })
-        
-        progressiveItems.forEach((item: any) => {
-             if (item.type === 'pago') {
-                 let effect = 0
-                 if (pov === 'owner') {
-                     effect = item.esMiPago ? item.amount : -item.amount
-                 } else {
-                     effect = item.esMiPago ? -item.amount : item.amount
-                 }
-                 currentVisualBalance += effect
-             } else {
-                 let effect = 0
-                 if (pov === 'owner') {
-                     effect = item.esMiDeuda ? -item.amount : item.amount
-                 } else {
-                     effect = item.esMiDeuda ? item.amount : -item.amount
-                 }
-                 currentVisualBalance += effect
-             }
-             item.balance = pov === 'debtor' ? -currentVisualBalance : currentVisualBalance
-        })
-
-        return {
-             pagos: manualPagos, 
-             cruces: cruces, // los mandamos aparte como solicitaste
-             deudas: deudas,
-             totalDeudas: totalDeudas,
-             totalPagos: totalPagos,
-             saldoAnterior: 0,
-             saldoPosterior: pov === 'debtor' ? -saldoPosteriorLocal : saldoPosteriorLocal
-        }
+        mp.parciales = parciales
     })
 
-    // Sort final groups newest first
-    groupedData.sort((a, b) => {
-        let maxA = a.pagos.length > 0 ? a.pagos[0].createdAt : 0
-        let maxB = b.pagos.length > 0 ? b.pagos[0].createdAt : 0
-        return maxB - maxA
+    // --- Lista plana cronológica DESCENDENTE (presente → pasado) ---
+    // El pago, al tener fecha posterior a las deudas que abonó, queda ARRIBA de ellas.
+    const flat = [...displayPagos, ...history.filter(h => h.type === 'deuda')]
+    flat.sort((a, b) => {
+        const tA = new Date(a.date).getTime()
+        const tB = new Date(b.date).getTime()
+        if (tA === tB) return b.createdAt - a.createdAt
+        return tB - tA
     })
 
-    return new Response(JSON.stringify(groupedData), {
+    return new Response(JSON.stringify(flat), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     })
