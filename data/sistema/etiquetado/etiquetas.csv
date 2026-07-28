@@ -1,17 +1,17 @@
 source_id,source_type,nombre_limpio,categoria,tags,prioridad,es_fijo,pertenece_a,es_reembolsable,deudor,felicidad,revisado,nota,split_group_id,group_id,monto_asignado,fondo_id,deuda_id
 28457b1df1897b235f7c69b8de311bae,BANCA,TRANSF. DIRECTA DE ARCINIEGA BASANTES PAULINA MARIA,Deudas,,---,False,---,False,,0.0,True,,,,,,
 b7a9ce7647ed0dd7c94a012e87833a31,TARJETA,Google Brawl Stars      M,Regalo,"Noah, Navidad_2025",Deseo,False,---,False,,5.0,True,Regalo de navidad,,,,,
-a4444b9cb61df3651158ad0a92826696,TARJETA,UBER EATS,Alimentación,,Deseo,False,Familia,True,Mamá,3.0,True,Milanesas,,,,,
+a4444b9cb61df3651158ad0a92826696,TARJETA,UBER EATS,Alimentación,,Deseo,False,Familia,True,Mamá,3.0,True,Milanesas,,,,,18b1f78b-891d-4af3-818a-2f664cf02272
 4cc9ae28859b9d402bc801aba8447e12,TARJETA,WL *STEAM PURCHASE      S,Mujeres,Sexualidad,Deseo,False,---,False,,7.0,True,Stripchat,,,,,
-3d9774b909ee24aad0a9ac8860b5bd22,BANCA,Jhonny U,Ocio,Concierto,Deseo,False,Yo,True,Mamá,7.0,True,Concierto Milo J,,c72d690f-d8e9-46cc-aa42-77d3c7d9c9a5,,,
-fd671c3343f674e713d138e392badf34,BANCA,Jhonny U,Ocio,Concierto,Deseo,False,Yo,True,Mamá,7.0,True,Concierto Milo J,,c72d690f-d8e9-46cc-aa42-77d3c7d9c9a5,,,
+3d9774b909ee24aad0a9ac8860b5bd22,BANCA,Jhonny U,Ocio,Concierto,Deseo,False,Yo,True,Mamá,7.0,True,Concierto Milo J,,c72d690f-d8e9-46cc-aa42-77d3c7d9c9a5,,,134b4b7b-4745-4871-8f5c-4db8f21b5ca8
+fd671c3343f674e713d138e392badf34,BANCA,Jhonny U,Ocio,Concierto,Deseo,False,Yo,True,Mamá,7.0,True,Concierto Milo J,,c72d690f-d8e9-46cc-aa42-77d3c7d9c9a5,,,134b4b7b-4745-4871-8f5c-4db8f21b5ca8
 4039326877b7e45a103e825a444e0003,BANCA,TRANSF. DEUNA A JESSENIA PATRICIA DELGADO ZAMBRANO,Alimentación,Almuerzo,Necesidad,False,Yo,True,Mamá,0.0,True,Fin de semana,,,,,
 cd33ee9e05c0924c4b8290964727fa2c,BANCA,TRANSF. DEUNA A JESSENIA PATRICIA DELGADO ZAMBRANO,Alimentación,Almuerzo,Necesidad,False,---,False,,5.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 277afb4151bfa7a3330e4ead6fb02439,BANCA,Parqueadero U,Transporte,Parqueadero,Necesidad,True,---,False,,3.0,True,,,,,,
 797dab88799d108d0ce3d836a34a1ea6,BANCA,Parqueadero U,Transporte,Parqueadero,Necesidad,True,---,False,,3.0,True,,,,,,
 6765e6316361c0a8b48e3de51c6e9331,BANCA,Manabas Grill Almuerzos,Alimentación,Almuerzo,Necesidad,False,---,False,,5.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 f650de3093f05599ef5fa46c9ca835f5,BANCA,TRANSF. DIRECTA A ARTEAGA  CARBAJAL DANIELA ABIGAIL,Alimentación,,Deseo,False,---,False,,0.0,True,Pastelito,,,,,
-9e5346c1afa16c11b066f7042686fdc8,TARJETA,PROAUTO CARAPUNGO ACC   Q,Transporte,Mantenimiento Carro,Necesidad,True,Yo,True,Mamá,0.0,True,Mantenimiento,,,,,
+9e5346c1afa16c11b066f7042686fdc8,TARJETA,PROAUTO CARAPUNGO ACC   Q,Transporte,Mantenimiento Carro,Necesidad,True,Yo,True,Mamá,0.0,True,Mantenimiento,,,,,3420e2ec-7b92-4bc3-9a25-8dc6c464901e
 cbd3f93e57c79c8d2d944f3165f7ed4a,BANCA,Manabas Grill Almuerzos,Alimentación,Almuerzo,Necesidad,False,---,False,,0.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 7f0af053ba3bc34c07b4f2684b213b99,TARJETA,Fuel Central Gasolinera,Transporte,Gasolina,Necesidad,False,---,False,,5.0,True,,,,,,
 d2b4df68458a1df3c00509a122434bab,TARJETA,Tarifa Consumo Gasolinera,Transporte,Gasolina,Necesidad,True,---,False,,0.0,True,,,,,,
@@ -23,12 +23,12 @@ ec98cb44e3b79a67ceb3b1341dd98da5,BANCA,Transf. Deuna A Daniela Abigail Arteaga C
 e128fd8fe0c1183d177c3f4fcc8ee322,BANCA,Transf. Directa A Guevara  Olmedo Mateo Nicolas,Alimentación,Almuerzo,Deseo,False,---,False,,7.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 d1ae7993c16241e838d3ffafaa0408c9,TARJETA,Il Cappo Dimangi I014   Q,Alimentación,Almuerzo,Necesidad,False,---,False,,7.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 9ccab83a54290984700a85a40e0c0664,BANCA,Transf. Deuna A Maria Angelica Yanez Romero,Alimentación,Almuerzo,Necesidad,False,---,False,,0.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
-b29f361ea61a14dff16d39a174d495b2,BANCA,Transf. Deuna A Enrique Javier Viera Mendoza,Alimentación,Almuerzo,Necesidad,False,Familia,True,Mamá,0.0,True,Encebollado Finde,,9d67fbc5-6315-4ab1-b151-6dcd39bef943,,,
-f419dea064b1c08a9ce92e6e2fa06995,BANCA,Transf. Deuna A Enrique Javier Viera Mendoza,Alimentación,Almuerzo,Necesidad,False,Familia,True,Mamá,0.0,True,Encebollado Finde,,9d67fbc5-6315-4ab1-b151-6dcd39bef943,,,
+b29f361ea61a14dff16d39a174d495b2,BANCA,Transf. Deuna A Enrique Javier Viera Mendoza,Alimentación,Almuerzo,Necesidad,False,Familia,True,Mamá,0.0,True,Encebollado Finde,,9d67fbc5-6315-4ab1-b151-6dcd39bef943,,,fd0f8a75-37a1-485f-9f2b-81b4861ebc00
+f419dea064b1c08a9ce92e6e2fa06995,BANCA,Transf. Deuna A Enrique Javier Viera Mendoza,Alimentación,Almuerzo,Necesidad,False,Familia,True,Mamá,0.0,True,Encebollado Finde,,9d67fbc5-6315-4ab1-b151-6dcd39bef943,,,fd0f8a75-37a1-485f-9f2b-81b4861ebc00
 7741c062f3ef58b9c5081b44f36d1520,BANCA,Sanduche 1 Dolar,Alimentación,,---,False,---,False,,0.0,True,,,,,,
 2cd10249df05e3d002219c77d0fcc39b,BANCA,Madre,Deudas,,---,False,---,False,,0.0,True,,,5eac5de7-515d-4ecf-84ba-89169ef47925,,,
 75dba45fddec6ee8db3c002d6fcb113a,BANCA,Madre,Deudas,,---,False,---,False,,0.0,True,,,5eac5de7-515d-4ecf-84ba-89169ef47925,,,
-bce0d8196c2c8689d86c910eaf6a348b,BANCA,Transf. Directa A Pazmiño  Vallejo Norma Isabel,Viajes,CB_2025,Deseo,False,Yo,True,Mamá,7.0,True,,,,,,
+bce0d8196c2c8689d86c910eaf6a348b,BANCA,Transf. Directa A Pazmiño  Vallejo Norma Isabel,Viajes,CB_2025,Deseo,False,Yo,True,Mamá,7.0,True,,,,,,0c4058d2-0350-4fd0-a7c1-7e8f2503cd50
 5433ee3b05680d95b681477dc0f9b342,BANCA,Leo,Ocio,Trago,Deseo,False,---,False,,7.0,True,,,,,,
 e21e3aaaaa4d866657f335418ab5438c,BANCA,Transf. Deuna A Micromercado Sebas,Ocio,Trago,Deseo,False,---,False,,7.0,True,,,,,,
 681237b66157c102958950376308252d,BANCA,Transf. Directa De Dominique Lourdes Verkade Montiel,Alimentación,Merienda,Deseo,False,---,False,,5.0,True,Shawarma,,c46c89cf-6449-487b-a89c-4900420ccfa5,,,
@@ -36,7 +36,7 @@ e21e3aaaaa4d866657f335418ab5438c,BANCA,Transf. Deuna A Micromercado Sebas,Ocio,T
 735a42aad5127814eecef41abc1af8f4,TARJETA,Fuel Oriental Gasolinera,Transporte,Gasolina,Necesidad,False,---,False,,5.0,True,,,,,,
 f5f4fa5d05dd55768c00e53b98694c99,TARJETA,Tantra,Mujeres,"Sexualidad, Motel, Majo",Deseo,False,---,False,,7.0,True,,,,,,
 35b68ad56b6f2258b6658881cc0f9e2a,BANCA,Pago Por Servicio De Combos Tuenti,Mujeres,Renata,Deseo,False,---,False,,3.0,True,,,,,,
-063fecbeda8ffa10156f8b323007b6c2,BANCA,Taurus,Alimentación,Desauno,Necesidad,False,Familia,True,Mamá,0.0,True,,,,,,
+063fecbeda8ffa10156f8b323007b6c2,BANCA,Taurus,Alimentación,Desauno,Necesidad,False,Familia,True,Mamá,0.0,True,,,,,,7b727b50-fb02-4124-b614-204690809d01
 5a480fe5be824961fa4f94192266bbb6,BANCA,Menestras Simon,Alimentación,Almuerzo,Necesidad,False,---,True,,5.0,True,,,,,,
 0c5317464b2e58a26a2a584595dcdb36,BANCA,Transf. Directa A Pazmiño  Vallejo Norma Isabel,Viajes,CB_2025,Deseo,False,---,False,,7.0,True,,,,,,
 0c431249cbb0988fba5a762a22701427,BANCA,Motel Dos Pinos,Ocio,"Sexualidad, Renata, Motel",Deseo,False,---,False,,7.0,True,,,,,,
@@ -58,7 +58,7 @@ b9d58c9574bd07dec46f5099fc2b025b,TARJETA,Autoservipampa,Transporte,Gasolina,Nece
 4fdd7ac4b64f84b1bcdfbf78cf2d4224,TARJETA,Autoservipampa,Transporte,Gasolina,Necesidad,False,---,False,,0.0,True,,,4d690b32-b3ab-4a98-ac9a-c82c0d64d5ce,,,
 3a80091fbaf981640aa84a9dbef82d4d,BANCA,Sanduche 1 Dolar,Alimentación,,Deseo,False,---,False,,0.0,True,,,,,,
 ad5f49bb273acbbce70246b2508e699d,BANCA,Leo,Ocio,Trago,Deseo,False,---,False,,0.0,True,,,,,,
-43a7a229b479c250c8d3018380d79139,TARJETA,Fybeca,Salud,,Necesidad,False,Mamá,True,Mamá,0.0,True,Medicamentos madre,,,,,
+43a7a229b479c250c8d3018380d79139,TARJETA,Fybeca,Salud,,Necesidad,False,Mamá,True,Mamá,0.0,True,Medicamentos madre,,,,,7b035ba1-a973-413e-a750-c5462b108ab4
 7a674a20f029b852098239b0c260bb06,TARJETA,Uber,Subscripciones,,Deseo,False,---,False,,0.0,True,,,3b692250-5fc0-4eef-8a42-1cf75b9d9924,,,
 45f2bb2f72622c12a510ef23280e9cc2,TARJETA,Uber,Subscripciones,,Deseo,False,---,False,,0.0,True,,,3b692250-5fc0-4eef-8a42-1cf75b9d9924,,,
 45e3414f644f12b5d7214d9560cd3248,BANCA,Uber,Subscripciones,,Deseo,False,---,False,,0.0,True,,,3b692250-5fc0-4eef-8a42-1cf75b9d9924,,,
@@ -79,13 +79,13 @@ b9883b98f3490455d22b66e45c32adbd,BANCA,Sanduche 1 Dolar,Alimentación,Almuerzo,N
 8ca5ac661a58659e61aae024e8e6e762,BANCA,Transf. Deuna A Noralma Cecibell Mendoza Andrade,Regalo,Navidad_2025,Deseo,False,---,False,,7.0,True,,,,,,
 79e58b76799efe6e7885a1cd44717b42,TARJETA,Sweet Coffee,Alimentación,,Deseo,False,---,False,,5.0,True,,,,,,
 9c68d5a94eb5ce27a02ddd6609933e6b,TARJETA,Mayflower,Alimentación,Almuerzo,Necesidad,False,---,False,,3.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
-32292a2f02c4222840347c7db80d2fbb,BANCA,Taurus,Alimentación,Desauno,Necesidad,False,Yo,True,Mamá,5.0,True,,,,,,
-a3077de695c23b1f4e886e43dc2eb3c2,BANCA,Taurus,Alimentación,Desauno,Necesidad,False,Familia,True,Mamá,0.0,True,,,,,,
+32292a2f02c4222840347c7db80d2fbb,BANCA,Taurus,Alimentación,Desauno,Necesidad,False,Yo,True,Mamá,5.0,True,,,,,,599cf988-06ca-4aa9-b970-284ff46ec3f6
+a3077de695c23b1f4e886e43dc2eb3c2,BANCA,Taurus,Alimentación,Desauno,Necesidad,False,Familia,True,Mamá,0.0,True,,,,,,a001c299-0394-443f-8858-f86209d1b608
 e64e969af70e808a973df5f41dc5b07c,BANCA,251226076Zkj-Automoto-Rec-1714675020,Otro,Pago_Kardian,---,False,---,False,,0.0,True,,,,,,
-8772761e2837cec7f83bbef77c3adac7,TARJETA,UBER EATS,Alimentación,Almuerzo,Necesidad,False,Familia,True,Mamá,0.0,True,Stav,,417baadb-0c21-4315-9902-bc4f558b87d5,,,
+8772761e2837cec7f83bbef77c3adac7,TARJETA,UBER EATS,Alimentación,Almuerzo,Necesidad,False,Familia,True,Mamá,0.0,True,Stav,,417baadb-0c21-4315-9902-bc4f558b87d5,,,94593fbb-9643-4ec1-aca7-8af42882f918
 63994415d4a10ee203c721855766a6d8,TARJETA,Spotify,Subscripciones,,Deseo,False,Yo,True,Mamá,7.0,True,,,4fe89fcb-6bcf-449f-95af-b656d77df9b1,,,
 253c05a01c54c3764ab8f3b915c008cd,TARJETA,Spotify,Subscripciones,,Deseo,False,Yo,True,Mamá,7.0,True,,,4fe89fcb-6bcf-449f-95af-b656d77df9b1,,,
-2f3109bc5c20047a0ed84b2dd030dc16,TARJETA,UBER EATS,Alimentación,Almuerzo,Necesidad,False,Familia,True,Mamá,0.0,True,Stav,,417baadb-0c21-4315-9902-bc4f558b87d5,,,
+2f3109bc5c20047a0ed84b2dd030dc16,TARJETA,UBER EATS,Alimentación,Almuerzo,Necesidad,False,Familia,True,Mamá,0.0,True,Stav,,417baadb-0c21-4315-9902-bc4f558b87d5,,,94593fbb-9643-4ec1-aca7-8af42882f918
 1824655e01c1c673af561ef51242b66b,BANCA,Hermana,Otro,Pago_Kardian,---,False,---,False,,0.0,True,,,,,,
 c8866494a8221773e1085c7562e0cac8,BANCA,Transf. Deuna A Karina Alexandra Tutistar Sarango,Ocio,Trago,Deseo,False,---,False,,5.0,True,,,,,,
 6830bacbeb217dfd1cf18eeb87e55cac,BANCA,Transf. Interbancaria A Dapper Detailing Studio S A S,Transporte,Carwash,Deseo,False,---,False,,7.0,True,,,,,,
@@ -93,8 +93,8 @@ c8866494a8221773e1085c7562e0cac8,BANCA,Transf. Deuna A Karina Alexandra Tutistar
 a132f5bc198a56d97ab205fb94e4f60c,TARJETA,Mc,Alimentación,Almuerzo,Necesidad,False,---,False,,7.0,True,Almuerzo Car Wash Cumbaya,,96c0ee25-df78-4537-a9eb-b03330ccf39f,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 0776169ad5913b6f61398f9303314fbe,TARJETA,Mc,Alimentación,Almuerzo,Necesidad,False,---,False,,7.0,True,Almuerzo Car Wash Cumbaya,,96c0ee25-df78-4537-a9eb-b03330ccf39f,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 be8dbe396ebbfdec3226c0470848765c,BANCA,Menestras Simon,Alimentación,Almuerzo,Necesidad,False,---,False,,5.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
-7c1afcfc09bd2d22d221dad63940022e,TARJETA,Uber   *One Membership  U,Subscripciones,,---,True,Yo,True,Mamá,0.0,True,,,48f63f03-b2c0-4339-86cd-9787b31e9fe5,,,
-12681dda669d0d40aebbac7153533370,TARJETA,Uber   *One Membership  U,Subscripciones,,---,True,Yo,True,Mamá,0.0,True,,,48f63f03-b2c0-4339-86cd-9787b31e9fe5,,,
+7c1afcfc09bd2d22d221dad63940022e,TARJETA,Uber   *One Membership  U,Subscripciones,,---,True,Yo,True,Mamá,0.0,True,,,48f63f03-b2c0-4339-86cd-9787b31e9fe5,,,5735ac7c-bc5b-4aaa-a35b-3ac47766372d
+12681dda669d0d40aebbac7153533370,TARJETA,Uber   *One Membership  U,Subscripciones,,---,True,Yo,True,Mamá,0.0,True,,,48f63f03-b2c0-4339-86cd-9787b31e9fe5,,,5735ac7c-bc5b-4aaa-a35b-3ac47766372d
 ad0e1b1184987c42be1e5c2bcc057c6c,BANCA,Morochos,Alimentación,Merienda,Deseo,False,---,False,,5.0,True,,,,,,
 8beb597129278d54a9b57847e66e8811,BANCA,Taurus,Alimentación,Desauno,Necesidad,False,---,False,,5.0,True,,,,,,
 fd28446a4448c045aef6d8909c898f8b,BANCA,Menestras Simon,Alimentación,Almuerzo,Necesidad,False,---,False,,5.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
@@ -107,8 +107,6 @@ e713920bb67d518fa7b525b8a68bb3bd,BANCA,Transf. Deuna A Agromiro Ec S A Agromiro 
 121427db0865ae9877d30847b03486f2,BANCA,,Mensual,Parqueadero,,,,,,,True,,2789182c-b96a-40cf-8b22-2c28069c6daf,,40.0,,
 a6bdb73e8f1c0ac504aaef4b9172abaa,BANCA,Taurus,Alimentación,Desauno,Necesidad,False,---,False,,0.0,True,,,,,,
 0abe836147d9b4bc9862a3108afc3a59,BANCA,Madre,Deudas,,---,False,---,False,,0.0,True,,,,,,
-d3b97aa9ac481dba58528671cf0bb93e,BANCA,,Mensual,Mensual,,,,,,,True,,69528886-53b0-4973-a11a-df91a1ccd6cb,,110.0,8742d56b-9583-4c52-8d2a-f0d7b15db287,
-d3b97aa9ac481dba58528671cf0bb93e,BANCA,,Mensual,"Gasolina, Mensual_Gasolina",,,,,,,True,,96f55992-3f0d-4c00-b83b-d6370c10ad6d,,70.0,9fd02acc-e6a0-4596-ae82-5cc9f83c6b94,
 9d2da80fb6be376d85f5de39dcc44aaa,TARJETA,Gasolinera Atimasa,Transporte,Gasolina,Necesidad,False,---,False,,5.0,True,,,1e494aea-b88c-446c-874e-0abf7f7c41bb,,,
 0119f014e2b4b667185d6b14d48a8288,TARJETA,Gasolinera Atimasa,Transporte,Gasolina,Necesidad,False,---,False,,5.0,True,,,1e494aea-b88c-446c-874e-0abf7f7c41bb,,,
 7fa4ab64bef8112856a2118bd9956d93,TARJETA,Rock Hamburguesas,Alimentación,Almuerzo,Necesidad,False,---,False,,6.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
@@ -118,15 +116,15 @@ b3064cba201aa5950ea733c48b667145,TARJETA,Spotify,Subscripciones,,Deseo,False,---
 ed4e0b72e15b76dc7c12e87098dffb3f,TARJETA,Spotify,Subscripciones,,Deseo,False,---,False,,6.0,True,,,a54272c8-68ee-4917-aec4-e88e00ef3b29,,,
 3bd88eb2df5b8f8f1bdbf55c1760ada1,TARJETA,Gasolinera Monteserrin,Transporte,Gasolina,Necesidad,False,---,False,,0.0,True,,,5a080905-8554-4daf-a577-99a13ebbeef5,,,
 eb55ca04ac7c3df4ab956b2a9c52ab54,TARJETA,Gasolinera Monteserrin,Transporte,Gasolina,Necesidad,False,---,False,,0.0,True,,,5a080905-8554-4daf-a577-99a13ebbeef5,,,
-4a1cf89af9f718b745daa66fb219d303,TARJETA,Zara,Ropa,,Deseo,False,Yo,True,Hermana,0.0,True,Regalo de Navidad hermana,,,,,
+4a1cf89af9f718b745daa66fb219d303,TARJETA,Zara,Ropa,,Deseo,False,Yo,True,Hermana,0.0,True,Regalo de Navidad hermana,,,,,14195fbe-b2c1-42f2-a681-79c339adff0f
 87a2031d8390778f7c3891fa287caf35,TARJETA,Quicentro Shopping,Transporte,Parqueadero,Deseo,False,---,False,,5.0,True,,,,,,
 988ff91bd9029bd37e380bb40177cac9,BANCA,Transf. Deuna A Daniel Larrea Luna,Ocio,,Deseo,False,---,False,,7.0,True,Scape Room,,,,,
 1e5fe8e2460eb8976725b17cc72d4082,BANCA,Transf. Directa A Martinez  Vizuete Kevin Daniel,Alimentación,,Deseo,False,---,False,,5.0,True,,,33ded540-238d-48cc-996c-c6531c0cca43,,,
 13164f715abdd98e42999654ffbca227,BANCA,Transf. Directa A Martinez  Vizuete Kevin Daniel,Alimentación,,Deseo,False,---,False,,5.0,True,,,33ded540-238d-48cc-996c-c6531c0cca43,,,
 acec56ac8f83e1d5708ff1f521dfee1a,TARJETA,Uber,Subscripciones,,Deseo,False,---,False,,5.0,True,,,62080c35-630a-4181-9255-0fa1f7b6f876,,,
 e0d2a39fd88739c190ef2b4d8a13c98a,TARJETA,Uber,Subscripciones,,Deseo,False,---,False,,5.0,True,,,62080c35-630a-4181-9255-0fa1f7b6f876,,,
-331849771be3bc6261fa2cd428f3d20c,BANCA,Taurus,Alimentación,Desauno,Necesidad,False,Familia,True,Mamá,0.0,True,,,,,,
-5f3ec8def05f7302d49569d72d6bd0c5,BANCA,TRANSF. DIRECTA A PANILUISA  CHICAIZA EDISON ORLANDO,Alimentación,,Necesidad,False,Familia,True,Mamá,5.0,True,Comida merienda,,,,,
+331849771be3bc6261fa2cd428f3d20c,BANCA,Taurus,Alimentación,Desauno,Necesidad,False,Familia,True,Mamá,0.0,True,,,,,,1f87a54b-ffff-4cc6-ac93-7f33529d2fc4
+5f3ec8def05f7302d49569d72d6bd0c5,BANCA,TRANSF. DIRECTA A PANILUISA  CHICAIZA EDISON ORLANDO,Alimentación,,Necesidad,False,Familia,True,Mamá,5.0,True,Comida merienda,,,,,70b5967d-9e08-4161-b25e-3f722f2826e9
 97d6d57c6ee2b40cd9b619d591493b40,BANCA,Manabas Grill Almuerzos,Alimentación,Almuerzo,Necesidad,False,---,False,,6.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 fe9e8394c0c23fd1a3cc1d698a23591e,BANCA,Transf. Deuna A Bodega San Lukas,Regalo,Navidad_2025,Deseo,False,---,False,,7.0,True,,,49beebe4-83a7-467e-acca-9cb67253122d,,,
 889990497a8e9e84c75272f26d1224cb,BANCA,Transf. Deuna A Bodega San Lukas,Regalo,Navidad_2025,Deseo,False,---,False,,7.0,True,,,49beebe4-83a7-467e-acca-9cb67253122d,,,
@@ -139,8 +137,8 @@ bb6f85058947ffcfad070397c8cdbcc7,BANCA,2512041Xgvna-Maste Bp-Rec-22306700007562,
 e94aa8ec7dd6ee36676e013edec80c1a,BANCA,Canelazo,Ocio,Fiestas_Quito_2025,Deseo,False,---,False,,7.0,True,,,cf7b655b-1494-4ef1-ba1d-65c94f380260,,,
 ed6b276496e8d40b31e5287a6cebdbec,BANCA,Canelazo,Ocio,Fiestas_Quito_2025,Deseo,False,---,False,,7.0,True,,,cf7b655b-1494-4ef1-ba1d-65c94f380260,,,
 cc15ca06bb2c5bc06f8ad62ec9cfb2cd,TARJETA,,,,,,,,,,,,,27636079-cc3d-47e3-8466-936ecd093bd7,,,
-8c572942334760a16f44a6d55f54922d,TARJETA,Uber,Subscripciones,Fiestas_Quito_2025,Deseo,False,Amigo,True,Amigo,0.0,True,,c5435fcc-1bd2-43a7-aae4-6661e67a15b5,,-6.73,,
-8c572942334760a16f44a6d55f54922d,TARJETA,Uber,Transporte,Fiestas_Quito_2025,,False,,False,,0.0,True,,110b164a-2ef6-4cde-9428-86edd3308a7e,,-5.0,,
+8c572942334760a16f44a6d55f54922d,TARJETA,Uber,Subscripciones,Fiestas_Quito_2025,Deseo,False,Amigo,True,Amigo,0.0,True,,c5435fcc-1bd2-43a7-aae4-6661e67a15b5,,-6.73,,2e372255-9908-4d5e-be6f-687302cc5ef8
+8c572942334760a16f44a6d55f54922d,TARJETA,Uber,Transporte,Fiestas_Quito_2025,,False,,False,,0.0,True,,110b164a-2ef6-4cde-9428-86edd3308a7e,,-5.0,,2e372255-9908-4d5e-be6f-687302cc5ef8
 342e545adb128e672767dc2759aabe18,TARJETA,Fybeca,Salud,Vista,Necesidad,False,Yo,True,Mamá,5.0,True,Gotas Ojos,1fca5ae3-e5e5-4f80-bf12-77f2fd773b27,,-13.8,,
 342e545adb128e672767dc2759aabe18,TARJETA,,Regalo,,Deseo,False,---,False,,6.0,True,Regalo a Andreita,64fed9af-5ddd-4667-9a36-3314bd89a126,,-4.879999999999999,,
 92eb4a259176239b3c4ff0d5bda3e79f,TARJETA,Mc,Alimentación,Fiestas_Quito_2025,Necesidad,False,---,False,,6.0,True,,,,,,
@@ -158,20 +156,20 @@ d04690131b8322ebc984a32a975154e0,BANCA,Hermana,Otro,Transporte Noah,---,True,---
 f823aba548a7b91b8eeb2799c835a786,TARJETA,Gasolinera Atimasa,Transporte,Gasolina,Necesidad,False,---,False,,5.0,True,,,4006dafb-2cc0-421c-a12a-01cf0888bb42,,,
 f8abc2cfeeb303a49e01df9c4c9fbc5c,TARJETA,Gasolinera Atimasa,Transporte,Gasolina,Necesidad,False,---,False,,5.0,True,,,4006dafb-2cc0-421c-a12a-01cf0888bb42,,,
 8e1831f220c1688af5460d3a82b549b5,TARJETA,Gasolinera Atimasa,Transporte,Gasolina,Necesidad,False,---,False,,5.0,True,,,4006dafb-2cc0-421c-a12a-01cf0888bb42,,,
-9395bdab7fb819a0ce78917adfb2e725,BANCA,Transf. Deuna A Gregory Alessandro Arias Vaca,Alimentación,Almuerzo,Necesidad,False,Familia,True,Mamá,0.0,True,,,,,,
+9395bdab7fb819a0ce78917adfb2e725,BANCA,Transf. Deuna A Gregory Alessandro Arias Vaca,Alimentación,Almuerzo,Necesidad,False,Familia,True,Mamá,0.0,True,,,,,,b45a13ff-4359-4640-8f50-b8017d38960b
 5da54da6deb0166267568dae736e1249,BANCA,Sanduche 1 Dolar,Alimentación,,Deseo,False,---,False,,0.0,True,,,,,,
 699eca3a9018064637bf4125720e2631,BANCA,Transf. Directa A Delgado  Almeida Joel Ricardo,Alimentación,Desayuno,Deseo,False,---,False,,7.0,True,Encebollados Fiesta Rubia,,,,,
 2043e281edf2fd61ec6a794317350236,BANCA,Cevichocho U Esquina,Alimentación,Almuerzo,Necesidad,False,---,False,,0.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
-375f07e99f94a70626778d2105cf50cd,TARJETA,Universidad Catolica,Otro,Universidad,Necesidad,False,Yo,True,Mamá,6.0,True,Ingles,,,,,
+375f07e99f94a70626778d2105cf50cd,TARJETA,Universidad Catolica,Otro,Universidad,Necesidad,False,Yo,True,Mamá,6.0,True,Ingles,,,,,73e07a74-6558-4bc9-8e51-92749e30ad54
 2eb27c649f6ee27c256252e38a857bd3,BANCA,Pago Tarjeta De Credito Principal,Tarjeta,Tarjeta,Necesidad,True,---,False,,5.0,True,,,,,,
 3142d0ac4121c85fa2da2d987c836b4b,TARJETA,Mc,Alimentación,Almuerzo,Necesidad,False,---,False,,6.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 e6d2b314ec6256206ec16dbcd1541bc5,BANCA,Manabas Grill Almuerzos,Alimentación,Almuerzo,Necesidad,False,---,False,,6.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
-e0809d29ab70508698d5a36cb988e14b,TARJETA,Uber,Transporte,,Necesidad,False,Mamá,True,Mamá,5.0,True,,,d126262c-0f3d-4dbb-8f6a-d70522ca314b,,,
-51ca612ecb8eedf8bf94b7d28798f5b0,TARJETA,Uber,Transporte,,Necesidad,False,Mamá,True,Mamá,5.0,True,,,d126262c-0f3d-4dbb-8f6a-d70522ca314b,,,
-4f000e7f940646ed21306698b81587a9,BANCA,Transf. Deuna A Libreria Studium Cia Ltda Libreria Studium Cia Ltda,Otro,Universidad,Necesidad,False,Yo,True,Mamá,5.0,True,,,,,,
-da4aee13446b26d847b129c5463d12fe,BANCA,Mens Barberia,Mensual,Corte,Necesidad,True,Yo,True,Mamá,7.0,True,,db8ac796-07d0-41aa-8a6b-c051164bc516,,-10.0,,
-da4aee13446b26d847b129c5463d12fe,BANCA,,Aseo,Corte,Necesidad,False,---,False,,7.0,True,,e4398570-6bb5-4658-8895-88244d039b03,,-6.0,,
-7b37b069551fc78918005c04a6243b41,TARJETA,Supermaxi,Aseo,,Necesidad,False,Yo,True,Mamá,6.0,True,,,,,,
+e0809d29ab70508698d5a36cb988e14b,TARJETA,Uber,Transporte,,Necesidad,False,Mamá,True,Mamá,5.0,True,,,d126262c-0f3d-4dbb-8f6a-d70522ca314b,,,239bedfa-538f-4c35-a963-814268387f34
+51ca612ecb8eedf8bf94b7d28798f5b0,TARJETA,Uber,Transporte,,Necesidad,False,Mamá,True,Mamá,5.0,True,,,d126262c-0f3d-4dbb-8f6a-d70522ca314b,,,239bedfa-538f-4c35-a963-814268387f34
+4f000e7f940646ed21306698b81587a9,BANCA,Transf. Deuna A Libreria Studium Cia Ltda Libreria Studium Cia Ltda,Otro,Universidad,Necesidad,False,Yo,True,Mamá,5.0,True,,,,,,b0316a3c-0a7c-4dcc-ae2c-d0b46e5bea1d
+da4aee13446b26d847b129c5463d12fe,BANCA,Mens Barberia,Mensual,Corte,Necesidad,True,Yo,True,Mamá,7.0,True,,db8ac796-07d0-41aa-8a6b-c051164bc516,,-10.0,,09e39177-e925-4843-87bb-acefcf6cd994
+da4aee13446b26d847b129c5463d12fe,BANCA,,Aseo,Corte,Necesidad,False,---,False,,7.0,True,,e4398570-6bb5-4658-8895-88244d039b03,,-6.0,,09e39177-e925-4843-87bb-acefcf6cd994
+7b37b069551fc78918005c04a6243b41,TARJETA,Supermaxi,Aseo,,Necesidad,False,Yo,True,Mamá,6.0,True,,,,,,57aa951a-ef02-45e1-8064-4d6ccfdb8c10
 2dbe7d6bd4b1d16dcc0da68f0e290dc1,TARJETA,Mc,Alimentación,Almuerzo,Necesidad,False,---,False,,6.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 1ccd65da0fb777af7b3d60a187277391,BANCA,Cancelacion Plazo Fijo,Inversion,Inversion,---,False,---,False,,5.0,True,,,,,,
 af1bc6699544699ef45f457225af27fd,BANCA,Interes (Transferencia Interior),Inversion,Inversion,---,False,---,False,,0.0,True,,,,,,
@@ -238,14 +236,14 @@ dd0c241afed34fd26b6c2046e3a6c84a,BANCA,PAGO TARJETA INTERBANCARIA ENVIADA,Tarjet
 da1591fc4e51c683b544b1c043e39b70,TARJETA,UB *EATS ECUADOR        8,Alimentación,Almuerzo,Necesidad,False,Yo,False,Yo,7.0,True,Tablita,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 0a375939614d5d7c91f1eda79c2f4c9c,BANCA,Manabas Grill Almuerzos,Alimentación,Almuerzo,Necesidad,False,---,False,,0.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 b8614699f6dd32cf38d4c12b74d89ad1,BANCA,Manabas Grill Almuerzos,Alimentación,Almuerzo,Necesidad,False,---,False,,0.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
-b6f9d5d0f4d0280d648be4f735cb898a,BANCA,TRANSF. DEUNA A SISTEMAS MEDICOS SIME SIMETECUIDA S A SIMETECUIDA,Salud,operacion_nariz,Necesidad,False,Yo,True,Mamá,0.0,True,Examen Sangre,,,,,
+b6f9d5d0f4d0280d648be4f735cb898a,BANCA,TRANSF. DEUNA A SISTEMAS MEDICOS SIME SIMETECUIDA S A SIMETECUIDA,Salud,operacion_nariz,Necesidad,False,Yo,True,Mamá,0.0,True,Examen Sangre,,,,,6537dd5b-5fd2-4204-ad2d-48b0000cbe01
 0608434917b5cc5e7fcb06ebfc5d69ec,BANCA,TRANSF. DEUNA A KAREN ANTONELLA TORRES ONTANEDA,Alimentación,Merienda,---,False,---,False,,0.0,True,Alitas David,,,,,
 2b70c1e22c1f217cfb7824d4cef25313,BANCA,Menestras Simon,Alimentación,Almuerzo,Necesidad,False,---,False,,6.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 5a1efd24b2faf23b0bb3ea7738c96869,BANCA,TRANSF. DEUNA A YONG WANG,Alimentación,,Necesidad,False,Familia,True,Mamá,0.0,True,Chifa,,,,,
 dd60c1f238ae57468c9861b11d9a374e,BANCA,Manabas Grill Almuerzos,Alimentación,Almuerzo,Necesidad,False,---,False,,0.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 b3867b944c3256b3bc53cfd842cc87ba,BANCA,Madre,Deudas,,---,False,---,False,,0.0,True,,,,,,
 3c88343454bee862fccd189293118b9c,BANCA,Menestras Simon,Alimentación,Almuerzo,Necesidad,False,---,False,,6.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
-1f33f5aef6423e390ea1134de3039ce8,TARJETA,Uber,Transporte,,Necesidad,False,Mamá,True,Mamá,0.0,True,Uber Renault,,,,,
+1f33f5aef6423e390ea1134de3039ce8,TARJETA,Uber,Transporte,,Necesidad,False,Mamá,True,Mamá,0.0,True,Uber Renault,,,,,885f0c9b-be97-4e98-b8f1-1f9477e6129e
 85075db9100bfe3043fa47b22897643f,TARJETA,,Alimentación,Almuerzo,Necesidad,False,---,False,,6.0,True,,aee2c7bf-43ac-4923-b8c2-fcf946194093,,-6.0,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 85075db9100bfe3043fa47b22897643f,TARJETA,,Alimentación,Renata,Deseo,False,---,False,,6.0,True,,c5c71347-9db9-4683-b092-807d220a30c2,,-5.970000000000001,,
 b1a0b664e07fcf7290c585a446490cee,TARJETA,Uber Eats,Alimentación,Almuerzo,Necesidad,False,---,False,,6.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
@@ -260,27 +258,27 @@ b947b2b5f62ffae39c5c1825e9dabdf1,BANCA,TRANSF. DEUNA A JULIA AMALIA CHIMBO DE LA
 dabf13e25197d31242beca8cbd78124c,BANCA,TRANSF. DEUNA A ANGELA JASMIN CABRERA NIETO,Regalo,Renata,Deseo,False,---,False,,6.0,True,,,,,,
 0853e6dbf18ffeab892e0c00d09968dc,TARJETA,Gasolinera Atimasa,Transporte,Gasolina,Necesidad,True,---,False,,0.0,True,,,,,,
 0f1860ef1714a983bdeb9be0de384132,TARJETA,Uber Eats,Alimentación,Almuerzo,Necesidad,False,---,False,,6.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
-d3556683e4721e5f149dec9b9e043718,TARJETA,SIME PORTAL Q CONSUMO ECU,Salud,operacion_nariz,Necesidad,False,Yo,True,Mamá,0.0,True,,,,,,
-30c21f73563b2c99ff200f8c38351380,TARJETA,MCDONALD S KS G CONSUMO ECU,Alimentación,,---,False,Familia,True,Mamá,0.0,True,Noah Comida,,,,,
+d3556683e4721e5f149dec9b9e043718,TARJETA,SIME PORTAL Q CONSUMO ECU,Salud,operacion_nariz,Necesidad,False,Yo,True,Mamá,0.0,True,,,,,,a48f0e23-6def-412e-b758-a8632b16e170
+30c21f73563b2c99ff200f8c38351380,TARJETA,MCDONALD S KS G CONSUMO ECU,Alimentación,,---,False,Familia,True,Mamá,0.0,True,Noah Comida,,,,,bc7bb658-bba9-4b22-884f-e6d90a21d929
 091f8defe1cf68faf351a79a9dd4278d,BANCA,Cancelacion Plazo Fijo,Inversion,Inversion,---,False,---,False,,0.0,True,,,,,,
 6840ae470eae95089a8f4b5e81706bff,BANCA,Interes (Transferencia Interior),Inversion,Inversion,---,False,---,False,,0.0,True,,,,,,
 7fa49f0eb2f5cb6c0a8a395da676991d,BANCA,Retencion 2% Rendimiento Financiero,Inversion,Inversion,---,False,---,False,,0.0,True,,,,,,
 4060a953ef156161d481df31ad19400c,BANCA,Pago Tarjeta Principal,Tarjeta,Tarjeta,---,False,---,False,,0.0,True,,,,,,
-b6a0b1f9538f3d8f468be982b4086f60,BANCA,TRANSF. DEUNA A HERNAN DARIO RAMOS VILLARREAL,Aseo,Corte,Necesidad,False,Yo,True,Mamá,6.0,True,,,,,,
+b6a0b1f9538f3d8f468be982b4086f60,BANCA,TRANSF. DEUNA A HERNAN DARIO RAMOS VILLARREAL,Aseo,Corte,Necesidad,False,Yo,True,Mamá,6.0,True,,,,,,21b1fa3a-1c11-453f-9354-abba165baede
 4b06717a2b50cc18eec22c3254ea7aaa,BANCA,TRANSF. DIRECTA A MONSERRATE  NARANJO CARLOS ARMANDO,Alimentación,Almuerzo,Necesidad,False,---,False,,6.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 b66751450b981aeef4e4ceb97719081f,BANCA,Manabas Grill Almuerzos,Alimentación,Almuerzo,Necesidad,False,---,False,,0.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 7d4cc05ba6e3daf4752b0d9f2f2ef950,BANCA,Pago Por Servicio De Combos Tuenti,Regalo,Renata,Deseo,False,---,False,,0.0,True,,,,,,
-abfd332ed999f3f6f268a3ca13ffc6f6,TARJETA,ZURITA Y ZURITA LABORA Q CONSUMO ECU,Salud,operacion_nariz,Necesidad,False,Yo,True,Mamá,0.0,True,,,,,,
+abfd332ed999f3f6f268a3ca13ffc6f6,TARJETA,ZURITA Y ZURITA LABORA Q CONSUMO ECU,Salud,operacion_nariz,Necesidad,False,Yo,True,Mamá,0.0,True,,,,,,f2981d67-e8c3-437f-b12e-fd611d8db11d
 ba39e069f419f771fe991378db63623e,TARJETA,AIRBNB * HMZ42TBNSJ L CONSUMO GBR,Mujeres,Renata,Deseo,False,---,False,,8.0,True,,,,,,
 f3a2cdb25ddcf4a3c58371eb03686166,TARJETA,Supermaxi,Mujeres,Renata,Deseo,False,---,False,,6.0,True,,,,,,
 18d2fef4e449263b5d5fc7284784dd75,BANCA,Menestras Simon,Alimentación,Almuerzo,Necesidad,False,---,False,,6.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 cc3f63025737ea87adc7a61e8e52242e,BANCA,Pago Tarjeta De Credito Principal,Tarjeta,Tarjeta,Necesidad,True,---,False,,0.0,True,,,,,,
-701da005eb85706c6ca928e57d788a7b,TARJETA,Uber,Subscripciones,,Deseo,False,Yo,True,Mamá,0.0,True,,,,,,
+701da005eb85706c6ca928e57d788a7b,TARJETA,Uber,Subscripciones,,Deseo,False,Yo,True,Mamá,0.0,True,,,,,,42262bf9-12d5-489f-bada-45f7224db01e
 100626d6670611f3758521637175030e,BANCA,PAGO TARJETA DE CREDITO MASTERCARD BANCO PICHINCHA  54660500045502,Tarjeta,,---,False,---,False,,0.0,True,,,,,,
 4923302442d807f5e22d66451a52324c,BANCA,Menestras Simon,Alimentación,Almuerzo,Necesidad,False,---,False,,6.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 4d501970be3ef4147ee035ef66b2ad79,BANCA,2602021XGVNA-MASTE BP-REC-22306700007562,Tarjeta,,---,False,---,False,,0.0,True,,,,,,
 4682f1298c80a89cfffec2c45f96ecbc,BANCA,TRANSF. DIRECTA DE VERKADE MONTIEL DOMINIQUE LOURDES,Deudas,,---,False,---,False,,0.0,True,,,,,,
-8468ea5bc5a068d00647b5d2af2d3241,BANCA,Taurus,Alimentación,Desayuno,Necesidad,False,Yo,True,Mamá,0.0,True,,,,,,
+8468ea5bc5a068d00647b5d2af2d3241,BANCA,Taurus,Alimentación,Desayuno,Necesidad,False,Yo,True,Mamá,0.0,True,,,,,,fb64ae98-4f9f-4681-a9d3-e1a7acc0f2fc
 af4928787040450e04fb9c789d1df11c,BANCA,Morochos,Alimentación,,Deseo,False,---,False,,6.0,True,,,,,,
 27f40dbb3fd1da3a6b722e4d1344bc46,BANCA,Almuerzo Simon,Alimentación,Almuerzo,Necesidad,False,---,False,,6.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 04e7f65c92dca06f2517ad5524dbb943,BANCA,Almuerzo Simon,---,,---,False,---,False,,0.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
@@ -294,9 +292,9 @@ d2cd29160d303fcbc4157e68085700ff,TARJETA,,Deudas,,---,False,Amigo,True,Amigo,0.0
 45e4b17bfbf3989180f0d8306f9a6535,TARJETA,EPMMOP EST CAROLINA 6 Q CONSUMO ECU,Transporte,,Deseo,False,---,False,,5.0,True,,,,,,
 08c64e37949c58e3cc53bd6c5e36c3d9,BANCA,TRANSF. DIRECTA A VALLEJO TRUJILLO JANETH ESTHER,Alimentación,,Necesidad,False,---,False,,0.0,True,,,,,,
 068d46431039be9d4de093501694d71e,BANCA,TRANSF. DIRECTA A YANCHATUÑA RIVERA DEYSI MARIBEL,Alimentación,Almuerzo,Necesidad,False,---,False,,0.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
-d59af6705933a977091e6d65c753ddcb,BANCA,TRANSF. DIRECTA A CAISA RUANO JOUSTIN HERNAN,Transporte,Parqueadero,---,False,Yo,True,Mamá,0.0,True,,,,,,
-e8256f70e5f03088c174f25175f639b4,BANCA,TRANSF. DIRECTA A CAISA RUANO JOUSTIN HERNAN,Transporte,Parqueadero,---,False,Yo,True,Mamá,0.0,True,,,,,,
-ad7ad1ecd6c571fdea61ec546cf19797,BANCA,TRANSF. DIRECTA A ROSERO CORELLA ADRIAN LEONARDO,Transporte,Parqueadero,---,False,Yo,True,Mamá,0.0,True,,,,,,
+d59af6705933a977091e6d65c753ddcb,BANCA,TRANSF. DIRECTA A CAISA RUANO JOUSTIN HERNAN,Transporte,Parqueadero,---,False,Yo,True,Mamá,0.0,True,,,,,,d302b71c-ff7f-40ba-a3c4-8f4d222a613e
+e8256f70e5f03088c174f25175f639b4,BANCA,TRANSF. DIRECTA A ROSERO CORELLA ADRIAN LEONARDO,Transporte,Parqueadero,---,False,Yo,True,Mamá,0.0,True,,,07429d99-9be5-4823-b049-3660677f672f,,,
+ad7ad1ecd6c571fdea61ec546cf19797,BANCA,TRANSF. DIRECTA A ROSERO CORELLA ADRIAN LEONARDO,Transporte,Parqueadero,---,False,Yo,True,Mamá,0.0,True,,,07429d99-9be5-4823-b049-3660677f672f,,,
 e2a4f89f6dfd8b3bc90bececbcd746da,BANCA,Transf. Deuna A Maria Elena Recalde Estacio,Alimentación,Almuerzo,Necesidad,False,---,False,,0.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 ac19c8c80ee4ec55846974ebf89e9bd1,BANCA,TRANSF. DIRECTA DE ARCENTALES ENRIQUEZ FABIAN XAVIER,Deudas,,---,False,---,False,,0.0,True,Pa me paga,,,,,
 3628aa5b17ecc371c09ed0e267e5295b,BANCA,Almuerzo Simon,Alimentación,Almuerzo,Necesidad,False,---,False,,6.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
@@ -307,71 +305,71 @@ fd3d8c9605472bd93bd89f220c86dfc9,BANCA,TRANSF. DIRECTA DE VERKADE MONTIEL DOMINI
 1705846d5966f8ec5b49618d564960c9,BANCA,Madre,Deudas,,---,False,---,False,,0.0,True,,,,,,
 0838b3979a02623352e707c16e15aa2b,BANCA,Cadillac,Alimentación,Merienda,Deseo,False,---,False,,7.0,True,,97ad35ac-2cb4-45ee-8135-035f854cacfe,,-7.25,,
 0838b3979a02623352e707c16e15aa2b,BANCA,TRANSF. DIRECTA A CAMPAÑA ERAZO RICARDO DANIEL,Deudas,,---,False,Amigo,True,Amigo,0.0,True,,7ab9210f-872c-4671-b34a-ac6513d46805,,-14.5,,
-c4eca4c07da75f49ae949052a0398a16,BANCA,TRANSF. DIRECTA A PANILUISA CHICAIZA EDISON ORLANDO,Alimentación,,Necesidad,False,Familia,True,Mamá,0.0,True,Pan,,,,,
+c4eca4c07da75f49ae949052a0398a16,BANCA,TRANSF. DIRECTA A PANILUISA CHICAIZA EDISON ORLANDO,Alimentación,,Necesidad,False,Familia,True,Mamá,0.0,True,Pan,,,,,cc87a0b3-f5d5-4d46-9200-ae469ae7351f
 c3da49c37962256967d54b8220dc118c,BANCA,Madre,Mensual,,---,False,---,False,,0.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 feb535490e4b61efc58c4d1f558a46fd,BANCA,Madre,Transporte,Mensual_Gasolina,---,False,---,False,,0.0,True,,,,,9fd02acc-e6a0-4596-ae82-5cc9f83c6b94,
 e94857d2c266f6a66ec770654af37b3b,BANCA,Pago Tarjeta De Credito Principal,Tarjeta,Tarjeta,Necesidad,False,---,False,,0.0,True,,,,,,
 efba844d83d082b2d2d9c30d8c567546,BANCA,Madre,Deudas,,---,False,---,False,,0.0,True,,,,,,
 772ca9900e32bf01385fea8d0d8bc869,BANCA,Almuerzo Simon,Alimentación,,Necesidad,False,---,False,,7.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
-3ffc60030813d55c05909d647a540fc4,TARJETA,Fybeca                  Q,Salud,,Necesidad,False,Yo,True,Mamá,0.0,True,,,,,,
-191ae60004485593741dbd67edb6e9a0,TARJETA,Subcripcion Uber,Alimentación,Almuerzo,Necesidad,False,Familia,True,Mamá,6.0,True,,,4409875f-ab87-423e-a871-7bf58be3f7a8,,,
-45952b08ab56871f18a441e83b76cdd8,TARJETA,Subcripcion Uber,Alimentación,Almuerzo,Necesidad,False,Familia,True,Mamá,6.0,True,,,4409875f-ab87-423e-a871-7bf58be3f7a8,,,
-0189af7e9899f5977e3c2560de397c98,BANCA,Taurus,Alimentación,Desauno,Necesidad,False,Yo,True,Mamá,0.0,True,,,,,,
+3ffc60030813d55c05909d647a540fc4,TARJETA,Fybeca                  Q,Salud,,Necesidad,False,Yo,True,Mamá,0.0,True,,,,,,d9f18875-96fa-4590-9ec4-7e79783d69a0
+191ae60004485593741dbd67edb6e9a0,TARJETA,Subcripcion Uber,Alimentación,Almuerzo,Necesidad,False,Familia,True,Mamá,6.0,True,,,4409875f-ab87-423e-a871-7bf58be3f7a8,,,7776f030-ef8b-4942-aaf5-5b3acb93bfb7
+45952b08ab56871f18a441e83b76cdd8,TARJETA,Subcripcion Uber,Alimentación,Almuerzo,Necesidad,False,Familia,True,Mamá,6.0,True,,,4409875f-ab87-423e-a871-7bf58be3f7a8,,,7776f030-ef8b-4942-aaf5-5b3acb93bfb7
+0189af7e9899f5977e3c2560de397c98,BANCA,Taurus,Alimentación,Desauno,Necesidad,False,Yo,True,Mamá,0.0,True,,,,,,c232e5a1-0619-4da8-bf9b-02993d5ad7c5
 6e851c7885ecc382b96ff10864f2c7a4,BANCA,TRANSF. DIRECTA A GARCIA QUEZADA RITA MARGOTH,Deudas,,---,False,---,False,,0.0,True,,,,,,
 fe17dfe8ccf04c7d0b39a3a33212bfa8,BANCA,TRANSF. DEUNA A MERIDA TORRES ARREDONDO,Alimentación,Almuerzo,Necesidad,False,---,False,,0.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 6a0c0bc4e1f33eb4d3df12b67cb1ca46,TARJETA,DFF*PHOTO EQUIPOS E CONSUMO ECU,Deudas,,---,False,---,False,,0.0,True,,,,,,
-dff4c77d2b33328cd94c808953d9f83a,TARJETA,CLINICA SANTA LUCIA Q CONSUMO ECU,Salud,ojos,---,False,Yo,True,Mamá,0.0,True,Examenes,,48e62dad-b55b-4bc7-8811-44b61b525333,,,
-ec44850a92444f14aaa4c165efb6b2ee,TARJETA,CLINICA SANTA LUCIA Q CONSUMO ECU,Salud,ojos,---,False,Yo,True,Mamá,0.0,True,Examenes,,48e62dad-b55b-4bc7-8811-44b61b525333,,,
-1e145f681ec902ccd5d780734e669b1f,TARJETA,CLINICA SANTA LUCIA Q CONSUMO ECU,Salud,ojos,---,False,Yo,True,Mamá,0.0,True,Examenes,,48e62dad-b55b-4bc7-8811-44b61b525333,,,
+dff4c77d2b33328cd94c808953d9f83a,TARJETA,CLINICA SANTA LUCIA Q CONSUMO ECU,Salud,ojos,---,False,Yo,True,Mamá,0.0,True,Examenes,,48e62dad-b55b-4bc7-8811-44b61b525333,,,38beb048-f4a9-45a4-b3d9-b3d799a9c523
+ec44850a92444f14aaa4c165efb6b2ee,TARJETA,CLINICA SANTA LUCIA Q CONSUMO ECU,Salud,ojos,---,False,Yo,True,Mamá,0.0,True,Examenes,,48e62dad-b55b-4bc7-8811-44b61b525333,,,38beb048-f4a9-45a4-b3d9-b3d799a9c523
+1e145f681ec902ccd5d780734e669b1f,TARJETA,CLINICA SANTA LUCIA Q CONSUMO ECU,Salud,ojos,---,False,Yo,True,Mamá,0.0,True,Examenes,,48e62dad-b55b-4bc7-8811-44b61b525333,,,38beb048-f4a9-45a4-b3d9-b3d799a9c523
 6d537af351644998e69e4d810eb8e560,BANCA,TRANSF. DIRECTA A PEREZ GARCIA LILIANA PATRICIA,Alimentación,Almuerzo,Necesidad,False,---,False,,0.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 b5a5044bcecb849f4f0e19ba95eb9bbf,BANCA,TRANSF. DIRECTA A GUEVARA OLMEDO MATEO NICOLAS,Alimentación,Almuerzo,Deseo,False,---,False,,8.0,True,hamburguesas,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
-491034fe516e02b04111a31c00761b54,BANCA,TRANSF. INTERBANCARIA A BARRETO MUXOZ MARTHA VALERIA,Salud,operacion_nariz,---,False,Yo,True,Mamá,0.0,True,Cita,,0bbb63c9-eaa6-47a5-93f6-4849f6d47322,,,
-11c649f414ecfa451faa334639ef2702,TARJETA,TRANSF. INTERBANCARIA A BARRETO MUXOZ MARTHA VALERIA,Salud,operacion_nariz,---,False,Yo,True,Mamá,0.0,True,Cita,,0bbb63c9-eaa6-47a5-93f6-4849f6d47322,,,
-82e448afc1fe129986bed3e5af560d6b,BANCA,Taurus,Alimentación,Desauno,Necesidad,False,Yo,True,Mamá,0.0,True,,,,,,
-a6c342e5ecfedb903b724e4a9786f1a7,TARJETA,Uber,Transporte,,Deseo,False,Yo,True,Mamá,0.0,True,Uber para examen ojo,,1c8c7f80-817f-4ad6-914e-a8c1d71267e2,,,
-4799ea2fdec409cbd18bdd0b688cda4a,TARJETA,Uber,Transporte,,Deseo,False,Yo,True,Mamá,0.0,True,Uber para examen ojo,,1c8c7f80-817f-4ad6-914e-a8c1d71267e2,,,
+491034fe516e02b04111a31c00761b54,BANCA,TRANSF. INTERBANCARIA A BARRETO MUXOZ MARTHA VALERIA,Salud,operacion_nariz,---,False,Yo,True,Mamá,0.0,True,Cita,,0bbb63c9-eaa6-47a5-93f6-4849f6d47322,,,64bd328a-4a5a-4f85-8ccc-152d4eb1aee8
+11c649f414ecfa451faa334639ef2702,TARJETA,TRANSF. INTERBANCARIA A BARRETO MUXOZ MARTHA VALERIA,Salud,operacion_nariz,---,False,Yo,True,Mamá,0.0,True,Cita,,0bbb63c9-eaa6-47a5-93f6-4849f6d47322,,,64bd328a-4a5a-4f85-8ccc-152d4eb1aee8
+82e448afc1fe129986bed3e5af560d6b,BANCA,Taurus,Alimentación,Desauno,Necesidad,False,Yo,True,Mamá,0.0,True,,,,,,965034e8-3d97-419f-a5b1-1e073e5156cc
+a6c342e5ecfedb903b724e4a9786f1a7,TARJETA,Uber,Transporte,,Deseo,False,Yo,True,Mamá,0.0,True,Uber para examen ojo,,1c8c7f80-817f-4ad6-914e-a8c1d71267e2,,,435f2ef0-3f63-4cf4-9ccc-8ef2987f7477
+4799ea2fdec409cbd18bdd0b688cda4a,TARJETA,Uber,Transporte,,Deseo,False,Yo,True,Mamá,0.0,True,Uber para examen ojo,,1c8c7f80-817f-4ad6-914e-a8c1d71267e2,,,435f2ef0-3f63-4cf4-9ccc-8ef2987f7477
 5bce291e3ccc7387a657db1e11dd8d49,BANCA,TRANSF. DIRECTA A HONORES JAEN IVES OLIVIA,Alimentación,Desayuno,Deseo,False,---,False,,7.0,True,,,,,,
 fbd07710842ac33e057ae4ddd4c3c959,BANCA,TRANSF. DIRECTA A PEREZ GARCIA LILIANA PATRICIA,Alimentación,Almuerzo,Necesidad,False,---,False,,0.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 09ed681d1974ad86226ac7a64e4c9ba9,BANCA,TRANSF. DIRECTA A FOUNES PINTO GIOVANNY FRANCISCO,Ocio,Fiesta,---,False,---,False,,6.0,True,,,,,,
 71ded21820975bcba3379d7375c1dfd8,BANCA,TRANSF. DEUNA A BELLARIX LORENA RODRIGUEZ TORRES,Ropa,,Deseo,False,---,False,,7.0,True,Gorra Milo,,,,,
 85d49245e75b32c2e2fcff86902eefd6,TARJETA,MCDONALD S G CONSUMO ECU,Alimentación,Merienda,Deseo,False,---,False,,6.0,True,Despues de concierto,,8f144c57-da27-4957-bd10-a07c2d4f2b69,,,
 67c09e91cf1f4670696c5755f1464705,BANCA,MCDONALD S G CONSUMO ECU,Alimentación,Merienda,Deseo,False,---,False,,6.0,True,Despues de concierto,,8f144c57-da27-4957-bd10-a07c2d4f2b69,,,
-7ebde9ca5a8c528e490a7659375c2822,BANCA,TRANSF. DEUNA A METROPARQUEOS S A METROPARQUEOS,Transporte,,---,False,Yo,True,Mamá,0.0,True,,,,,,
+7ebde9ca5a8c528e490a7659375c2822,BANCA,TRANSF. DEUNA A METROPARQUEOS S A METROPARQUEOS,Transporte,,---,False,Yo,True,Mamá,0.0,True,,,,,,b377769d-0556-4e9c-81e4-e37da9dc34b3
 2d44448b85228ff2286641fd050dc5b3,BANCA,TRANSF. DEUNA A JOORK DEIVI OLAYA CUERO,Alimentación,Almuerzo,Necesidad,False,---,False,,0.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 15ca80fbdf9d0ac17e75601d7b73722a,BANCA,TRANSF. DIRECTA A RUEDA ESPINOSA MARCO ANTONIO,Alimentación,Merienda,Deseo,False,---,False,,6.0,True,,,,,,
-83fb3d3d1151f5fa1fc3a95881bc9907,BANCA,TRANSF. DEUNA A NORMA DEL ROCIO ALARCON REINA,Alimentación,Merienda,---,False,Familia,True,Mamá,0.0,True,papas,,,,,
-98a391abdf3bfa900b218363e0d22406,TARJETA,Uber,Subscripciones,,Deseo,False,Yo,True,Mamá,0.0,True,,,be41b660-7b97-45bc-915b-619b96e0a330,,,
-7f744b8c7b52564379aa0d78e2622983,TARJETA,Uber,Subscripciones,,Deseo,False,Yo,True,Mamá,0.0,True,,,be41b660-7b97-45bc-915b-619b96e0a330,,,
+83fb3d3d1151f5fa1fc3a95881bc9907,BANCA,TRANSF. DEUNA A NORMA DEL ROCIO ALARCON REINA,Alimentación,Merienda,---,False,Familia,True,Mamá,0.0,True,papas,,,,,4ffc93d7-ca5e-46ee-a688-85372a87705d
+98a391abdf3bfa900b218363e0d22406,TARJETA,Uber,Subscripciones,,Deseo,False,Yo,True,Mamá,0.0,True,,,be41b660-7b97-45bc-915b-619b96e0a330,,,e12c864e-3238-495a-8fd9-992bbed7ec3b
+7f744b8c7b52564379aa0d78e2622983,TARJETA,Uber,Subscripciones,,Deseo,False,Yo,True,Mamá,0.0,True,,,be41b660-7b97-45bc-915b-619b96e0a330,,,e12c864e-3238-495a-8fd9-992bbed7ec3b
 60eb735dfa46e88ba31c2006a99d7ea2,TARJETA,GOOGLE *stats fm for S M CONSUMO USA,Subscripciones,,Deseo,False,---,False,,7.0,True, app,,,,,
 7fab77312740ad5b0263b42a41f80ce5,BANCA,Manabas Grill Almuerzos,Alimentación,Almuerzo,Necesidad,False,---,False,,0.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 bb0cebc49dc0c1cc5a6ab84cd69c6e10,BANCA,TRANSF. DIRECTA A LARA ACOSTA JOHN ADOLFO,Ocio,Trago,Deseo,False,---,False,,8.0,True,,,62939e8e-93bc-4ed8-b060-2dae31234346,,,
 1f8f4bb7070fd8fca96c136c8b429efa,BANCA,TRANSF. DIRECTA A LARA ACOSTA JOHN ADOLFO,Ocio,Trago,Deseo,False,---,False,,8.0,True,,,62939e8e-93bc-4ed8-b060-2dae31234346,,,
 cc6a0347a8f1e634ae3cca7ca90fce86,BANCA,TRANSF. DIRECTA A LARA ACOSTA JOHN ADOLFO,Ocio,Trago,Deseo,False,---,False,,8.0,True,,,62939e8e-93bc-4ed8-b060-2dae31234346,,,
 30e575a05463baa89639100b772624fe,BANCA,Transf. Deuna A Agromiro Ec S A Agromiro Ec,Alimentación,Almuerzo,Necesidad,False,---,False,,0.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
-1ff8734a69d645bd4e6cee6c9af4fa2d,BANCA,Morochos,Alimentación,Merienda,---,False,Yo,True,Mamá,0.0,True,,,,,,
+1ff8734a69d645bd4e6cee6c9af4fa2d,BANCA,Morochos,Alimentación,Merienda,---,False,Yo,True,Mamá,0.0,True,,,,,,1cacea22-b3bd-40d8-811b-5e2a701b1c16
 61e82a56cf25dad6eb518c2d460862ea,TARJETA,ESTACION DE SERVICIOS E CONSUMO ECU,Transporte,Gasolina,Necesidad,False,---,False,,0.0,True,,,39d85619-f153-4aee-8353-d7feb61ef8d6,,,
 e740bfb31451d68df6b7ae55d5e3fb9c,TARJETA,ESTACION DE SERVICIOS E CONSUMO ECU,Transporte,Gasolina,Necesidad,False,---,False,,0.0,True,,,39d85619-f153-4aee-8353-d7feb61ef8d6,,,
 77f2d9463e92f8d01b3d55723b0996f9,TARJETA,ESTACION DE SERVICIOS E CONSUMO ECU,Transporte,Gasolina,Necesidad,False,---,False,,0.0,True,,,39d85619-f153-4aee-8353-d7feb61ef8d6,,,
 4b779dcbed9e944d7587b193e57dc479,BANCA,Menestras Simon,Alimentación,Almuerzo,Necesidad,False,---,False,,7.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 52e5cbecad78a7297b89c4ad70765dd3,BANCA,Almuerzo Simon,Alimentación,Almuerzo,Necesidad,False,---,False,,6.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 6e5cfe370b7304532fca7b94ac03ef9c,BANCA,Hermana,Otro,Transporte Noah,---,True,---,False,,0.0,True,,,,,,
-d3f2a32f095cb189ea92e12993c2624d,BANCA,Menestras Simon,Alimentación,Almuerzo,Necesidad,False,Familia,True,Familia,5.0,True,,,,,,
-bd48455536c6e5d6a1fd8ad7495cbf02,BANCA,TRANSF. DEUNA A DIEGO ALBERTO HURTADO GARCIA,Transporte,Mantenimiento Carro,Necesidad,False,Yo,True,Mamá,0.0,True,mantenimiento frenos,,,,,
-3708a7a3c6b873112962598fd5b988be,BANCA,TRANSF. DIRECTA A CALVA POZO EDGAR FABRICIO,Transporte,Mantenimiento Carro,Necesidad,False,Yo,True,Mamá,0.0,True,Luz de freno,,,,,
+d3f2a32f095cb189ea92e12993c2624d,BANCA,Menestras Simon,Alimentación,Almuerzo,Necesidad,False,Familia,True,Familia,5.0,True,,,,,,ff5dbecf-8cbf-42fd-bfc4-e0c16748e96f
+bd48455536c6e5d6a1fd8ad7495cbf02,BANCA,TRANSF. DEUNA A DIEGO ALBERTO HURTADO GARCIA,Transporte,Mantenimiento Carro,Necesidad,False,Yo,True,Mamá,0.0,True,mantenimiento frenos,,,,,b949c604-0e90-4945-a5c3-2401869d303b
+3708a7a3c6b873112962598fd5b988be,BANCA,TRANSF. DIRECTA A CALVA POZO EDGAR FABRICIO,Transporte,Mantenimiento Carro,Necesidad,False,Yo,True,Mamá,0.0,True,Luz de freno,,,,,18440836-6c9a-43f5-94b5-4f73df26b5f8
 c1bf6d1870728fa20eb5b2fa143f9d95,BANCA,TRANSF. DIRECTA A DUENAS GALARZA CAROLINA MARIA ALEXANDRA,Alimentación,Almuerzo,Deseo,False,---,False,,7.0,True,hamburguesas ragnarok,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
-5636aa71a88692eb68108f644257ca70,BANCA,Taurus,Alimentación,Desauno,Necesidad,False,Yo,True,Mamá,5.0,True,desayuno taurus,,,,,
+5636aa71a88692eb68108f644257ca70,BANCA,Taurus,Alimentación,Desauno,Necesidad,False,Yo,True,Mamá,5.0,True,desayuno taurus,,,,,bca495dd-2148-4553-be06-1b088447f44a
 536e5d99a42ae1242323a3a8e139771f,BANCA,Almuerzo Simon,Alimentación,Almuerzo,Necesidad,False,---,False,,0.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 d127daff8f1b099febf95c9c5f130ae3,TARJETA,Autoservipampa,Transporte,Gasolina,Necesidad,False,---,False,,0.0,True,,,,,,
-0d7b19c1e4b60e8f4a4e3c03d8910709,TARJETA,MEDICITY LA PAMPA Q CONSUMO ECU,Salud,Enfermo,Necesidad,False,Yo,True,Mamá,0.0,True,,,,,,
+0d7b19c1e4b60e8f4a4e3c03d8910709,TARJETA,MEDICITY LA PAMPA Q CONSUMO ECU,Salud,Enfermo,Necesidad,False,Yo,True,Mamá,0.0,True,,,,,,51bd4115-5852-46a8-bd7b-09be5c1894c7
 556acdcd7faeabe321b3213971523e91,TARJETA,OBSIDIAN ECUECU O CONSUMO CAN,Subscripciones,,---,False,---,False,,7.0,True,,,,,,
 bfe585ca78d78c2db15c3010d1ce1b6d,BANCA,TRANSF. DIRECTA A MONSERRATE NARANJO CARLOS ARMANDO,Alimentación,Almuerzo,Necesidad,False,---,False,,0.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 45da892ed93a489401487163f2632ea2,BANCA,TRANSF. DIRECTA DE VERKADE MONTIEL DOMINIQUE LOURDES,Deudas,,---,False,---,False,,0.0,True,,,,,,
 3fecf430f25b81d4e61802477dbebebf,BANCA,TRANSF. DIRECTA A NAVARRETE COUTO JUAN JOSE,Regalo,,Deseo,False,---,False,,0.0,True,,,,,,
 7a0d16a8b7ca81b812d20d5c37818854,BANCA,Almuerzo Simon,Alimentación,Almuerzo,---,False,---,False,,7.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 1706bea2d70e0c6fb5537ae89468b5ff,BANCA,Madre,Deudas,,---,False,---,False,,0.0,True,,,,,,
-ea0fe0ba726936d101368447ad3365ea,BANCA,TRANSF. DIRECTA A PRODUCTIVE BUSINESS SOLUTIONS ECUADOR PBSEC S.A.,Salud,ojos,Necesidad,False,Yo,True,Mamá,0.0,True,Imprmir examenes,,,,,
+ea0fe0ba726936d101368447ad3365ea,BANCA,TRANSF. DIRECTA A PRODUCTIVE BUSINESS SOLUTIONS ECUADOR PBSEC S.A.,Salud,ojos,Necesidad,False,Yo,True,Mamá,0.0,True,Imprmir examenes,,,,,dd6c958d-ab90-419d-a294-31a9a973eb19
 35909ab6f8ae8853d56e5d5455b44bfa,BANCA,Almuerzo Simon,Alimentación,Almuerzo,---,False,---,False,,6.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
-62536fcd60a73f8620bf7224e53e39f8,BANCA,TRANSF. DIRECTA A DIAZ CASTELLANOS IVAN FABRICIO,Transporte,Carwash,---,False,Yo,True,Mamá,0.0,True,,,,,,
+62536fcd60a73f8620bf7224e53e39f8,BANCA,TRANSF. DIRECTA A DIAZ CASTELLANOS IVAN FABRICIO,Transporte,Carwash,---,False,Yo,True,Mamá,0.0,True,,,,,,9f0c3951-77b1-499d-8274-333171ce57ab
 593c9eb882b2eac1820f8806fd9df8c7,BANCA,Manabas Grill Almuerzos,Alimentación,Almuerzo,Necesidad,False,---,False,,0.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 aac6051633784b0b3487564384be4df1,BANCA,Almuerzo Simon,Alimentación,Almuerzo,---,False,---,False,,6.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 14280d86ad8406ca30ef12abd5f1df51,TARJETA,upg*paymentico.com L CONSUMO CYP,Ocio,Sexualidad,Deseo,False,---,False,,6.0,True,,,,,,
@@ -382,8 +380,8 @@ d70c05f2df4fcb1805647bc782f8f82c,BANCA,TRANSF. DIRECTA A FALCONI ARMAS CHRISTIAN
 a5a1a002bcef9c346154e735f20f05cd,BANCA,Madre,Mensual,,---,False,---,False,,0.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 046e8f3b1b8787188ab8871c630a6965,BANCA,Madre,Transporte,Mensual_Gasolina,---,True,---,False,,0.0,True,,,,,9fd02acc-e6a0-4596-ae82-5cc9f83c6b94,
 ad7dc6633a2b4c2555c32218615ea87f,BANCA,Almuerzo Simon,Alimentación,Almuerzo,---,False,---,False,,6.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
-060e05eb8d624e0eedb772e69cc7d0be,BANCA,TRANSF. INTERBANCARIA A BARRETO MUXOZ MARTHA VALERIA,Salud,otorrino,---,False,Yo,True,Mamá,0.0,True,,,1cd56aaf-0a2b-49a5-a530-9ae8d3b3b488,,,
-5ef8e5158d5934badfa89a682b16798e,TARJETA,TRANSF. INTERBANCARIA A BARRETO MUXOZ MARTHA VALERIA,Salud,otorrino,---,False,Yo,True,Mamá,0.0,True,,,1cd56aaf-0a2b-49a5-a530-9ae8d3b3b488,,,
+060e05eb8d624e0eedb772e69cc7d0be,BANCA,TRANSF. INTERBANCARIA A BARRETO MUXOZ MARTHA VALERIA,Salud,otorrino,---,False,Yo,True,Mamá,0.0,True,,,1cd56aaf-0a2b-49a5-a530-9ae8d3b3b488,,,ede9211f-bf69-4091-90e2-b0d20282aac1
+5ef8e5158d5934badfa89a682b16798e,TARJETA,TRANSF. INTERBANCARIA A BARRETO MUXOZ MARTHA VALERIA,Salud,otorrino,---,False,Yo,True,Mamá,0.0,True,,,1cd56aaf-0a2b-49a5-a530-9ae8d3b3b488,,,ede9211f-bf69-4091-90e2-b0d20282aac1
 11b703cbbbebd51173c3eb10717e0491,BANCA,TRANSF. DEUNA A MARIA DE LOS ANGELES RODRIGUEZ TAPIA,Alimentación,Almuerzo,---,False,---,False,,0.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 7ca5b558439ceccfaf746dffabd7cb08,TARJETA,Autoservipampa,Transporte,Gasolina,Necesidad,False,---,False,,0.0,True,,,ae847f13-3b21-4618-8eaf-032abc8aaebe,,,
 ee110c3e525bd3643ff4ad4e7d33b134,TARJETA,Autoservipampa,Transporte,Gasolina,Necesidad,False,---,False,,0.0,True,,,ae847f13-3b21-4618-8eaf-032abc8aaebe,,,
@@ -392,16 +390,16 @@ ee110c3e525bd3643ff4ad4e7d33b134,TARJETA,Autoservipampa,Transporte,Gasolina,Nece
 654732391a8f263477b6d62ef32dac8c,TARJETA,CLAUDE.AI SUBSCRIPTION S CONSUMO USA,Subscripciones,,Necesidad,False,---,False,,8.0,True,,,4240ba9e-265c-465d-95fe-1ba68fed3845,,,
 b4b58a697d81b8fec378dfd01e44a92e,BANCA,TRANSF. DEUNA A MERIDA TORRES ARREDONDO,Alimentación,Almuerzo,---,False,---,False,,0.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 8b90db1a6ea941f9056b84b259a02112,BANCA,Almuerzo Simon,Alimentación,Almuerzo,---,False,---,False,,7.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
-24deacf7f00e18ba1a6c4cacc3e43563,BANCA,OPTILOOK ECU Q CONSUMO ECU,Salud,Lentes,---,False,Yo,True,Mamá,0.0,True,Lentes de ccontacto,,aefe36d1-253d-47a4-95e2-c564411cac6a,,,
-82e8d02c02dfa3854cc532ee8f9b96f4,TARJETA,OPTILOOK ECU Q CONSUMO ECU,Salud,Lentes,---,False,Yo,True,Mamá,0.0,True,Lentes de ccontacto,,aefe36d1-253d-47a4-95e2-c564411cac6a,,,
-294d37abfd1fd7cd6a96b3da349e9db7,TARJETA,Uber,Subscripciones,,Deseo,False,Familia,True,Mamá,0.0,True,,,98bf7a83-eca4-41d9-97d8-c387eb188aa4,,,
-96cbac4815418dc583768cf63ffc7257,TARJETA,Uber,Subscripciones,,Deseo,False,Familia,True,Mamá,0.0,True,,,98bf7a83-eca4-41d9-97d8-c387eb188aa4,,,
+24deacf7f00e18ba1a6c4cacc3e43563,BANCA,OPTILOOK ECU Q CONSUMO ECU,Salud,Lentes,---,False,Yo,True,Mamá,0.0,True,Lentes de ccontacto,,aefe36d1-253d-47a4-95e2-c564411cac6a,,,abf35c87-6b18-43ef-beae-1dc9d2ec11d0
+82e8d02c02dfa3854cc532ee8f9b96f4,TARJETA,OPTILOOK ECU Q CONSUMO ECU,Salud,Lentes,---,False,Yo,True,Mamá,0.0,True,Lentes de ccontacto,,aefe36d1-253d-47a4-95e2-c564411cac6a,,,abf35c87-6b18-43ef-beae-1dc9d2ec11d0
+294d37abfd1fd7cd6a96b3da349e9db7,TARJETA,Uber,Subscripciones,,Deseo,False,Familia,True,Mamá,0.0,True,,,98bf7a83-eca4-41d9-97d8-c387eb188aa4,,,c87dfd66-1384-4184-bbfd-12e316aa7e13
+96cbac4815418dc583768cf63ffc7257,TARJETA,Uber,Subscripciones,,Deseo,False,Familia,True,Mamá,0.0,True,,,98bf7a83-eca4-41d9-97d8-c387eb188aa4,,,c87dfd66-1384-4184-bbfd-12e316aa7e13
 4fa53efdbdaf45dd330a5cad4598689c,BANCA,Almuerzo Simon,Alimentación,Almuerzo,---,False,---,False,,6.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 51683156ad86b4ca773d9d0e5b8a2b79,BANCA,TRANSF. DEUNA A VERONICA MARISOL MOROCHO CHALCO,Alimentación,,Deseo,False,---,False,,0.0,True,,,b1032f9e-7881-42ae-affa-96c7f5d99e3b,,,
 444f6f66e49423e11e88825a01b11b5d,BANCA,TRANSF. DEUNA A VERONICA MARISOL MOROCHO CHALCO,Alimentación,,Deseo,False,---,False,,0.0,True,,,b1032f9e-7881-42ae-affa-96c7f5d99e3b,,,
 c73b8c32a20219039daff311760657aa,BANCA,PAGO TARJETA DE CREDITO MASTERCARD BANCO PICHINCHA  54660500045502,Inversion,,---,False,---,False,,0.0,True,,,,,,
 1cf8a160ddb6380c920ad497a8456194,TARJETA,GOOGLE *Brawl Stars M CONSUMO USA,Regalo,,Deseo,False,---,False,,6.0,True,,,,,,
-aa2d5696313305e6f2fee2b8f08f31f2,TARJETA,PMZ TICKETSHOW E CONSUMO ECU,Deudas,,---,False,Familia,True,Mamá,0.0,True,,,,,,
+aa2d5696313305e6f2fee2b8f08f31f2,TARJETA,PMZ TICKETSHOW E CONSUMO ECU,Deudas,,---,False,Familia,True,Mamá,0.0,True,,,,,,5a344867-1653-413b-b292-27b75a83007b
 f91d7d47caf7a2d2e979721354166f04,BANCA,Almuerzo Simon,Alimentación,Almuerzo,Necesidad,False,---,False,,0.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 b269bd5afd0cfd305e9b533880b03ba0,BANCA,Almuerzo Simon,Alimentación,Almuerzo,---,False,---,False,,0.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 a7be9126f258257f2c855238f338672a,BANCA,Almuerzo Simon,Alimentación,Almuerzo,---,False,---,False,,0.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
@@ -453,10 +451,10 @@ a245681f3c091c8af375a4db71fbb4d3,BANCA,Transf. Deuna A Agromiro Ec S A Agromiro 
 23281ddff2062cd9edc85a761cd3fd63,BANCA,TRANSF. DIRECTA A CHICAIZA ERAZO SEBASTIAN MATEO,Ocio,,Deseo,False,---,False,,7.0,True,,,,,,
 b5093cd5ffdf407aac1d62fab7beccb7,BANCA,Hermana,Otro,Transporte Noah,---,False,---,False,,0.0,True,,,,,,
 c4e82ee87cd009b712db483dd945c86d,BANCA,Hermana,Regalo,,---,False,---,False,,0.0,True,,,,,,
-62c96cf20c8fa3a47fc09a5701790898,TARJETA,Uber,Subscripciones,,Deseo,False,Familia,True,Familia,0.0,True,Uber cromos,,570e493f-be20-41db-ac0f-c6f7aace2847,,,
-bfdfccefbd48b38ac88ab3f2cd7cae42,TARJETA,Uber,Subscripciones,,Deseo,False,Familia,True,Familia,0.0,True,Uber cromos,,570e493f-be20-41db-ac0f-c6f7aace2847,,,
-86c936d0b781d3c98181b51dbc8b9ff9,TARJETA,Uber,Subscripciones,,Deseo,False,Familia,True,Familia,0.0,True,,,18d40739-c658-4507-9ffb-78111a2290ba,,,
-7cff6da6d462c80f2cafb3b62ca70fd8,TARJETA,Uber,Subscripciones,,Deseo,False,Familia,True,Familia,0.0,True,,,18d40739-c658-4507-9ffb-78111a2290ba,,,
+62c96cf20c8fa3a47fc09a5701790898,TARJETA,Uber,Subscripciones,,Deseo,False,Familia,True,Familia,0.0,True,Uber cromos,,570e493f-be20-41db-ac0f-c6f7aace2847,,,c081007b-7897-4865-9f03-d0a2aeec3984
+bfdfccefbd48b38ac88ab3f2cd7cae42,TARJETA,Uber,Subscripciones,,Deseo,False,Familia,True,Familia,0.0,True,Uber cromos,,570e493f-be20-41db-ac0f-c6f7aace2847,,,c081007b-7897-4865-9f03-d0a2aeec3984
+86c936d0b781d3c98181b51dbc8b9ff9,TARJETA,Uber,Subscripciones,,Deseo,False,Familia,True,Familia,0.0,True,,,18d40739-c658-4507-9ffb-78111a2290ba,,,d901c483-6ddd-4ccc-8f58-232de5c479bd
+7cff6da6d462c80f2cafb3b62ca70fd8,TARJETA,Uber,Subscripciones,,Deseo,False,Familia,True,Familia,0.0,True,,,18d40739-c658-4507-9ffb-78111a2290ba,,,d901c483-6ddd-4ccc-8f58-232de5c479bd
 7f5f938f3666ea0a5694ac5c6efa6b97,TARJETA,Mc,Alimentación,Almuerzo,Necesidad,False,Familia,True,Hermana,0.0,True,MC NOAH,,,,,187b9dac-dfe4-49ed-9cbb-5653ecf4174d
 a63c938d3b2735eef59feb163baa3125,BANCA,TRANSF. DIRECTA DE CARRILLO SALCEDO CARLOS ALBERTO,Deudas,,---,False,---,False,,0.0,True,,,,,,
 904085b7342ba0b63b0e2e97976e4f8c,BANCA,Pago Tarjeta De Credito Principal,Tarjeta,Tarjeta,Necesidad,True,---,False,,0.0,True,,,,,,
@@ -548,8 +546,8 @@ f848f479f8cfe67878fd36d32874b73d,BANCA,TRANSF. DIRECTA A FOUNES PINTO GIOVANNY F
 75b4ff3713cb3cc635c165c38f849189,BANCA,TRANSF. DIRECTA A FOUNES PINTO GIOVANNY FRANCISCO,Ocio,Trago,Deseo,False,---,False,,7.0,True,JUngle y trago,,c4d849a1-fff2-4c68-a0c9-523aaebd67bd,,,
 748e65e2af4b49fe5d35e25f2d39f937,BANCA,TRANSF. DIRECTA A FOUNES PINTO GIOVANNY FRANCISCO,Ocio,Trago,Deseo,False,---,False,,7.0,True,JUngle y trago,,c4d849a1-fff2-4c68-a0c9-523aaebd67bd,,,
 ca1401fb55f96a773008e5b41fb58436,BANCA,Transf. Deuna A Agromiro Ec S A Agromiro Ec,Alimentación,Almuerzo,Necesidad,False,---,False,,0.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
-23c80f37805a93f8fa624191652628dc,TARJETA,Uber,Subscripciones,Almuerzo,Deseo,False,Yo,True,Mamá,0.0,True,Almuerzo sabado. Creo que no estaban,,1705f56f-0ee4-406e-8e49-cc6de815dbd6,,,
-56c993eaa4682623c6a3be6e7dbbd329,TARJETA,Uber,Subscripciones,Almuerzo,Deseo,False,Yo,True,Mamá,0.0,True,Almuerzo sabado. Creo que no estaban,,1705f56f-0ee4-406e-8e49-cc6de815dbd6,,,
+23c80f37805a93f8fa624191652628dc,TARJETA,Uber,Subscripciones,Almuerzo,Deseo,False,Yo,True,Mamá,0.0,True,Almuerzo sabado. Creo que no estaban,,1705f56f-0ee4-406e-8e49-cc6de815dbd6,,,e35faa04-0559-484c-ba59-6ff6a9459a65
+56c993eaa4682623c6a3be6e7dbbd329,TARJETA,Uber,Subscripciones,Almuerzo,Deseo,False,Yo,True,Mamá,0.0,True,Almuerzo sabado. Creo que no estaban,,1705f56f-0ee4-406e-8e49-cc6de815dbd6,,,e35faa04-0559-484c-ba59-6ff6a9459a65
 3269d5975e8e23fe47317d2c82697ce9,BANCA,Almuerzo Simon,Alimentación,Almuerzo,Necesidad,False,---,False,,0.0,True,,,,,8742d56b-9583-4c52-8d2a-f0d7b15db287,
 52f5bf861287ed3f2c881048704be86f,BANCA,,,,,,,,,,,,,,,,
 623863d65de606dbd6353c1620dd0a18,BANCA,Madre,Mensual,Mensual_Comida,Necesidad,False,---,False,,0.0,True,,35d7b289-31c7-450c-9381-cda06fb6dc68,,60.0,8742d56b-9583-4c52-8d2a-f0d7b15db287,
@@ -561,13 +559,13 @@ c928120871ed30775e76a83b414b7270,BANCA,2509221XGVNA-MASTE BP-REC-22306700007562,
 2d3b98928320cb4d94ba1382cc448adf,BANCA,13619132-MASTERCARD     -RA-223067000075,Tarjeta,,---,False,---,False,,0.0,True,,,,,,
 ec469ae6a48ace119b4a9996e3ff5375,BANCA,13426655-MASTERCARD     -RA-546605000455,Inversion,,---,False,---,False,,0.0,True,,,,,,
 7fd1f3b526df1049cf3c049edcb75e5f,BANCA,TRANSF. DEUNA A HERNAN DARIO RAMOS VILLARREAL,Aseo,Corte,---,True,Yo,True,Mamá,7.0,True,,,,,,
-9cf1a014bfb62e36d6b8a5c511dd6200,TARJETA,MICROSOFT*STORE M CONSUMO USA,Ocio,,---,False,Familia,True,Hermana,0.0,True,,,,,,
+9cf1a014bfb62e36d6b8a5c511dd6200,TARJETA,MICROSOFT*STORE M CONSUMO USA,Ocio,,---,False,Familia,True,Hermana,0.0,True,,,,,,2a23f10e-6317-4414-8ce8-8a1a5357657e
 5f97a11badcc340d3d2ced1e19416c7d,TARJETA,Fybeca                  Q,Salud,gotas,Necesidad,False,---,False,,0.0,True,,,,,,
 08e309cc4606ddee639a2557d54a5333,BANCA,TRANSF. DIRECTA A PANILUISA CHICAIZA EDISON ORLANDO,Ocio,Trago,Deseo,False,---,False,,7.0,True,,,,,,
 3586b8f288b33139a160b89b8e95e4e9,BANCA,Almuerzo Simon,Alimentación,Almuerzo,Necesidad,False,---,False,,0.0,True,,,,,,
 c4592a88973a789c842dd533e77bd55b,BANCA,Almuerzo Simon,Alimentación,Almuerzo,Necesidad,False,---,False,,0.0,True,,,,,,
-75f96a86255f9fe9fbd892634fd8b5c7,TARJETA,RIO INTAG LA FLORESTA Q CONSUMO ECU,Alimentación,,Deseo,False,---,False,,7.0,True,,eb7645e1-5c66-41e1-a525-0fac37dc17ee,,-15.8,,
-75f96a86255f9fe9fbd892634fd8b5c7,TARJETA,RIO INTAG LA FLORESTA Q CONSUMO ECU,---,,Deseo,False,Amigo,True,Amigo,0.0,True,,48669dac-09f3-4016-a799-00c4d6d819f8,,-15.0,,
+75f96a86255f9fe9fbd892634fd8b5c7,TARJETA,RIO INTAG LA FLORESTA Q CONSUMO ECU,Alimentación,,Deseo,False,---,False,,7.0,True,,eb7645e1-5c66-41e1-a525-0fac37dc17ee,,-15.8,,82ed98d5-a61b-43bf-953f-5433e39ac691
+75f96a86255f9fe9fbd892634fd8b5c7,TARJETA,RIO INTAG LA FLORESTA Q CONSUMO ECU,---,,Deseo,False,Amigo,True,Amigo,0.0,True,,48669dac-09f3-4016-a799-00c4d6d819f8,,-15.0,,82ed98d5-a61b-43bf-953f-5433e39ac691
 5e1946928895527338914dd7921c4e3b,BANCA,TRANSF. DIRECTA DE ZAMBRANO ALEMAN CRISTOPHER,Deudas,,---,False,---,False,,0.0,True,,,,,,
 9010e69389fbc2e4048813da2d1e30ef,BANCA,TRANSF. DIRECTA A CHICAIZA ERAZO SEBASTIAN MATEO,Ocio,Trago,Deseo,False,---,False,,0.0,True,,,,,,
 7919a129ad0ffa3e030dc5d5f6212b18,BANCA,TRANSF. DIRECTA A JIMENEZ EGAS LEANDRO IVAN,Ocio,Trago,Deseo,False,---,False,,0.0,True,,,,,,
@@ -583,3 +581,10 @@ af86ad11aee06069213727f811fde3b8,BANCA,Poliburger,Alimentación,Almuerzo,Necesid
 8505735f7a9d7a41a03394687f5f20ad,BANCA,Poliburger,Alimentación,Almuerzo,Necesidad,False,---,False,,0.0,True,,,,,,
 64b099ca57bab1d855ad59ed07e9ad97,BANCA,TRANSF. DIRECTA A VALLEJO TRUJILLO JANETH ESTHER,Alimentación,Almuerzo,Necesidad,False,---,False,,6.0,True,,,,,,
 2fca8657d0a927fb4c0170fc810600a0,BANCA,Parqueadero U,Transporte,Parqueadero,Necesidad,True,---,False,,0.0,True,,,,,,
+d3b97aa9ac481dba58528671cf0bb93e,BANCA,Madre,Mensual,"Mensual, Mensual_Comida",---,False,---,False,,0.0,True,,38739eb0-33ba-4593-85ff-08e21d8aa326,,110.0,,
+d3b97aa9ac481dba58528671cf0bb93e,BANCA,Madre,Mensual,"Gasolina, Mensual_Gasolina",---,False,---,False,,0.0,True,,8bb19358-eb30-45b0-9c01-f6a1abeaf9f8,,70.0,9fd02acc-e6a0-4596-ae82-5cc9f83c6b94,
+05d2d7eaaa55900a1df15f8d0c6e4aa7,TARJETA,GASOLINERA LOS ALAMOS   Q,---,,---,False,---,True,Madre,0.0,True,,,,,,134bc641-02b5-4cfd-88e0-d43c949d0af1
+02ba82f19ea42e6ccee8dea2bd0687e0,BANCA,TRANSF. DIRECTA A PAZMIÑO  ESTRADA MAURICIO VICENTE,Transporte,,---,False,---,True,Madre,0.0,True,,,,,,9de3696f-ce74-4bfb-a7f0-85cd9c8d89bc
+18f3c52bb0d365da42a5acb889bfe3b7,BANCA,Madre,Mensual,Mensual_Comida,---,False,---,False,,0.0,True,,,,,,
+78f4866469eaeacd5f006625bc962d93,BANCA,Madre,Mensual,Mensual_Gasolina,Necesidad,False,---,False,,0.0,True,,,,,9fd02acc-e6a0-4596-ae82-5cc9f83c6b94,
+7c9f13c9f6c16f10398a413f7f0a4eb5,TARJETA,GASOLINERA  LOS PINOS   E,Transporte,Gasolina,Necesidad,False,---,False,,0.0,True,,,,,,
