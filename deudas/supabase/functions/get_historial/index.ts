@@ -35,7 +35,7 @@ serve(async (req) => {
     const { data: pagosFullData, error: pagosFullError } = await supabaseClient
       .from('pagos')
       .select(`
-        id, monto_total, es_mi_pago, fecha_pago, es_compensacion, created_at,
+        id, monto_total, es_mi_pago, fecha_pago, es_compensacion, created_at, cruce_id,
         detalle_pagos (monto_asignado, deuda_id, deudas(titulo, es_mi_deuda))
       `)
       .eq('deudor_id', deudor_id)
@@ -85,50 +85,65 @@ serve(async (req) => {
         amount: p.monto_total,
         esMiPago: p.es_mi_pago,
         esCompensacion: p.es_compensacion,
+        cruceId: p.cruce_id,
         detalles: p.detalle_pagos || []
       })
     })
 
-    // Orden cronológico ascendente (más antiguo primero) para el saldo acumulado
-    history.sort((a, b) => a.createdAt - b.createdAt)
-
-    // Saldo acumulado GLOBAL (perspectiva 'owner'): + te deben, − tú debes.
-    let balance = 0
-    history.forEach(item => {
-      if (item.type === 'deuda') {
-        if (item.esMiDeuda) balance -= item.amount
-        else balance += item.amount
-      } else if (!item.esCompensacion) {
-        if (item.esMiPago) balance += item.amount
-        else balance -= item.amount
-      }
-      item.balance = balance
+    // Las deudas ordenan el historial: por su fecha, y `created_at` desempata dentro del
+    // día (`fecha_gasto` es DATE, así que una tarde entera de deudas empata).
+    const deudasAsc = history.filter(h => h.type === 'deuda').sort((a, b) => {
+      const fa = String(a.date ?? '')
+      const fb = String(b.date ?? '')
+      if (fa !== fb) return fa < fb ? -1 : 1
+      return a.createdAt - b.createdAt
     })
-    // NOTA: item.balance queda SIEMPRE en perspectiva 'owner' (+ te deben, − tú debes).
-    // Cada cliente aplica su POV: la app (owner) lo usa directo; el visor (debtor) lo niega.
+    const posDeuda = new Map<string, number>()
+    deudasAsc.forEach((d, i) => posDeuda.set(d.id, i))
 
     const deudaById = new Map<string, any>()
     deudasData?.forEach(d => deudaById.set(d.id, d))
 
-    // --- Bundle de cruces (compensaciones) en el pago manual adyacente (<2s) ---
-    // Se preserva la lógica de cruces: cada bundle deja un "pago principal" que
-    // arrastra el cruce (linkedCruce*) y combina los detalles de asignación.
-    const pagosHistory = history.filter(h => h.type === 'pago') // ASC cronológico
+    // --- Bundle de cruces (compensaciones) en el pago adyacente ---
+    // Los dos pagos virtuales de un cruce comparten `cruce_id`, así que se agrupan por
+    // ese id. Para los cruces viejos (anteriores a la columna) queda el heurístico de
+    // siempre: pagos creados con menos de 2 segundos de diferencia.
+    // Se recorren por instante, y el cruce antes que su pago físico (comparten
+    // `created_at`: `registrar_pago` los escribe en la misma transacción).
+    const pagosHistory = history.filter(h => h.type === 'pago').sort((a, b) => {
+        if (a.createdAt !== b.createdAt) return a.createdAt - b.createdAt
+        return (a.esCompensacion ? 0 : 1) - (b.esCompensacion ? 0 : 1)
+    })
     const displayPagos: any[] = []
-    for (let i = 0; i < pagosHistory.length; i++) {
-        const curr = pagosHistory[i]
-        const bundle = [curr]
-        let j = i + 1
-        while (j < pagosHistory.length && Math.abs(pagosHistory[j].createdAt - curr.createdAt) < 2000) {
-            bundle.push(pagosHistory[j]); j++
-        }
+    const usados = new Set<string>()
 
+    for (const curr of pagosHistory) {
+        if (usados.has(curr.id)) continue
+
+        const bundle = [curr]
+        for (const p of pagosHistory) {
+            if (p === curr || usados.has(p.id) || bundle.includes(p)) continue
+            // El otro lado del mismo cruce.
+            const mismoCruce = !!curr.cruceId && p.cruceId === curr.cruceId
+            // El pago físico que disparó el cruce: no lleva cruce_id, se reconoce porque
+            // se escribió en el mismo momento.
+            const mismaOperacion = curr.esCompensacion && !p.esCompensacion &&
+                                   Math.abs(p.createdAt - curr.createdAt) < 2000
+            // Cruces viejos, de antes de la columna: solo queda la cercanía temporal.
+            const cerca = !curr.cruceId && !p.cruceId &&
+                          Math.abs(p.createdAt - curr.createdAt) < 2000
+            if (mismoCruce || mismaOperacion || cerca) bundle.push(p)
+        }
+        bundle.forEach(p => usados.add(p.id))
+
+        // Cada lado del cruce se registra por el mismo monto: el cruce es ese monto, no
+        // la suma de los dos lados.
         let cruceAmount = 0
         const cruceDetails: any[] = []
         const bundleDetalles: any[] = []
         bundle.forEach(p => {
             if (p.esCompensacion) {
-                cruceAmount += p.amount
+                cruceAmount = Math.max(cruceAmount, p.amount)
                 if (p.detalles) cruceDetails.push(...p.detalles)
             }
             if (p.detalles) bundleDetalles.push(...p.detalles)
@@ -142,13 +157,72 @@ serve(async (req) => {
         // Detalles combinados del bundle (a qué deudas fue el pago; para parciales y UI)
         mainPago.detalles = bundleDetalles
         displayPagos.push(mainPago)
-        i = j - 1
     }
 
-    // --- Parciales: deudas que quedan PARCIALMENTE cubiertas tras cada pago ---
-    // displayPagos está en orden cronológico ascendente (por construcción del bundle).
-    const cumPaid: Record<string, number> = {}
+    // --- Dónde se coloca cada pago ---
+    // Un pago NO va por su propia fecha: va justo DESPUÉS de la última deuda que pagó o
+    // cruzó, que es donde se entiende su efecto. Pagar mañana lo de ayer se lee como el
+    // cierre de ayer, no como un evento suelto al final. De paso, el orden deja de
+    // depender del reloj de quien escribió la fila: la app manda hora local y el servidor
+    // UTC, y por eso las deudas caían todas juntas debajo de los pagos.
+    // El cruce ya viene fundido en su pago físico (el bundle), así que los dos se mueven
+    // juntos: `detalles` trae las deudas de ambos.
+    const anclaDe = (mp: any) => {
+      let ancla = -1
+      ;(mp.detalles || []).forEach((det: any) => {
+        const p = posDeuda.get(det.deuda_id)
+        if (p !== undefined && p > ancla) ancla = p
+      })
+      if (ancla >= 0) return ancla
+      // No abonó a ninguna deuda (quedó como saldo a favor): ahí sí manda su fecha.
+      let ultima = -1
+      deudasAsc.forEach((d, i) => {
+        if (String(d.date ?? '') <= String(mp.date ?? '')) ultima = i
+      })
+      return ultima
+    }
+
+    const pagosPorAncla = new Map<number, any[]>()
     displayPagos.forEach(mp => {
+      const ancla = anclaDe(mp)
+      const enEsaAncla = pagosPorAncla.get(ancla) ?? []
+      enEsaAncla.push(mp)
+      pagosPorAncla.set(ancla, enEsaAncla)
+    })
+    // Varios pagos sobre la misma deuda: entre ellos sí manda el orden en que se hicieron.
+    const pagosDe = (i: number) => (pagosPorAncla.get(i) ?? []).sort((a, b) => {
+      const fa = String(a.date ?? '')
+      const fb = String(b.date ?? '')
+      if (fa !== fb) return fa < fb ? -1 : 1
+      return a.createdAt - b.createdAt
+    })
+
+    // Secuencia ascendente (pasado → presente) tal como se va a leer.
+    const asc: any[] = [...pagosDe(-1)]
+    deudasAsc.forEach((d, i) => {
+      asc.push(d)
+      asc.push(...pagosDe(i))
+    })
+
+    // Saldo acumulado GLOBAL (perspectiva 'owner'): + te deben, − tú debes. Se acumula en
+    // ese mismo orden, así el saldo de cada fila es el que se lee en pantalla.
+    let balance = 0
+    asc.forEach(item => {
+      if (item.type === 'deuda') {
+        if (item.esMiDeuda) balance -= item.amount
+        else balance += item.amount
+      } else if (!item.esCompensacion) {
+        if (item.esMiPago) balance += item.amount
+        else balance -= item.amount
+      }
+      item.balance = balance
+    })
+    // NOTA: item.balance queda SIEMPRE en perspectiva 'owner' (+ te deben, − tú debes).
+    // Cada cliente aplica su POV: la app (owner) lo usa directo; el visor (debtor) lo niega.
+
+    // --- Parciales: deudas que quedan PARCIALMENTE cubiertas tras cada pago ---
+    const cumPaid: Record<string, number> = {}
+    asc.filter(h => h.type === 'pago').forEach(mp => {
         ;(mp.detalles || []).forEach((det: any) => {
             if (det.deuda_id == null) return
             cumPaid[det.deuda_id] = (cumPaid[det.deuda_id] || 0) + (det.monto_asignado || 0)
@@ -174,15 +248,8 @@ serve(async (req) => {
         mp.parciales = parciales
     })
 
-    // --- Lista plana cronológica DESCENDENTE (presente → pasado) ---
-    // El pago, al tener fecha posterior a las deudas que abonó, queda ARRIBA de ellas.
-    const flat = [...displayPagos, ...history.filter(h => h.type === 'deuda')]
-    flat.sort((a, b) => {
-        const tA = new Date(a.date).getTime()
-        const tB = new Date(b.date).getTime()
-        if (tA === tB) return b.createdAt - a.createdAt
-        return tB - tA
-    })
+    // --- Lista plana, presente → pasado ---
+    const flat = [...asc].reverse()
 
     return new Response(JSON.stringify(flat), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
