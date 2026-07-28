@@ -159,6 +159,9 @@ export interface SupabasePayment {
 export interface SupabaseDeudor {
   id: string;
   nombre: string;
+  neto?: number;
+  total_pendiente?: number;
+  saldo_favor?: number;
 }
 
 export interface CreateDebtRequest {
@@ -172,6 +175,8 @@ export interface EstadoCuentaDeuda {
   id: string;
   titulo: string;
   fecha_gasto: string | null;
+  /** `created_at`: el orden en que se registró, no la fecha del gasto. */
+  creado?: string;
   monto_original: number;
   monto_pagado: number;
   saldo_pendiente: number;
@@ -181,38 +186,94 @@ export interface EstadoCuentaDeuda {
   saldo_real: number;
   estado: string; // PAGADA | PENDIENTE | PARCIAL
   es_tu_deuda: boolean;
+  /** Cuánto de esta deuda se saldaría si se aplicara el cruce disponible. */
+  cruce_sugerido: number;
   pagos: { pago_id: string; fecha_pago: string | null; monto_asignado: number }[];
 }
 
 export interface EstadoCuentaPago {
   id: string;
   fecha_pago: string | null;
+  /** `created_at`: el orden en que se registró. */
+  creado?: string;
   monto_total: number;
   asignado: number;
   sobrante: number;
+  es_mi_pago: boolean;
+  /** Pago virtual de un cruce de cuentas: no movió dinero real. */
+  es_compensacion: boolean;
+  /** Los dos pagos virtuales de un mismo cruce comparten este id. */
+  cruce_id?: string | null;
   deudas: { deuda_id: string; titulo: string; monto_asignado: number }[];
+}
+
+/** Una deuda tocada por un pago o un cruce: con cuánto llegaba y con cuánto queda. */
+export interface MovimientoItem {
+  deuda_id: string;
+  titulo: string;
+  fecha_gasto: string | null;
+  es_tu_deuda: boolean;
+  /** Lo que valía la deuda al nacer. */
+  monto_original: number;
+  saldo_antes: number;
+  /** Lo que este pago/cruce le aplicó. */
+  aplicado: number;
+  /** Total abonado a la deuda hasta aquí (incluye pagos anteriores). */
+  pagado_acumulado: number;
+  /** Lo que le falta después de este movimiento. */
+  saldo_despues: number;
+  cerrada: boolean;
+  /** De ese faltante, cuánto lo cubre después el saldo a favor. */
+  abono_saldo_favor: number;
 }
 
 export interface EstadoCuentaMovimiento {
   fecha: string | null;
-  tipo: 'deuda' | 'pago';
+  /** `created_at`: desempata el orden dentro del mismo día (la fecha es solo DATE). */
+  orden?: string;
+  /** `cruce` = los dos pagos virtuales de una compensación, ya fundidos en un evento. */
+  tipo: 'deuda' | 'pago' | 'cruce';
   id: string;
   concepto: string;
   es_tu_deuda: boolean;
   delta: number;
   saldo_acumulado: number;
   sobrante?: number;
+  es_mi_pago?: boolean;
   es_compensacion?: boolean;
   monto_total?: number;
-  detalle: { titulo: string; monto: number }[];
+  detalle: { deuda_id?: string; titulo: string; monto: number }[];
+  /** Deudas que este movimiento tocó, saldadas y no saldadas. */
+  items?: MovimientoItem[];
   parciales?: { deuda_id: string; titulo: string; monto_original: number; pagado_acumulado: number; saldo: number }[];
+  /* Solo en tipo === 'cruce' */
+  monto_cruzado?: number;
+  pago_ids?: string[];
+  lados?: {
+    te_deben: { total: number; items: MovimientoItem[] };
+    tu_debes: { total: number; items: MovimientoItem[] };
+  };
+  /** Pago físico del mismo día que disparó el cruce, si lo hubo. */
+  pago_vinculado?: { id: string; concepto: string; monto_total: number; fecha: string | null } | null;
+}
+
+/** Cruce que todavía se puede aplicar. Derivado: no está escrito en ningún lado. */
+export interface CruceSugerido {
+  monto: number;
+  lados: {
+    te_deben: { total: number; items: MovimientoItem[] };
+    tu_debes: { total: number; items: MovimientoItem[] };
+  };
 }
 
 export interface EstadoCuenta {
   deudas: EstadoCuentaDeuda[];
   pagos: EstadoCuentaPago[];
   movimientos: EstadoCuentaMovimiento[];
+  cruce_sugerido: CruceSugerido;
   resumen: {
+    /** min(Σ te deben, Σ tú debes) sobre el saldo real: lo que se puede cruzar hoy. */
+    monto_ideal_a_cruzar: number;
     total_original: number;
     total_pagado: number;
     total_pendiente: number;
