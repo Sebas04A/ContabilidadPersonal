@@ -77,18 +77,37 @@ def get_supabase_debts(
 class Deudor(BaseModel):
     id: str | int
     nombre: str
+    neto: Optional[float] = None
+    total_pendiente: Optional[float] = None
+    saldo_favor: Optional[float] = None
 
 @router.get("/deudores", response_model=List[Deudor])
 def get_deudores():
-    """Lista de deudores de Supabase para poblar los selects del etiquetado."""
+    """Lista de deudores de Supabase para poblar los selects del etiquetado con sus saldos."""
     try:
-        from contabilidad.debts.reading import listar_deudores
+        from contabilidad.debts.reading import listar_deudores, obtener_saldos_deudores
         df = listar_deudores()
         if df.empty:
             return []
+        
+        try:
+            saldos = obtener_saldos_deudores()
+        except Exception as s_err:
+            logger.error("Error al calcular saldos de deudores: %s", s_err)
+            saldos = {}
+
         df = df.copy()
         df['nombre'] = df['nombre'].fillna('').astype(str)
-        return df[['id', 'nombre']].to_dict(orient='records')
+        
+        records = df[['id', 'nombre']].to_dict(orient='records')
+        for r in records:
+            deudor_key = str(r['id'])
+            s = saldos.get(deudor_key, {'neto': 0.0, 'total_pendiente': 0.0, 'saldo_favor': 0.0})
+            r['neto'] = s.get('neto', 0.0)
+            r['total_pendiente'] = s.get('total_pendiente', 0.0)
+            r['saldo_favor'] = s.get('saldo_favor', 0.0)
+            
+        return records
     except Exception as e:
         logger.error("Error al obtener deudores: %s", e)
         raise HTTPException(status_code=500, detail=str(e))

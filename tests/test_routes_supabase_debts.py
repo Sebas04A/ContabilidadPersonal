@@ -62,3 +62,19 @@ def test_debts_endpoint_does_not_crash_server():
     for _ in range(3):
         response = client.get("/api/supabase-debts/")
         assert response.status_code in [200, 500]
+
+
+def test_get_deudores_returns_200_or_500():
+    """GET /api/supabase-debts/deudores should return 200 or 500 (if module missing)."""
+    response = client.get("/api/supabase-debts/deudores")
+    assert response.status_code in [200, 500]
+    if response.status_code == 200:
+        data = response.json()
+        assert isinstance(data, list)
+        if len(data) > 0:
+            assert "id" in data[0]
+            assert "nombre" in data[0]
+            assert "neto" in data[0]
+            assert "total_pendiente" in data[0]
+            assert "saldo_favor" in data[0]
+
