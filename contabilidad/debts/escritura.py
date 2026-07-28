@@ -65,17 +65,22 @@ def crear_deuda(
     deudor_id: str,
     fecha_gasto: datetime,
     pagada: bool = False,
-    fecha_pago: Optional[datetime] = None
+    fecha_pago: Optional[datetime] = None,
+    es_mi_deuda: bool = False
 ) -> Dict:
     """
-    Crea una nueva deuda. 
+    Crea una nueva deuda.
     NOTA: Si pagada=True, se creara la deuda y luego un pago automatico.
+
+    es_mi_deuda=False -> te deben (pagaste tú por el otro).
+    es_mi_deuda=True  -> tú debes (el otro pagó por ti).
     """
     data = {
         'titulo': titulo,
         'monto': monto,
         'deudor_id': deudor_id,
         'fecha_gasto': fecha_gasto.strftime('%Y-%m-%d'),
+        'es_mi_deuda': bool(es_mi_deuda),
         # 'pagada': Ya no existe en la tabla base
     }
     

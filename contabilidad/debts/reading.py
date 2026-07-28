@@ -899,7 +899,11 @@ def obtener_deudas_para_analisis(
         'PAGADA': df['pagada'],
         'FECHA_PAGO': df.get('fecha_pago'),
         'FECHA_CREACION': df.get('created_at'),
-        'ID': df['id']
+        'ID': df['id'],
+        # Dirección y saldo: el etiquetado los necesita para asociar una
+        # transacción a la deuda correcta sin salir del modal.
+        'ES_MI_DEUDA': df['es_mi_deuda'] if 'es_mi_deuda' in df.columns else False,
+        'SALDO_PENDIENTE': df['saldo_pendiente'] if 'saldo_pendiente' in df.columns else df['monto'],
     })
     
     return df_limpio.sort_values('FECHA', ascending=False).reset_index(drop=True)

@@ -53,6 +53,7 @@ class SplitItem(BaseModel):
     es_reembolsable: Optional[bool] = None
     deudor: Optional[str] = None
     felicidad: Optional[int] = None
+    deuda_id: Optional[str] = None   # Supabase debt linked to this part
 
 class SplitRequest(BaseModel):
     splits: List[SplitItem]

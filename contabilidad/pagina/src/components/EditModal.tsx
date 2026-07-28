@@ -4,7 +4,8 @@ import {
   X, Tag, ArrowUpRight, ArrowDownLeft, Check,
   CreditCard, Flame, Heart, Sparkles, User,
   Frown, Meh, DollarSign, StickyNote, Save, AlertCircle,
-  Link2, Plus, CheckCircle2, Loader2
+  Link2, Plus, CheckCircle2, Loader2, Search, Users,
+  HandCoins, Wallet, Unlink, Ban, Scissors, Settings2
 } from 'lucide-react';
 
 interface EditModalProps {
@@ -28,7 +29,119 @@ const PERTENECE_BASE = ['---', 'Yo', 'Familia', 'Amigos'];
 /** Fecha (YYYY-MM-DD) desde el FECHA de la transacción, sin corrimiento de zona horaria. */
 const fechaDia = (fecha: string) => (fecha || '').slice(0, 10);
 
+/**
+ * Cómo se registra esta transacción reembolsable en el sistema de deudas:
+ *  - `create`    → nace una deuda nueva en Supabase al guardar.
+ *  - `associate` → se engancha a una deuda que ya existe.
+ *  - `none`      → solo se marca como reembolsable, sin deuda que la respalde.
+ */
+type DebtLinkMode = 'none' | 'create' | 'associate';
+
+interface DebtDraft {
+  mode: DebtLinkMode;
+  deudorId: string;
+  titulo: string;
+  monto: number;
+  /** true = tú debes (pagaron por ti); false = te deben (pagaste tú). */
+  esMiDeuda: boolean;
+  /** Deuda vinculada (la existente al abrir, o la elegida en modo `associate`). */
+  deudaId: string;
+}
+
+const nuevoDraft = (titulo: string, monto: number, esMiDeuda: boolean, deudaId = ''): DebtDraft => ({
+  mode: deudaId ? 'associate' : 'create',
+  deudorId: '',
+  titulo,
+  monto: Math.abs(monto),
+  esMiDeuda,
+  deudaId,
+});
+
 // --- Subcomponents for "Control Console" Look ---
+
+const money = (n: number) => `$${(Math.round((n || 0) * 100) / 100).toFixed(2)}`;
+
+/** Encabezado numerado de los pasos de la sección de reembolso. */
+const StepLabel = ({ n, title, hint }: { n: number; title: string; hint?: string }) => (
+  <div className="flex items-start gap-2.5">
+    <div className="w-5 h-5 rounded-md bg-purple-500/20 border border-purple-500/30 text-purple-200 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+      {n}
+    </div>
+    <div className="min-w-0">
+      <div className="text-xs font-bold text-purple-100 uppercase tracking-wider">{title}</div>
+      {hint && <div className="text-[10px] text-surface-500 leading-tight mt-0.5">{hint}</div>}
+    </div>
+  </div>
+);
+
+/** Select con buscador: mismo aspecto que ConsoleSelect pero filtrando la lista. */
+const SearchableSelect = ({ value, onChange, options, icon: Icon, placeholder = 'Buscar…' }: {
+  value: string;
+  onChange: (val: string) => void;
+  options: string[];
+  icon?: any;
+  placeholder?: string;
+}) => {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const filtered = options.filter(o => o.toLowerCase().includes(query.trim().toLowerCase()));
+
+  const close = () => { setOpen(false); setQuery(''); };
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => (open ? close() : setOpen(true))}
+        className="
+          w-full flex items-center justify-between gap-2 bg-surface-900 border border-white/5 rounded-xl px-4 py-3.5
+          text-surface-50 font-medium text-left
+          focus:outline-none focus:border-purple-500/50
+          shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] hover:border-white/20 transition-all
+        "
+      >
+        <span className={value && value !== '---' ? '' : 'text-surface-500'}>{value || '---'}</span>
+        {Icon ? <Icon size={16} className="text-surface-500 shrink-0" /> : null}
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-30" onClick={close} />
+          <div className="absolute z-40 left-0 right-0 mt-2 bg-surface-900 border border-white/10 rounded-xl shadow-2xl overflow-hidden">
+            <div className="relative border-b border-white/5">
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-500 pointer-events-none" />
+              <input
+                autoFocus
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder={placeholder}
+                className="w-full bg-transparent pl-8 pr-3 py-2.5 text-sm text-white placeholder:text-surface-600 focus:outline-none"
+              />
+            </div>
+            <div className="max-h-52 overflow-y-auto custom-scrollbar">
+              {filtered.map(opt => (
+                <button
+                  type="button"
+                  key={opt}
+                  onClick={() => { onChange(opt); close(); }}
+                  className={`w-full flex items-center justify-between gap-2 px-4 py-2.5 text-sm text-left transition-colors ${
+                    opt === value ? 'bg-purple-500/15 text-purple-100 font-bold' : 'text-surface-300 hover:bg-surface-800 hover:text-white'
+                  }`}
+                >
+                  <span className="truncate">{opt}</span>
+                  {opt === value && <Check size={14} className="text-purple-300 shrink-0" />}
+                </button>
+              ))}
+              {filtered.length === 0 && (
+                <div className="px-4 py-3 text-xs text-surface-500 text-center">Nadie coincide</div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
 
 const SectionLabel = ({ icon: Icon, label }: { icon: any, label: string }) => (
   <div className="flex items-center gap-2 mb-3 text-surface-400/80">
@@ -90,12 +203,14 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
 
   // --- Deuda / Supabase ---
   const [deudores, setDeudores] = useState<SupabaseDeudor[]>([]);
-  const [sameDayDebts, setSameDayDebts] = useState<SupabaseDebt[]>([]);
-  const [debtMode, setDebtMode] = useState<'associate' | 'create'>('create');
-  const [selectedDeudaId, setSelectedDeudaId] = useState<string>('');
-  const [debtTitulo, setDebtTitulo] = useState('');
-  const [debtMonto, setDebtMonto] = useState<number>(0);
-  const [debtDeudorId, setDebtDeudorId] = useState<string>('');
+  const [nearbyDebts, setNearbyDebts] = useState<SupabaseDebt[]>([]);
+  const [loadingDebts, setLoadingDebts] = useState(false);
+  /** Un borrador de deuda por parte: en modo normal solo existe el índice 0. */
+  const [debtDrafts, setDebtDrafts] = useState<DebtDraft[]>([]);
+  const [personSearch, setPersonSearch] = useState('');
+  const [debtSearch, setDebtSearch] = useState('');
+  const [creatingPerson, setCreatingPerson] = useState(false);
+  const [showDebtModal, setShowDebtModal] = useState(false);
   const [creatingDebt, setCreatingDebt] = useState(false);
   const [debtError, setDebtError] = useState('');
 
@@ -120,10 +235,17 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
                 pertenece_a: t.pertenece_a,
                 es_reembolsable: t.es_reembolsable,
                 deudor: t.deudor,
-                felicidad: t.felicidad
+                felicidad: t.felicidad,
+                deuda_id: t.deuda_id || ''
             }));
             setSplits(loadedSplits);
             setSelectedSplitIndex(0);
+            setDebtDrafts(loadedSplits.map(s => nuevoDraft(
+                s.nombre_limpio || transaction.DESCRIPCION,
+                s.monto,
+                transaction.MONTO > 0,
+                s.deuda_id || ''
+            )));
 
             // Init form with first split
             const first = loadedSplits[0];
@@ -148,8 +270,15 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
                 categoria: transaction.categoria || '---',
                 tags: transaction.tags || '',
                 nota: transaction.nota || '',
-                nombre_limpio: transaction.nombre_limpio
+                nombre_limpio: transaction.nombre_limpio,
+                deuda_id: transaction.deuda_id || ''
             }]);
+            setDebtDrafts([nuevoDraft(
+                transaction.nombre_limpio || transaction.DESCRIPCION,
+                transaction.MONTO,
+                transaction.MONTO > 0,
+                transaction.deuda_id ? String(transaction.deuda_id) : ''
+            )]);
 
             // Init Form Data
             setFormData({
@@ -171,15 +300,12 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
         setIsClosing(false);
         setSavingRule(false);
 
-        // Estado de deuda
-        const existingDeuda = transaction.deuda_id ? String(transaction.deuda_id) : '';
-        setSelectedDeudaId(existingDeuda);
-        setDebtMode(existingDeuda ? 'associate' : 'create');
-        setDebtTitulo(transaction.nombre_limpio || transaction.DESCRIPCION);
-        setDebtMonto(Math.abs(transaction.MONTO));
-        setDebtDeudorId('');
+        // Estado de la sección de deuda
         setDebtError('');
-        setSameDayDebts([]);
+        setPersonSearch('');
+        setDebtSearch('');
+        setNearbyDebts([]);
+        setShowDebtModal(false);
     }
   }, [transaction]);
 
@@ -225,27 +351,55 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
       return () => clearTimeout(timer);
   }, [formData.nombre_limpio, isOpen]);
 
-  // Cargar deudores + deudas del mismo día cuando la transacción es reembolsable
+  // Las personas se cargan al abrir: "¿De quién es?" también las usa.
   useEffect(() => {
-      if (!isOpen || !transaction || !formData.es_reembolsable) return;
+      if (!isOpen || deudores.length) return;
+      let cancelled = false;
+      api.getDeudores()
+         .then(ds => { if (!cancelled) setDeudores(ds); })
+         .catch(() => { /* silencioso: la sección funciona sin datos remotos */ });
+      return () => { cancelled = true; };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
+  // Deudas del día del gasto: las únicas candidatas para asociar.
+  useEffect(() => {
+      if (!isOpen || !transaction || !formData.es_reembolsable || nearbyDebts.length) return;
       let cancelled = false;
       const day = fechaDia(transaction.FECHA);
-      (async () => {
-          try {
-              const [ds, debts] = await Promise.all([
-                  deudores.length ? Promise.resolve(deudores) : api.getDeudores(),
-                  api.getSupabaseDebts(day, day),
-              ]);
-              if (cancelled) return;
-              setDeudores(ds);
-              setSameDayDebts(debts);
-          } catch (e) {
-              // silencioso: la sección seguirá funcionando sin datos remotos
-          }
-      })();
+      setLoadingDebts(true);
+      api.getSupabaseDebts(day, day)
+         .then(debts => { if (!cancelled) setNearbyDebts(debts); })
+         .catch(() => { /* silencioso */ })
+         .finally(() => { if (!cancelled) setLoadingDebts(false); });
       return () => { cancelled = true; };
       // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, transaction, formData.es_reembolsable]);
+
+  // Prellenar la persona del borrador: por la deuda ya vinculada o por el nombre guardado.
+  useEffect(() => {
+      if (!deudores.length || !debtDrafts.length) return;
+      setDebtDrafts(prev => {
+          let changed = false;
+          const next = prev.map((draft, i) => {
+              if (draft.deudorId) return draft;
+              const linked = draft.deudaId
+                  ? nearbyDebts.find(d => String(d.ID) === draft.deudaId)
+                  : undefined;
+              const nombre = linked?.DEUDOR_NOMBRE || splits[i]?.deudor || (i === 0 ? transaction?.deudor : '') || '';
+              const match = deudores.find(d => d.nombre.toLowerCase() === String(nombre).toLowerCase());
+              if (!match) return draft;
+              changed = true;
+              return {
+                  ...draft,
+                  deudorId: String(match.id),
+                  esMiDeuda: linked ? !!linked.ES_MI_DEUDA : draft.esMiDeuda,
+              };
+          });
+          return changed ? next : prev;
+      });
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deudores, nearbyDebts, debtDrafts.length]);
 
 
   const [selectedSplitIndex, setSelectedSplitIndex] = useState<number>(0);
@@ -318,15 +472,17 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
     };
     const newSplits = [...splits, newSplit];
     setSplits(newSplits);
+    setDebtDrafts(prev => [...prev, nuevoDraft('', newSplit.monto, (transaction?.MONTO || 0) > 0)]);
     setSelectedSplitIndex(newSplits.length - 1); // Select the new one
   };
-  
+
   const handleRemoveSplit = (e: React.MouseEvent, index: number) => {
       e.stopPropagation();
       if (splits.length <= 1) return;
       const newSplits = [...splits];
       newSplits.splice(index, 1);
       setSplits(newSplits);
+      setDebtDrafts(prev => prev.filter((_, i) => i !== index));
       if (selectedSplitIndex >= index && selectedSplitIndex > 0) {
           setSelectedSplitIndex(selectedSplitIndex - 1);
       }
@@ -337,9 +493,37 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
     setTimeout(onClose, 200);
   };
 
+  /** Qué le falta a un borrador para poder guardarse. `null` = está listo. */
+  const validarDraft = (draft: DebtDraft | undefined): string | null => {
+    if (!draft) return null;
+    if (draft.mode === 'none') return null;
+    if (draft.mode === 'associate') {
+      return draft.deudaId ? null : 'elige la deuda a la que se asocia';
+    }
+    if (!draft.deudorId) return 'elige con quién es la deuda';
+    if (!draft.titulo.trim()) return 'ponle un nombre a la deuda';
+    if (!(draft.monto > 0.009)) return 'el monto de la deuda debe ser mayor a 0';
+    return null;
+  };
+
+  /** Devuelve el `deuda_id` final de una parte, creando la deuda si hace falta. */
+  const resolverDraft = async (draft: DebtDraft | undefined, fallbackTitulo: string): Promise<string> => {
+    if (!draft || draft.mode === 'none') return '';
+    if (draft.mode === 'associate') return draft.deudaId || '';
+    const created = await api.createSupabaseDebt({
+      titulo: (draft.titulo || fallbackTitulo || transaction!.DESCRIPCION).trim(),
+      monto: Math.abs(draft.monto),
+      deudor_id: draft.deudorId,
+      fecha_gasto: fechaDia(transaction!.FECHA),
+      es_mi_deuda: draft.esMiDeuda,
+    });
+    return String(created.id);
+  };
+
   const handleSave = async () => {
     if (!transaction) return;
-    
+    setDebtError('');
+
     if (isSplitting && splits.length > 1) {
         // Validation: Sum must match or warn?
         // Let's enforce it matches within a small margin
@@ -347,40 +531,66 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
             alert(`El total dividido (${totalSplitAmount.toFixed(2)}) no coincide con el monto original (${Math.abs(transaction.MONTO).toFixed(2)})`);
             return;
         }
-        
+
+        // Cada parte reembolsable lleva su propia deuda: valida todas antes de escribir nada.
+        for (let i = 0; i < splits.length; i++) {
+            if (!splits[i].es_reembolsable) continue;
+            const err = validarDraft(debtDrafts[i]);
+            if (err) {
+                setSelectedSplitIndex(i);
+                setDebtError(`Parte ${i + 1} ("${splits[i].nombre_limpio || 'sin nombre'}"): ${err}.`);
+                setShowDebtModal(true);
+                return;
+            }
+        }
+
         const multiplier = transaction.MONTO < 0 ? -1 : 1;
-        const processedSplits = splits.map(split => ({ 
-            ...split, 
-            monto: split.monto * multiplier,
-            revisado: true 
-        }));
-        await api.splitTransaction(transaction.id, processedSplits);
+        setCreatingDebt(true);
+        const processedSplits: SplitItem[] = [];
+        try {
+            for (let i = 0; i < splits.length; i++) {
+                const split = splits[i];
+                const deudaId = split.es_reembolsable
+                    ? await resolverDraft(debtDrafts[i], split.nombre_limpio || '')
+                    : '';
+                processedSplits.push({
+                    ...split,
+                    monto: split.monto * multiplier,
+                    revisado: true,
+                    deuda_id: deudaId,
+                });
+            }
+        } catch (e) {
+            setCreatingDebt(false);
+            setDebtError('No se pudo crear la deuda en Supabase. Revisa la conexión e intenta de nuevo.');
+            return;
+        }
+
+        try {
+            await api.splitTransaction(transaction.id, processedSplits);
+        } finally {
+            setCreatingDebt(false);
+        }
         onSave(transaction.id, {}); // Trigger refresh
     } else {
         const updates: TransactionUpdate = { ...formData };
 
         if (formData.es_reembolsable) {
-            if (debtMode === 'associate') {
-                updates.deuda_id = selectedDeudaId || '';
-            } else if (debtMode === 'create' && debtDeudorId) {
-                // Crear deuda PENDIENTE en Supabase y vincularla
-                setCreatingDebt(true);
-                setDebtError('');
-                try {
-                    const created = await api.createSupabaseDebt({
-                        titulo: (debtTitulo || formData.nombre_limpio || transaction.DESCRIPCION).trim(),
-                        monto: Math.abs(debtMonto || 0),
-                        deudor_id: debtDeudorId,
-                        fecha_gasto: fechaDia(transaction.FECHA),
-                    });
-                    updates.deuda_id = String(created.id);
-                } catch (e) {
-                    setDebtError('No se pudo crear la deuda en Supabase. Revisa la conexión e intenta de nuevo.');
-                    setCreatingDebt(false);
-                    return; // aborta el guardado
-                }
-                setCreatingDebt(false);
+            const err = validarDraft(debtDrafts[0]);
+            if (err) {
+                setDebtError(`Para guardar, ${err}.`);
+                setShowDebtModal(true);
+                return;
             }
+            setCreatingDebt(true);
+            try {
+                updates.deuda_id = await resolverDraft(debtDrafts[0], formData.nombre_limpio || '');
+            } catch (e) {
+                setDebtError('No se pudo crear la deuda en Supabase. Revisa la conexión e intenta de nuevo.');
+                setCreatingDebt(false);
+                return; // aborta el guardado
+            }
+            setCreatingDebt(false);
         } else {
             // Ya no es reembolsable: desvincular cualquier deuda previa
             updates.deuda_id = '';
@@ -441,7 +651,97 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
     ...deudores.map(d => d.nombre),
     ...(formData.pertenece_a ? [formData.pertenece_a] : []),
   ]));
-  
+
+  // ── Sección de reembolso ────────────────────────────────────────────────────
+  // El borrador vive por parte: sin división solo existe el índice 0.
+  const dia = fechaDia(transaction.FECHA);
+  const draftIndex = isSplitting ? selectedSplitIndex : 0;
+  const montoParte = isSplitting
+    ? Math.abs(splits[selectedSplitIndex]?.monto || 0)
+    : Math.abs(transaction.MONTO);
+  const draft: DebtDraft = debtDrafts[draftIndex]
+    ?? nuevoDraft(formData.nombre_limpio || transaction.DESCRIPCION, montoParte, transaction.MONTO > 0);
+
+  const actualizarDraft = (patch: Partial<DebtDraft>) => {
+    setDebtError('');
+    setDebtDrafts(prev => {
+      const next = [...prev];
+      while (next.length <= draftIndex) {
+        next.push(nuevoDraft(formData.nombre_limpio || transaction.DESCRIPCION, montoParte, transaction.MONTO > 0));
+      }
+      next[draftIndex] = { ...next[draftIndex], ...patch };
+      return next;
+    });
+  };
+
+  const personasFiltradas = deudores.filter(d =>
+    d.nombre.toLowerCase().includes(personSearch.trim().toLowerCase())
+  );
+
+  const elegirPersona = (p: SupabaseDeudor) => {
+    actualizarDraft({ deudorId: String(p.id) });
+    setFormData(prev => ({ ...prev, deudor: p.nombre }));
+  };
+
+  const crearPersona = async () => {
+    const nombre = personSearch.trim();
+    if (!nombre || creatingPerson) return;
+    setCreatingPerson(true);
+    try {
+      const nuevo = await api.createDeudor(nombre);
+      setDeudores(prev => [...prev, nuevo]);
+      elegirPersona(nuevo);
+      setPersonSearch('');
+    } catch (e) {
+      setDebtError(`No se pudo crear la persona "${nombre}".`);
+    } finally {
+      setCreatingPerson(false);
+    }
+  };
+
+  const personaElegida = deudores.find(d => String(d.id) === draft.deudorId);
+
+  const deudasCandidatas = nearbyDebts
+    .filter(d => {
+      if (!draft.deudorId) return true;
+      if (d.DEUDOR_ID) return String(d.DEUDOR_ID) === draft.deudorId;
+      return d.DEUDOR_NOMBRE === personaElegida?.nombre;
+    })
+    .filter(d => {
+      const q = debtSearch.trim().toLowerCase();
+      if (!q) return true;
+      return (d.DESCRIPCION || '').toLowerCase().includes(q)
+          || d.MONTO.toFixed(2).includes(q)
+          || (d.DEUDOR_NOMBRE || '').toLowerCase().includes(q);
+    })
+    // Mismo monto primero: es la coincidencia que casi siempre buscas.
+    .sort((a, b) => Math.abs(a.MONTO - montoParte) - Math.abs(b.MONTO - montoParte));
+
+  const elegirDeuda = (d: SupabaseDebt) => {
+    const nombre = d.DEUDOR_NOMBRE;
+    const persona = deudores.find(x => x.nombre === nombre);
+    actualizarDraft({
+      deudaId: String(d.ID),
+      esMiDeuda: !!d.ES_MI_DEUDA,
+      ...(persona ? { deudorId: String(persona.id) } : {}),
+    });
+    if (nombre) setFormData(prev => ({ ...prev, deudor: nombre }));
+  };
+
+  const deudaVinculada = draft.deudaId
+    ? nearbyDebts.find(d => String(d.ID) === draft.deudaId)
+    : undefined;
+
+  const draftError = formData.es_reembolsable ? validarDraft(draft) : null;
+
+  const resumenDeuda = draftError
+    ? `Al guardar falta un paso: ${draftError}.`
+    : draft.mode === 'none'
+      ? 'Se marcará como reembolsable, pero no se registrará ninguna deuda.'
+      : draft.mode === 'create'
+        ? `Al guardar se creará la deuda "${draft.titulo || '(sin nombre)'}" de ${money(draft.monto)} con ${personaElegida?.nombre || '—'}: ${draft.esMiDeuda ? 'tú la debes' : 'te la deben'}.`
+        : `Se vinculará con "${deudaVinculada?.DESCRIPCION || 'la deuda elegida'}"${deudaVinculada ? ` (${money(deudaVinculada.MONTO)} · ${deudaVinculada.DEUDOR_NOMBRE})` : ''}.`;
+
   const addTag = async (tag: string) => {
     if (!currentTags.includes(tag)) {
       const newTags = [...currentTags, tag].join(', ');
@@ -628,9 +928,16 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
                                   value={splits[selectedSplitIndex]?.monto || 0}
                                   onChange={(e) => {
                                       const val = parseFloat(e.target.value) || 0;
+                                      const prevVal = splits[selectedSplitIndex]?.monto || 0;
                                       const newSplits = [...splits];
                                       newSplits[selectedSplitIndex] = { ...newSplits[selectedSplitIndex], monto: val };
                                       setSplits(newSplits);
+                                      // El monto de la deuda sigue al de la parte mientras no lo hayas tocado.
+                                      setDebtDrafts(prev => prev.map((d, i) => (
+                                          i === selectedSplitIndex && Math.abs(d.monto - prevVal) < 0.005
+                                              ? { ...d, monto: val }
+                                              : d
+                                      )));
                                   }}
                                   className="w-40 bg-surface-900 border border-white/10 rounded-xl px-4 py-2 text-right font-mono text-2xl font-bold text-white focus:outline-none focus:border-primary-500/50"
                                />
@@ -651,9 +958,19 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
                     {/* Name Input */}
                     <div className="group space-y-2">
                       <label className="text-xs text-primary-200/60 font-medium ml-1">Nombre Comercial</label>
-                      <ConsoleInput 
-                        value={formData.nombre_limpio || ''} 
-                        onChange={e => setFormData({...formData, nombre_limpio: e.target.value})}
+                      <ConsoleInput
+                        value={formData.nombre_limpio || ''}
+                        onChange={e => {
+                          const val = e.target.value;
+                          const prevVal = formData.nombre_limpio || '';
+                          setFormData({...formData, nombre_limpio: val});
+                          // El nombre de la deuda sigue al comercial mientras no lo hayas tocado.
+                          setDebtDrafts(prev => prev.map((d, i) => (
+                            i === (isSplitting ? selectedSplitIndex : 0) && (!d.titulo || d.titulo === prevVal)
+                              ? { ...d, titulo: val }
+                              : d
+                          )));
+                        }}
                         placeholder="Ej: Netflix, Uber..."
                         className="text-lg font-medium bg-surface-800/50 border-white/5 focus:border-primary-500/50 h-14"
                         autoFocus={!isSplitting} // Don't autofocus if just switching tabs
@@ -876,182 +1193,450 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
                         </div>
                      </div>
                   </div>
-    
-                  {/* Accounting Card (Bottom, Collapsible) - MOVED & STYLED */}
+
+                  {/* Reembolsable / Deuda — resumen; el detalle vive en su propio modal */}
                   <div className={`
-                     bg-surface-800/20 border border-white/5 rounded-3xl overflow-hidden transition-all duration-300
-                     ${formData.es_reembolsable ? 'border-purple-500/30 bg-purple-500/5' : 'hover:border-white/10'}
+                     rounded-3xl border overflow-hidden transition-colors duration-300
+                     ${formData.es_reembolsable
+                        ? 'border-purple-500/30 bg-purple-500/[0.06]'
+                        : 'border-white/5 bg-surface-800/20 hover:border-white/10'}
                   `}>
-                      <div 
-                        className="p-5 flex items-center justify-between cursor-pointer group"
-                        onClick={() => setFormData({...formData, es_reembolsable: !formData.es_reembolsable})}
-                      >
-                         <div className="flex items-center gap-3">
-                            <div className={`p-2 rounded-lg ${formData.es_reembolsable ? 'bg-purple-500/20 text-purple-300' : 'bg-surface-800 text-surface-500'}`}>
-                               <CreditCard size={20} />
-                            </div>
-                            <div>
-                               <div className={`text-sm font-bold ${formData.es_reembolsable ? 'text-purple-200' : 'text-surface-300'}`}>Reembolsable / Deuda</div>
-                               <div className="text-[10px] text-surface-500">Compartido con otros</div>
-                            </div>
-                         </div>
-                         <div className={`w-12 h-7 rounded-full relative transition-colors border border-white/5 ${formData.es_reembolsable ? 'bg-purple-600 border-purple-500/50' : 'bg-surface-900'}`}>
-                            <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform shadow-sm ${formData.es_reembolsable ? 'translate-x-5' : 'translate-x-0'}`} />
-                         </div>
-                      </div>
-    
-                      {/* Expanded Content */}
-                      <div className={`
-                         px-5 pb-5 transition-all duration-300 ease-in-out space-y-4
-                         ${formData.es_reembolsable ? 'max-h-[720px] opacity-100 overflow-y-auto custom-scrollbar' : 'max-h-0 opacity-0 overflow-hidden pb-0'}
-                      `}>
-                         <div className="h-px bg-purple-500/20 w-full mb-4" />
+                     <div
+                        className="p-5 flex items-center justify-between gap-3 cursor-pointer select-none"
+                        onClick={() => {
+                           const activar = !formData.es_reembolsable;
+                           setFormData({ ...formData, es_reembolsable: activar });
+                           // Al activarlo se abre el detalle: siempre hay algo que decidir.
+                           setShowDebtModal(activar);
+                        }}
+                     >
+                        <div className="flex items-center gap-3 min-w-0">
+                           <div className={`p-2 rounded-lg ${formData.es_reembolsable ? 'bg-purple-500/20 text-purple-300' : 'bg-surface-800 text-surface-500'}`}>
+                              <CreditCard size={20} />
+                           </div>
+                           <div className="min-w-0">
+                              <div className={`text-sm font-bold ${formData.es_reembolsable ? 'text-purple-200' : 'text-surface-300'}`}>Reembolsable / Deuda</div>
+                              <div className="text-[10px] text-surface-500 truncate">Compartido con otros</div>
+                           </div>
+                        </div>
+                        <div className={`w-12 h-7 rounded-full relative transition-colors border shrink-0 ${formData.es_reembolsable ? 'bg-purple-600 border-purple-500/50' : 'bg-surface-900 border-white/5'}`}>
+                           <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform shadow-sm ${formData.es_reembolsable ? 'translate-x-5' : 'translate-x-0'}`} />
+                        </div>
+                     </div>
 
-                         {/* ¿De quién es? / ¿Quién paga? */}
-                         <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1.5">
-                               <label className="text-[10px] uppercase font-bold text-purple-300/70 ml-1">¿De quién es?</label>
-                               <ConsoleSelect
-                                  value={formData.pertenece_a || '---'}
-                                  onChange={val => setFormData({...formData, pertenece_a: val})}
-                                  options={perteneceOptions}
-                                  icon={User}
-                               />
-                            </div>
-                            <div className="space-y-1.5">
-                               <label className="text-[10px] uppercase font-bold text-purple-300/70 ml-1 flex items-center gap-1">
-                                  ¿Quién paga? <span className="text-purple-400/50 normal-case">(deudor Supabase)</span>
-                               </label>
-                               <div className="relative group">
-                                  <select
-                                     value={debtDeudorId}
-                                     onChange={(e) => {
-                                        const id = e.target.value;
-                                        setDebtDeudorId(id);
-                                        const d = deudores.find(x => String(x.id) === id);
-                                        setFormData(prev => ({ ...prev, deudor: d ? d.nombre : '' }));
-                                     }}
-                                     className="w-full appearance-none bg-surface-900 border border-white/5 rounded-xl px-4 py-3.5 pr-10 text-surface-50 font-medium focus:outline-none focus:border-purple-500/50 focus:bg-surface-800 cursor-pointer transition-all hover:border-white/20 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]"
-                                  >
-                                     <option value="">{deudores.length ? '— Selecciona —' : 'Cargando…'}</option>
-                                     {deudores.map(d => (
-                                        <option key={d.id} value={String(d.id)}>{d.nombre}</option>
-                                     ))}
-                                  </select>
-                                  <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-surface-500">
-                                     <CreditCard size={16} />
-                                  </div>
-                               </div>
-                            </div>
-                         </div>
+                     {formData.es_reembolsable && (
+                        <div className="px-5 pb-5 space-y-2.5 animate-fade-in">
+                           <div className="h-px bg-purple-500/20 w-full" />
 
-                         {/* Modo: asociar deuda del mismo día / crear nueva */}
-                         <div className="space-y-2">
-                            <label className="text-[10px] uppercase font-bold text-purple-300/70 ml-1">Deuda en Supabase</label>
-                            <div className="flex gap-2">
-                               <button
-                                  type="button"
-                                  onClick={() => setDebtMode('create')}
-                                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-bold uppercase tracking-wider transition-all ${debtMode === 'create' ? 'bg-purple-500/15 border-purple-500/40 text-purple-200' : 'bg-surface-900 border-white/5 text-surface-400 hover:text-white'}`}
-                               >
-                                  <Plus size={14} /> Crear nueva
-                               </button>
-                               <button
-                                  type="button"
-                                  onClick={() => setDebtMode('associate')}
-                                  disabled={sameDayDebts.length === 0}
-                                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-40 disabled:cursor-not-allowed ${debtMode === 'associate' ? 'bg-purple-500/15 border-purple-500/40 text-purple-200' : 'bg-surface-900 border-white/5 text-surface-400 hover:text-white'}`}
-                               >
-                                  <Link2 size={14} /> Asociar existente
-                                  {sameDayDebts.length > 0 && <span className="px-1.5 py-0.5 rounded bg-purple-500/20 text-[9px]">{sameDayDebts.length}</span>}
-                               </button>
-                            </div>
-                         </div>
+                           <button
+                              type="button"
+                              onClick={() => setShowDebtModal(true)}
+                              className="w-full flex items-center justify-between gap-3 px-3.5 py-3 rounded-xl bg-surface-900 border border-white/5 hover:border-purple-500/40 hover:bg-surface-800 transition-all text-left group/deuda"
+                           >
+                              <div className="min-w-0">
+                                 <div className="flex items-center gap-1.5 mb-1">
+                                    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${
+                                       draft.mode === 'none'
+                                          ? 'bg-surface-800 text-surface-400 border-white/5'
+                                          : draftError
+                                             ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                                             : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+                                    }`}>
+                                       {draft.mode === 'none'
+                                          ? <><Ban size={9} /> Sin deuda</>
+                                          : draftError
+                                             ? <><AlertCircle size={9} /> Falta info</>
+                                             : draft.mode === 'create'
+                                                ? <><Plus size={9} /> Se creará</>
+                                                : <><Link2 size={9} /> Vinculada</>}
+                                    </span>
+                                    {draft.mode !== 'none' && !draftError && (
+                                       <span className="text-[10px] font-mono font-bold text-surface-300">
+                                          {money(draft.mode === 'create' ? draft.monto : (deudaVinculada?.MONTO ?? draft.monto))}
+                                       </span>
+                                    )}
+                                 </div>
+                                 <div className="text-xs text-surface-400 truncate">
+                                    {draft.mode === 'none'
+                                       ? 'No se registrará deuda'
+                                       : draftError
+                                          ? `Falta: ${draftError}`
+                                          : <>
+                                              <span className="text-surface-200 font-bold">{personaElegida?.nombre || deudaVinculada?.DEUDOR_NOMBRE || '—'}</span>
+                                              {' · '}
+                                              {draft.esMiDeuda ? 'tú lo debes' : 'te lo deben'}
+                                            </>}
+                                 </div>
+                              </div>
+                              <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-surface-500 group-hover/deuda:text-purple-300 transition-colors shrink-0">
+                                 <Settings2 size={14} /> Configurar
+                              </div>
+                           </button>
 
-                         {debtMode === 'associate' ? (
-                            <div className="space-y-2">
-                               <div className="text-[10px] text-surface-500 ml-1">Deudas del {fechaDia(transaction.FECHA)}</div>
-                               {sameDayDebts.length === 0 ? (
-                                  <div className="text-xs text-surface-500 bg-surface-900/50 border border-dashed border-white/10 rounded-xl px-4 py-3 text-center">
-                                     No hay deudas registradas ese día
-                                  </div>
-                               ) : (
-                                  <div className="space-y-2 max-h-44 overflow-y-auto custom-scrollbar pr-1">
-                                     {sameDayDebts.map(d => {
-                                        const active = selectedDeudaId === String(d.ID);
-                                        return (
-                                           <button
-                                              type="button"
-                                              key={String(d.ID)}
-                                              onClick={() => {
-                                                 setSelectedDeudaId(String(d.ID));
-                                                 setFormData(prev => ({ ...prev, deudor: d.DEUDOR_NOMBRE || prev.deudor }));
-                                              }}
-                                              className={`w-full flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border text-left transition-all ${active ? 'bg-purple-500/15 border-purple-500/50' : 'bg-surface-900 border-white/5 hover:border-white/15'}`}
-                                           >
-                                              <div className="min-w-0">
-                                                 <div className="text-sm font-bold text-surface-100 truncate">{d.DESCRIPCION}</div>
-                                                 <div className="text-[10px] text-surface-500 flex items-center gap-2">
-                                                    <span className="text-sky-300">{d.DEUDOR_NOMBRE}</span>
-                                                    <span className={d.PAGADA ? 'text-emerald-400' : 'text-rose-400'}>{d.PAGADA ? 'PAGADA' : 'PENDIENTE'}</span>
-                                                 </div>
-                                              </div>
-                                              <div className="flex items-center gap-2 shrink-0">
-                                                 <span className="font-mono font-bold text-white text-sm">${d.MONTO.toFixed(2)}</span>
-                                                 {active && <CheckCircle2 size={16} className="text-purple-300" />}
-                                              </div>
-                                           </button>
-                                        );
-                                     })}
-                                  </div>
-                               )}
-                            </div>
-                         ) : (
-                            <div className="grid grid-cols-2 gap-4">
-                               <div className="space-y-1.5">
-                                  <label className="text-[10px] uppercase font-bold text-purple-300/70 ml-1">Nombre de la deuda</label>
-                                  <ConsoleInput
-                                     value={debtTitulo}
-                                     onChange={e => setDebtTitulo(e.target.value)}
-                                     placeholder="Ej: 4 almuerzos"
-                                  />
-                               </div>
-                               <div className="space-y-1.5">
-                                  <label className="text-[10px] uppercase font-bold text-purple-300/70 ml-1 flex items-center gap-1">
-                                     Monto <span className="text-purple-400/50 normal-case">(diferido si aplica)</span>
-                                  </label>
-                                  <div className="relative">
-                                     <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-surface-500">$</span>
-                                     <input
-                                        type="number"
-                                        step="0.01"
-                                        value={debtMonto}
-                                        onChange={e => setDebtMonto(parseFloat(e.target.value) || 0)}
-                                        className="w-full bg-surface-900 border border-white/5 rounded-xl pl-8 pr-4 py-3.5 text-surface-50 font-mono font-bold focus:outline-none focus:border-purple-500/50 focus:bg-surface-800 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all"
-                                     />
-                                  </div>
-                               </div>
-                               {!debtDeudorId && (
-                                  <div className="col-span-2 text-[11px] text-amber-300/80 flex items-center gap-1.5">
-                                     <AlertCircle size={12} /> Elige "¿Quién paga?" para crear la deuda al guardar.
-                                  </div>
-                               )}
-                            </div>
-                         )}
-
-                         {debtError && (
-                            <div className="text-xs text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-xl px-3 py-2 flex items-center gap-2">
-                               <AlertCircle size={14} /> {debtError}
-                            </div>
-                         )}
-                      </div>
+                           {debtError && (
+                              <div className="text-[11px] text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-xl px-3 py-2 flex items-start gap-2">
+                                 <AlertCircle size={13} className="mt-0.5 shrink-0" /> {debtError}
+                              </div>
+                           )}
+                        </div>
+                     )}
                   </div>
-    
+
                 </div>
               </div>
             </div>
         </div>
 
+
+        {/* --- Modal de la deuda: el detalle necesita aire, la tarjeta de la esquina no --- */}
+        {showDebtModal && formData.es_reembolsable && (
+          <div className="absolute inset-0 z-40 flex items-center justify-center p-6 animate-fade-in">
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowDebtModal(false)} />
+            <div className="relative w-full max-w-4xl max-h-full flex flex-col bg-surface-950 border border-purple-500/25 rounded-3xl shadow-2xl overflow-hidden">
+              <header className="flex-none px-6 py-5 border-b border-white/5 bg-surface-900/60 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="p-2.5 rounded-xl bg-purple-500/20 text-purple-200 border border-purple-500/30">
+                    <CreditCard size={20} />
+                  </div>
+                  <div className="min-w-0">
+                    <h2 className="text-base font-bold text-white tracking-tight">Reembolso · Deuda</h2>
+                    <p className="text-[11px] text-surface-500 leading-tight">
+                      Este dinero no es tuyo del todo: queda una cuenta pendiente con alguien.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowDebtModal(false)}
+                  className="p-2 rounded-xl bg-surface-800 hover:bg-surface-700 text-surface-400 hover:text-white transition-colors border border-white/5 shrink-0"
+                >
+                  <X size={18} />
+                </button>
+              </header>
+
+              <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-5">
+
+                {isSplitting && (
+                   <div className="flex items-center gap-2 text-[11px] text-purple-200/80 bg-purple-500/10 border border-purple-500/20 rounded-xl px-3.5 py-2.5">
+                      <Scissors size={13} className="shrink-0" />
+                      Estás configurando la deuda de la parte <strong className="text-white mx-1">{selectedSplitIndex + 1}</strong>
+                      ({splits[selectedSplitIndex]?.nombre_limpio || 'sin nombre'} · {money(splits[selectedSplitIndex]?.monto || 0)}).
+                      Cada parte lleva su propia deuda.
+                   </div>
+                )}
+
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start">
+
+                   {/* ── Paso 1 + 2: con quién y en qué dirección ── */}
+                   <div className="space-y-5 bg-surface-900/40 border border-white/5 rounded-2xl p-4">
+                      <div className="space-y-2.5">
+                         <StepLabel n={1} title="¿Con quién?" hint="La persona con la que queda la cuenta" />
+
+                         <div className="relative">
+                            <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-surface-500 pointer-events-none" />
+                            <input
+                               value={personSearch}
+                               onChange={e => setPersonSearch(e.target.value)}
+                               placeholder="Buscar persona…"
+                               className="w-full bg-surface-900 border border-white/5 rounded-xl pl-9 pr-3 py-2.5 text-sm text-surface-50 placeholder:text-surface-600 focus:outline-none focus:border-purple-500/40 transition-colors"
+                            />
+                         </div>
+
+                         <div className="max-h-52 overflow-y-auto custom-scrollbar space-y-1.5 pr-1">
+                            {personasFiltradas.map(p => {
+                               const active = draft.deudorId === String(p.id);
+                               const neto = p.neto || 0;
+                               return (
+                                  <button
+                                     type="button"
+                                     key={String(p.id)}
+                                     onClick={() => elegirPersona(p)}
+                                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-all ${
+                                        active
+                                           ? 'bg-purple-500/15 border-purple-500/50'
+                                           : 'bg-surface-900 border-white/5 hover:border-white/15 hover:bg-surface-800'
+                                     }`}
+                                  >
+                                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${active ? 'bg-purple-500/30 text-purple-100' : 'bg-surface-800 text-surface-400'}`}>
+                                        {p.nombre.slice(0, 1).toUpperCase()}
+                                     </div>
+                                     <div className="min-w-0 flex-1">
+                                        <div className="text-sm font-bold text-surface-100 truncate">{p.nombre}</div>
+                                        <div className="text-[10px] text-surface-500">
+                                           {Math.abs(neto) < 0.01
+                                              ? 'En cero'
+                                              : neto > 0
+                                                 ? <>Te debe <span className="text-emerald-400 font-bold">{money(neto)}</span></>
+                                                 : <>Le debes <span className="text-rose-400 font-bold">{money(Math.abs(neto))}</span></>}
+                                        </div>
+                                     </div>
+                                     {active && <CheckCircle2 size={16} className="text-purple-300 shrink-0" />}
+                                  </button>
+                               );
+                            })}
+
+                            {personasFiltradas.length === 0 && (
+                               <div className="text-center py-3 space-y-2">
+                                  <div className="text-xs text-surface-500 flex items-center justify-center gap-1.5">
+                                     <Users size={13} /> {deudores.length ? 'Nadie coincide' : 'Sin personas registradas'}
+                                  </div>
+                                  {personSearch.trim() && (
+                                     <button
+                                        type="button"
+                                        onClick={crearPersona}
+                                        disabled={creatingPerson}
+                                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-200 text-xs font-bold hover:bg-purple-500/25 transition-colors disabled:opacity-50"
+                                     >
+                                        {creatingPerson ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+                                        Crear "{personSearch.trim()}"
+                                     </button>
+                                  )}
+                               </div>
+                            )}
+                         </div>
+                      </div>
+
+                      <div className="space-y-2.5">
+                         <StepLabel n={2} title="¿Quién le debe a quién?" hint="Define el signo de la cuenta" />
+                         <div className="grid grid-cols-2 gap-2">
+                            {([
+                               { val: false, icon: HandCoins, title: 'Me lo deben', hint: 'Pagaste tú por otro', on: 'bg-emerald-500/15 border-emerald-500/40 text-emerald-200' },
+                               { val: true, icon: Wallet, title: 'Yo lo debo', hint: 'Te lo cubrieron a ti', on: 'bg-rose-500/15 border-rose-500/40 text-rose-200' },
+                            ] as const).map(opt => {
+                               const active = draft.esMiDeuda === opt.val;
+                               const bloqueado = draft.mode === 'associate';
+                               return (
+                                  <button
+                                     type="button"
+                                     key={String(opt.val)}
+                                     disabled={bloqueado}
+                                     onClick={() => actualizarDraft({ esMiDeuda: opt.val })}
+                                     className={`px-3 py-3 rounded-xl border text-left transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+                                        active ? opt.on : 'bg-surface-900 border-white/5 text-surface-400 hover:border-white/15'
+                                     }`}
+                                  >
+                                     <opt.icon size={16} className="mb-1.5" />
+                                     <div className="text-xs font-bold uppercase tracking-wider">{opt.title}</div>
+                                     <div className="text-[10px] text-surface-500 leading-tight mt-0.5">{opt.hint}</div>
+                                  </button>
+                               );
+                            })}
+                         </div>
+                         {draft.mode === 'associate' && (
+                            <div className="text-[10px] text-surface-500 flex items-center gap-1.5">
+                               <AlertCircle size={11} /> La dirección la manda la deuda que elegiste.
+                            </div>
+                         )}
+                      </div>
+
+                      <div className="space-y-1.5 pt-1 border-t border-white/5">
+                         <label className="text-[10px] uppercase font-bold text-purple-300/70 ml-1 pt-3 block">¿De quién es el gasto?</label>
+                         <SearchableSelect
+                            value={formData.pertenece_a || '---'}
+                            onChange={val => setFormData({ ...formData, pertenece_a: val })}
+                            options={perteneceOptions}
+                            icon={User}
+                            placeholder="Buscar persona…"
+                         />
+                      </div>
+                   </div>
+
+                   {/* ── Paso 3: cómo se registra en el sistema de deudas ── */}
+                   <div className="space-y-3 bg-surface-900/40 border border-white/5 rounded-2xl p-4">
+                      <StepLabel n={3} title="¿Cómo se registra?" hint="Qué pasa en el sistema de deudas al guardar" />
+
+                      <div className="grid grid-cols-3 gap-2">
+                         {([
+                            { val: 'create', icon: Plus, label: 'Crear nueva' },
+                            { val: 'associate', icon: Link2, label: 'Asociar' },
+                            { val: 'none', icon: Ban, label: 'Sin deuda' },
+                         ] as const).map(opt => (
+                            <button
+                               type="button"
+                               key={opt.val}
+                               onClick={() => actualizarDraft({ mode: opt.val })}
+                               className={`flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-xl border text-[11px] font-bold uppercase tracking-wider transition-all ${
+                                  draft.mode === opt.val
+                                     ? 'bg-purple-500/15 border-purple-500/40 text-purple-200'
+                                     : 'bg-surface-900 border-white/5 text-surface-400 hover:text-white hover:border-white/15'
+                               }`}
+                            >
+                               <opt.icon size={13} /> {opt.label}
+                            </button>
+                         ))}
+                      </div>
+
+                      {draft.mode === 'create' && (
+                         <div className="space-y-3 animate-fade-in">
+                            <div className="space-y-1.5">
+                               <label className="text-[10px] uppercase font-bold text-purple-300/70 ml-1">Nombre de la deuda</label>
+                               <ConsoleInput
+                                  value={draft.titulo}
+                                  onChange={e => actualizarDraft({ titulo: e.target.value })}
+                                  placeholder="Ej: 4 almuerzos"
+                               />
+                            </div>
+
+                            <div className="space-y-1.5">
+                               <div className="flex items-center justify-between ml-1">
+                                  <label className="text-[10px] uppercase font-bold text-purple-300/70">Monto a cobrar</label>
+                                  <div className="flex gap-1">
+                                     {([
+                                        { label: 'Todo', factor: 1 },
+                                        { label: '½', factor: 1 / 2 },
+                                        { label: '⅓', factor: 1 / 3 },
+                                     ]).map(q => (
+                                        <button
+                                           type="button"
+                                           key={q.label}
+                                           onClick={() => actualizarDraft({ monto: Math.round(montoParte * q.factor * 100) / 100 })}
+                                           className="px-2 py-0.5 rounded-md bg-surface-800 border border-white/5 text-[10px] font-bold text-surface-400 hover:text-white hover:border-white/20 transition-colors"
+                                        >
+                                           {q.label}
+                                        </button>
+                                     ))}
+                                  </div>
+                               </div>
+                               <div className="relative">
+                                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-surface-500">$</span>
+                                  <input
+                                     type="number"
+                                     step="0.01"
+                                     min="0"
+                                     value={draft.monto}
+                                     onChange={e => actualizarDraft({ monto: parseFloat(e.target.value) || 0 })}
+                                     className="w-full bg-surface-900 border border-white/5 rounded-xl pl-8 pr-4 py-3.5 text-surface-50 font-mono font-bold focus:outline-none focus:border-purple-500/50 focus:bg-surface-800 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all"
+                                  />
+                               </div>
+                               <div className="text-[10px] text-surface-500 ml-1">
+                                  De {money(montoParte)} {isSplitting ? 'de esta parte' : 'de la transacción'}
+                                  {draft.monto > montoParte + 0.01 && (
+                                     <span className="text-amber-300/90 ml-1">· estás cobrando más de lo que gastaste</span>
+                                  )}
+                               </div>
+                            </div>
+
+                            {draft.deudaId && (
+                               <div className="text-[11px] text-amber-300/90 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2 flex items-start gap-2">
+                                  <AlertCircle size={13} className="mt-0.5 shrink-0" />
+                                  Esta transacción ya estaba vinculada a una deuda. Al guardar se creará otra y la anterior quedará suelta.
+                               </div>
+                            )}
+                         </div>
+                      )}
+
+                      {draft.mode === 'associate' && (
+                         <div className="space-y-2 animate-fade-in">
+                            <div className="relative">
+                               <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-surface-500 pointer-events-none" />
+                               <input
+                                  value={debtSearch}
+                                  onChange={e => setDebtSearch(e.target.value)}
+                                  placeholder="Buscar por nombre o monto…"
+                                  className="w-full bg-surface-900 border border-white/5 rounded-xl pl-9 pr-3 py-2.5 text-sm text-surface-50 placeholder:text-surface-600 focus:outline-none focus:border-purple-500/40 transition-colors"
+                               />
+                            </div>
+
+                            <div className="text-[10px] text-surface-500 ml-1">
+                               {loadingDebts
+                                  ? 'Cargando deudas…'
+                                  : `Deudas del ${dia}${draft.deudorId ? ', de la persona elegida' : ''}`}
+                            </div>
+
+                            <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar pr-1">
+                               {deudasCandidatas.map(d => {
+                                  const id = String(d.ID);
+                                  const active = draft.deudaId === id;
+                                  return (
+                                     <button
+                                        type="button"
+                                        key={id}
+                                        onClick={() => elegirDeuda(d)}
+                                        className={`w-full flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border text-left transition-all ${
+                                           active ? 'bg-purple-500/15 border-purple-500/50' : 'bg-surface-900 border-white/5 hover:border-white/15'
+                                        }`}
+                                     >
+                                        <div className="min-w-0">
+                                           <div className="text-sm font-bold text-surface-100 truncate">{d.DESCRIPCION || '(sin título)'}</div>
+                                           <div className="text-[10px] text-surface-500 flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                                              <span className="text-sky-300">{d.DEUDOR_NOMBRE}</span>
+                                              <span>{d.ES_MI_DEUDA ? 'tú debes' : 'te deben'}</span>
+                                              <span className={d.PAGADA ? 'text-emerald-400' : 'text-rose-400'}>{d.PAGADA ? 'PAGADA' : 'PENDIENTE'}</span>
+                                              {Math.abs(d.MONTO - montoParte) < 0.01 && (
+                                                 <span className="text-purple-300">mismo monto</span>
+                                              )}
+                                           </div>
+                                        </div>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                           <span className="font-mono font-bold text-white text-sm">{money(d.MONTO)}</span>
+                                           {active && <CheckCircle2 size={16} className="text-purple-300" />}
+                                        </div>
+                                     </button>
+                                  );
+                               })}
+
+                               {!loadingDebts && deudasCandidatas.length === 0 && (
+                                  <div className="text-xs text-surface-500 bg-surface-900/50 border border-dashed border-white/10 rounded-xl px-4 py-4 text-center">
+                                     No hay deudas del {dia} que coincidan.
+                                     <button
+                                        type="button"
+                                        onClick={() => actualizarDraft({ mode: 'create' })}
+                                        className="block mx-auto mt-2 text-purple-300 font-bold hover:text-purple-200"
+                                     >
+                                        Crear una nueva →
+                                     </button>
+                                  </div>
+                               )}
+                            </div>
+
+                            {draft.deudaId && (
+                               <button
+                                  type="button"
+                                  onClick={() => actualizarDraft({ deudaId: '' })}
+                                  className="inline-flex items-center gap-1.5 text-[11px] font-bold text-surface-400 hover:text-rose-300 transition-colors"
+                               >
+                                  <Unlink size={12} /> Quitar el vínculo
+                               </button>
+                            )}
+                         </div>
+                      )}
+
+                      {draft.mode === 'none' && (
+                         <div className="text-xs text-surface-400 bg-surface-900/50 border border-dashed border-white/10 rounded-xl px-4 py-4 leading-relaxed animate-fade-in">
+                            Se marca como reembolsable para los reportes (queda fuera de tus gastos reales),
+                            pero <strong className="text-surface-200">no se registra ninguna deuda</strong> en Supabase.
+                         </div>
+                      )}
+                   </div>
+                </div>
+
+                {/* Resumen de lo que pasará al guardar */}
+                <div className={`rounded-2xl px-4 py-3 text-xs flex items-start gap-2.5 border ${
+                   draftError
+                      ? 'bg-amber-500/10 border-amber-500/25 text-amber-200'
+                      : 'bg-surface-900/60 border-white/5 text-surface-300'
+                }`}>
+                   {draftError ? <AlertCircle size={15} className="mt-0.5 shrink-0" /> : <Check size={15} className="mt-0.5 shrink-0 text-emerald-400" />}
+                   <span className="leading-relaxed">{resumenDeuda}</span>
+                </div>
+
+                {debtError && (
+                   <div className="text-xs text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-xl px-3 py-2.5 flex items-center gap-2">
+                      <AlertCircle size={14} /> {debtError}
+                   </div>
+                )}
+              </div>
+
+              <footer className="flex-none px-6 py-4 border-t border-white/5 bg-surface-900/60 flex justify-end">
+                <button
+                  onClick={() => setShowDebtModal(false)}
+                  className="px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-wider text-white bg-purple-600 hover:bg-purple-500 transition-colors border border-white/10 flex items-center gap-2"
+                >
+                  <Check size={16} className="stroke-[3]" /> Listo
+                </button>
+              </footer>
+            </div>
+          </div>
+        )}
 
         {/* --- Footer --- */}
         <div className="flex-none p-6 border-t border-white/5 bg-surface-900/50 backdrop-blur-md flex justify-between gap-4 z-20">

@@ -15,10 +15,13 @@ class SupabaseDebt(BaseModel):
     MONTO: float
     TIPO: str
     DEUDOR_NOMBRE: str
+    DEUDOR_ID: Optional[str] = None
     PAGADA: bool
     FECHA_PAGO: Optional[str] = None
     FECHA_CREACION: Optional[str] = None
     ID: str | int
+    ES_MI_DEUDA: bool = False
+    SALDO_PENDIENTE: Optional[float] = None
 
 @router.get("/", response_model=List[SupabaseDebt])
 def get_supabase_debts(
@@ -62,7 +65,13 @@ def get_supabase_debts(
         df['MONTO'] = df['MONTO'].fillna(0.0)
         df['DEUDOR_NOMBRE'] = df['DEUDOR_NOMBRE'].fillna('Desconocido')
         df['PAGADA'] = df['PAGADA'].fillna(False)
-        
+        if 'DEUDOR_ID' in df.columns:
+            df['DEUDOR_ID'] = df['DEUDOR_ID'].fillna('').astype(str)
+        if 'ES_MI_DEUDA' in df.columns:
+            df['ES_MI_DEUDA'] = df['ES_MI_DEUDA'].fillna(False).astype(bool)
+        if 'SALDO_PENDIENTE' in df.columns:
+            df['SALDO_PENDIENTE'] = df['SALDO_PENDIENTE'].fillna(0.0).astype(float)
+
         return df.to_dict(orient='records')
         
     except ImportError as e:
@@ -124,11 +133,37 @@ def get_estado_cuenta(deudor_id: str = Query(..., description="ID del deudor")):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class CreateDeudorRequest(BaseModel):
+    nombre: str
+
+@router.post("/deudores", response_model=Deudor)
+def create_deudor(req: CreateDeudorRequest):
+    """Crea (o reutiliza) una persona para poder registrarle deudas desde el etiquetado."""
+    nombre = req.nombre.strip()
+    if not nombre:
+        raise HTTPException(status_code=400, detail="nombre es requerido")
+    try:
+        from contabilidad.debts.escritura import obtener_o_crear_deudor
+        d = obtener_o_crear_deudor(nombre)
+        return {
+            'id': d['id'],
+            'nombre': d.get('nombre', nombre),
+            'neto': 0.0,
+            'total_pendiente': 0.0,
+            'saldo_favor': 0.0,
+        }
+    except Exception as e:
+        logger.error("Error al crear deudor: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 class CreateDebtRequest(BaseModel):
     titulo: str
     monto: float
     deudor_id: str
     fecha_gasto: str  # YYYY-MM-DD
+    # False = te deben (pagaste tú); True = tú debes (pagaron por ti).
+    es_mi_deuda: bool = False
 
 @router.post("/")
 def create_debt(req: CreateDebtRequest):
@@ -147,12 +182,16 @@ def create_debt(req: CreateDebtRequest):
         if not req.deudor_id:
             raise HTTPException(status_code=400, detail="deudor_id es requerido")
 
+        if abs(req.monto) < 0.01:
+            raise HTTPException(status_code=400, detail="El monto de la deuda debe ser mayor a 0")
+
         deuda = crear_deuda(
             titulo=req.titulo.strip() or "Deuda",
             monto=abs(req.monto),
             deudor_id=req.deudor_id,
             fecha_gasto=fecha,
             pagada=False,
+            es_mi_deuda=req.es_mi_deuda,
         )
         return deuda
     except HTTPException:

@@ -142,10 +142,14 @@ export interface SupabaseDebt {
   MONTO: number;
   TIPO: string;
   DEUDOR_NOMBRE: string;
+  DEUDOR_ID?: string;
   PAGADA: boolean;
   FECHA_PAGO: string | null;
   FECHA_CREACION: string;
   ID: string | number;
+  /** true = tú debes; false = te deben. */
+  ES_MI_DEUDA?: boolean;
+  SALDO_PENDIENTE?: number;
 }
 
 export interface SupabasePayment {
@@ -169,6 +173,8 @@ export interface CreateDebtRequest {
   monto: number;
   deudor_id: string;
   fecha_gasto: string; // YYYY-MM-DD
+  /** false = te deben (pagaste tú); true = tú debes (pagaron por ti). */
+  es_mi_deuda?: boolean;
 }
 
 export interface EstadoCuentaDeuda {
@@ -469,6 +475,11 @@ export const api = {
     return res.data;
   },
 
+  createDeudor: async (nombre: string): Promise<SupabaseDeudor> => {
+    const res = await axios.post(`${API_BASE}/supabase-debts/deudores`, { nombre });
+    return res.data;
+  },
+
   createSupabaseDebt: async (req: CreateDebtRequest): Promise<{ id: string | number }> => {
     const res = await axios.post(`${API_BASE}/supabase-debts/`, req);
     return res.data;
@@ -759,6 +770,7 @@ export interface SplitItem {
     deudor?: string;
     felicidad?: number;
     revisado?: boolean;
+    deuda_id?: string;
 }
 
 export enum ComponentType {
