@@ -36,7 +36,9 @@ CREATE TABLE IF NOT EXISTS pagos (
     fecha_pago DATE NOT NULL DEFAULT CURRENT_DATE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     synced BOOLEAN DEFAULT FALSE,
-    es_compensacion BOOLEAN DEFAULT FALSE
+    es_compensacion BOOLEAN DEFAULT FALSE,
+    -- Dirección del dinero: TRUE = lo entregué yo, FALSE = me lo entregaron.
+    es_mi_pago BOOLEAN DEFAULT FALSE
 );
 
 -- Tabla de detalles (Asignación / Distribución)
