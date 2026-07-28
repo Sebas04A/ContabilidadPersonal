@@ -20,3 +20,9 @@ __pycache__/
 
 # Snapshots para deshacer etiquetado masivo
 data/sistema/etiquetado/undo/
+
+# Visores generados (se regeneran con --html)
+arbol.html
+
+# Respaldos de Supabase antes de migrar
+backups/
