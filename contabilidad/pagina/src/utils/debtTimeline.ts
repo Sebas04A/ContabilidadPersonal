@@ -60,7 +60,9 @@ export function normalizeDebtor(s: string | null | undefined): string {
 
 function parseDate(value: string): Date {
   // Las fechas llegan como "YYYY-MM-DD HH:MM:SS" o "YYYY-MM-DD".
-  const d = new Date(value.replace(' ', 'T'));
+  const hasTime = value.includes(' ') || value.includes('T');
+  const normalized = hasTime ? value.replace(' ', 'T') : `${value}T00:00:00`;
+  const d = new Date(normalized);
   return isNaN(d.getTime()) ? new Date(0) : d;
 }
 

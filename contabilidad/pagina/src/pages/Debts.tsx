@@ -531,7 +531,7 @@ function DebtCard({ item, hoveredMatch, onHover, selected, onToggleSelect, onOpe
             {paidDebt && item.paidDate && (
               <span className="flex items-center gap-1 text-emerald-400/80">
                 <Clock size={11} />
-                Pagado: {new Date(item.paidDate.replace(' ', 'T')).toLocaleDateString()}
+                Pagado: {new Date(item.paidDate.includes(' ') || item.paidDate.includes('T') ? item.paidDate.replace(' ', 'T') : `${item.paidDate}T00:00:00`).toLocaleDateString()}
               </span>
             )}
           </div>
