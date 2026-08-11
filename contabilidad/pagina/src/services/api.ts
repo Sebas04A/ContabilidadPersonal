@@ -20,6 +20,9 @@ export interface Transaction {
   deudor: string;
   felicidad: number;
   revisado: boolean;
+  // 'HH:MM' when known, '' when not. Two origins: BANCA carries it in the
+  // statement itself; TARJETA has it recovered from the bank's consumption emails.
+  HORA?: string | null;
   // UI Only
   subTransactions?: Transaction[];
   nota: string;
@@ -27,6 +30,32 @@ export interface Transaction {
   group_id?: string;
   fondo_id?: string;
   deuda_id?: string;
+}
+
+export interface HourlyBucket {
+  hora: number;
+  total: number;
+  count: number;
+  promedio: number;
+}
+
+export interface HourlyAnalysis {
+  cobertura: {
+    total_gastos: number;
+    total_tarjeta: number;
+    con_hora: number;
+    porcentaje: number;
+  };
+  por_hora: HourlyBucket[];
+  heatmap: { dia: number; hora: number; total: number; count: number }[];
+  franjas: { nombre: string; rango: string; total: number; count: number; promedio: number }[];
+  destacados: {
+    hora_mas_gasto: number;
+    hora_mas_gasto_total: number;
+    hora_mas_frecuente: number;
+    hora_mas_frecuente_count: number;
+    ticket_mayor: { descripcion: string; monto: number; hora: string; fecha: string };
+  } | null;
 }
 
 export interface TransactionUpdate {
@@ -417,6 +446,22 @@ export const api = {
     return res.data;
   },
 
+  getHourlyAnalysis: async (
+    startDate?: string,
+    endDate?: string,
+    category?: string,
+    tag?: string,
+  ): Promise<HourlyAnalysis> => {
+    const params = new URLSearchParams();
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+    if (category) params.append('category', category);
+    if (tag) params.append('tag', tag);
+
+    const res = await axios.get(`${API_BASE}/transactions/hourly-analysis?${params}`);
+    return res.data;
+  },
+
   getDates: async (): Promise<string[]> => {
     const res = await axios.get(`${API_BASE}/transactions/dates`);
     return res.data;
@@ -621,14 +666,21 @@ export const api = {
   },
 
   // Funds (Fondos)
-  getFunds: async (): Promise<FundListItem[]> => {
-    const res = await axios.get(`${API_BASE}/funds/`);
+  getFunds: async (from?: string, to?: string): Promise<FundListItem[]> => {
+    const params = new URLSearchParams();
+    if (from) params.append('from', from);
+    if (to) params.append('to', to);
+    const queryString = params.toString() ? `?${params.toString()}` : '';
+    const res = await axios.get(`${API_BASE}/funds/${queryString}`);
     return res.data;
   },
 
-  getFund: async (id: string, from?: string): Promise<FundDetail> => {
-    const params = from ? `?from=${from}` : '';
-    const res = await axios.get(`${API_BASE}/funds/${id}${params}`);
+  getFund: async (id: string, from?: string, to?: string): Promise<FundDetail> => {
+    const params = new URLSearchParams();
+    if (from) params.append('from', from);
+    if (to) params.append('to', to);
+    const queryString = params.toString() ? `?${params.toString()}` : '';
+    const res = await axios.get(`${API_BASE}/funds/${id}${queryString}`);
     return res.data;
   },
 

@@ -5,6 +5,7 @@ import { FreedomDaySimulator } from '../components/analytics/FreedomDaySimulator
 import { CategoryEfficiencyMap } from '../components/analytics/CategoryEfficiencyMap';
 import { SurvivalBreakEven } from '../components/analytics/SurvivalBreakEven';
 import { SROptimizer } from '../components/analytics/SROptimizer';
+import { SpendingRhythm } from '../components/analytics/SpendingRhythm';
 import { Sparkles } from 'lucide-react';
 
 export const AdvancedAnalytics: React.FC = () => {
@@ -43,6 +44,11 @@ export const AdvancedAnalytics: React.FC = () => {
                     {/* Row 1: Unified Module: Emotional ROI & Opportunity Cost (Full Width) */}
                     <div className="animate-in slide-in-from-bottom-4 delay-[100ms] fill-mode-both">
                         <EmotionalRoiAnalyzer />
+                    </div>
+
+                    {/* Row 1.5: Spending Rhythm — time-of-day analysis (Full Width) */}
+                    <div className="animate-in slide-in-from-bottom-4 delay-[150ms] fill-mode-both">
+                        <SpendingRhythm />
                     </div>
                     
                     {/* Row 2: Freedom & Survival (Shared) */}

@@ -79,10 +79,16 @@ export function TransactionRow({ transaction, onEdit, onQuickReview, index, isSe
                 {transaction.TIPO === 'BANCA' ? <Landmark size={10} /> : <CreditCard size={10} />}
                 {transaction.TIPO}
               </span>
-              {new Date(transaction.FECHA).getHours() !== 0 && new Date(transaction.FECHA).getMinutes() !== 0 && (
-                <span className="text-[10px] font-bold uppercase tracking-wider text-surface-500 bg-surface-800/50 px-2 py-0.5 rounded flex items-center gap-1">
+              {/* Exact time of the purchase, recovered from the bank's consumption
+                  email. Absent for banca and for consumptions with no matching email,
+                  in which case no badge is shown at all — never a fabricated 00:00. */}
+              {transaction.HORA && (
+                <span
+                  className="text-[10px] font-bold uppercase tracking-wider text-primary-300 bg-primary-500/10 ring-1 ring-primary-500/20 px-2 py-0.5 rounded flex items-center gap-1"
+                  title="Hora exacta del consumo, según la notificación del banco"
+                >
                   <Clock size={10} />
-                  {new Date(transaction.FECHA).toLocaleTimeString('es-EC', {hour: '2-digit', minute:'2-digit'})}
+                  {transaction.HORA}
                 </span>
               )}
            </div>

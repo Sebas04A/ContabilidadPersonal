@@ -130,6 +130,147 @@ def get_tags():
     return sorted(list(set(all_tags)))
 
 
+@router.get("/hourly-analysis")
+def get_hourly_analysis(
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    category: Optional[str] = Query(None),
+    tag: Optional[str] = Query(None),
+):
+    """
+    Spending broken down by time of day.
+
+    Only card transactions carry a HORA (it comes from the bank's consumption
+    emails), so this is implicitly a credit-card view. Rows without a time are
+    excluded from the distributions but still reported in `cobertura`, so the
+    charts never imply a coverage they don't have.
+    """
+    df = load_data()
+    if df.empty:
+        return _empty_hourly_response()
+
+    df = apply_filters(df, start_date=start_date, end_date=end_date,
+                       category=category, tag=tag)
+
+    # Expenses only: income and card payments would distort a "when do I spend" view.
+    gastos = df[df['MONTO'] < 0].copy()
+    if gastos.empty:
+        return _empty_hourly_response()
+
+    gastos['GASTO'] = gastos['MONTO'].abs()
+
+    total_gastos = len(gastos)
+    # Both sources can carry a time (banca from the statement, tarjeta from the
+    # consumption emails), so coverage is measured against every expense.
+    total_tarjeta = int((gastos['TIPO'].str.upper() == 'TARJETA').sum())
+    con_hora = gastos[gastos['HORA'].astype(str).str.len() > 0].copy()
+
+    if con_hora.empty:
+        resp = _empty_hourly_response()
+        resp['cobertura'] = {
+            "total_gastos": total_gastos, "total_tarjeta": total_tarjeta,
+            "con_hora": 0, "porcentaje": 0.0,
+        }
+        return resp
+
+    # 'HH:MM' -> hour int. Anything malformed is dropped rather than guessed.
+    con_hora['hora_num'] = pd.to_numeric(
+        con_hora['HORA'].astype(str).str.slice(0, 2), errors='coerce'
+    )
+    con_hora = con_hora[con_hora['hora_num'].between(0, 23)]
+    con_hora['hora_num'] = con_hora['hora_num'].astype(int)
+
+    if con_hora.empty:
+        return _empty_hourly_response()
+
+    # --- Distribution over the 24 hours (always all 24 buckets, zeros included) ---
+    agg = con_hora.groupby('hora_num')['GASTO'].agg(['sum', 'count'])
+    por_hora = []
+    for h in range(24):
+        total = float(agg['sum'].get(h, 0.0))
+        count = int(agg['count'].get(h, 0))
+        por_hora.append({
+            "hora": h,
+            "total": round(total, 2),
+            "count": count,
+            "promedio": round(total / count, 2) if count else 0.0,
+        })
+
+    # --- Heatmap: weekday x hour, in ECharts [x, y, value] form ---
+    con_hora['dia_semana'] = con_hora['FECHA'].dt.dayofweek  # 0 = lunes
+    heat = con_hora.groupby(['dia_semana', 'hora_num'])['GASTO'].agg(['sum', 'count'])
+    heatmap = [
+        {"dia": int(dia), "hora": int(hora), "total": round(float(row['sum']), 2),
+         "count": int(row['count'])}
+        for (dia, hora), row in heat.iterrows()
+    ]
+
+    # --- Named day parts ---
+    franjas_def = [
+        ("Madrugada", 0, 5), ("Mañana", 6, 11),
+        ("Tarde", 12, 17), ("Noche", 18, 23),
+    ]
+    franjas = []
+    for nombre, desde, hasta in franjas_def:
+        sub = con_hora[con_hora['hora_num'].between(desde, hasta)]
+        total = float(sub['GASTO'].sum())
+        franjas.append({
+            "nombre": nombre,
+            "rango": f"{desde:02d}:00-{hasta:02d}:59",
+            "total": round(total, 2),
+            "count": int(len(sub)),
+            "promedio": round(total / len(sub), 2) if len(sub) else 0.0,
+        })
+
+    # --- Highlights ---
+    hora_mas_gasto = max(por_hora, key=lambda x: x['total'])
+    hora_mas_frecuente = max(por_hora, key=lambda x: x['count'])
+    ticket_mayor = con_hora.loc[con_hora['GASTO'].idxmax()]
+
+    # nombre_limpio may be NaN, and `NaN or x` returns NaN (NaN is truthy),
+    # so fall back explicitly rather than with `or`.
+    etiqueta = ticket_mayor.get('nombre_limpio')
+    descripcion = str(etiqueta).strip() if pd.notna(etiqueta) and str(etiqueta).strip() \
+        else str(ticket_mayor['DESCRIPCION']).strip()
+
+    destacados = {
+        "hora_mas_gasto": hora_mas_gasto['hora'],
+        "hora_mas_gasto_total": hora_mas_gasto['total'],
+        "hora_mas_frecuente": hora_mas_frecuente['hora'],
+        "hora_mas_frecuente_count": hora_mas_frecuente['count'],
+        "ticket_mayor": {
+            "descripcion": descripcion,
+            "monto": round(float(ticket_mayor['GASTO']), 2),
+            "hora": str(ticket_mayor['HORA']),
+            "fecha": ticket_mayor['FECHA'].strftime('%Y-%m-%d'),
+        },
+    }
+
+    return {
+        "cobertura": {
+            "total_gastos": total_gastos,
+            "total_tarjeta": total_tarjeta,
+            "con_hora": int(len(con_hora)),
+            "porcentaje": round(len(con_hora) / total_gastos * 100, 1) if total_gastos else 0.0,
+        },
+        "por_hora": por_hora,
+        "heatmap": heatmap,
+        "franjas": franjas,
+        "destacados": destacados,
+    }
+
+
+def _empty_hourly_response() -> dict:
+    """Shape-stable empty payload so the frontend never branches on missing keys."""
+    return {
+        "cobertura": {"total_gastos": 0, "total_tarjeta": 0, "con_hora": 0, "porcentaje": 0.0},
+        "por_hora": [{"hora": h, "total": 0.0, "count": 0, "promedio": 0.0} for h in range(24)],
+        "heatmap": [],
+        "franjas": [],
+        "destacados": None,
+    }
+
+
 @router.get("/analysis-chart")
 def get_analysis_chart_data(
     category: Optional[str] = Query(None),
