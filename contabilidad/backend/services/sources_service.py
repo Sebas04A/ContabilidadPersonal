@@ -17,7 +17,49 @@ from contabilidad.config import (
 from contabilidad.backend.storage.data_pipeline import get_pipeline
 from contabilidad.backend.services.credit_card.core import get_credit_card_data_from_excel, DATOS_TARJETA_COMPLETA, get_credit_card_data_from_excel_v2
 
+import subprocess
+import sys
+
 logger = get_logger(__name__)
+
+def trigger_informacion_sync():
+    """Ejecuta automáticamente la secuencia de sincronización hacia el proyecto informacion."""
+    try:
+        contabilidad_python = sys.executable
+        contabilidad_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+        informacion_dir = "/home/sebas/dev/projects/informacion"
+
+        # 1. Enriquecer horas de tarjeta
+        logger.info("Auto-sync: Enriqueciendo horas de tarjeta...")
+        subprocess.run(
+            [contabilidad_python, os.path.join(contabilidad_dir, "scripts", "enriquecer_horas_tarjeta.py")],
+            check=False
+        )
+
+        # 2. Exportar para informacion
+        logger.info("Auto-sync: Exportando CSV para informacion...")
+        subprocess.run(
+            [contabilidad_python, os.path.join(contabilidad_dir, "scripts", "exportar_para_informacion.py")],
+            check=False
+        )
+
+        # 3. Ingestar en contabilidad.db
+        logger.info("Auto-sync: Ingeriendo en dbs/contabilidad.db...")
+        subprocess.run(
+            ["python3", os.path.join(informacion_dir, "modulos", "contabilidad", "ingest.py")],
+            cwd=informacion_dir, check=False
+        )
+
+        # 4. Reconstruir timeline unificado
+        logger.info("Auto-sync: Reconstruyendo timeline.db...")
+        subprocess.run(
+            ["python3", os.path.join(informacion_dir, "unified", "build.py")],
+            cwd=informacion_dir, check=False
+        )
+
+        logger.info("Auto-sync hacia informacion completado correctamente.")
+    except Exception as e:
+        logger.warning("Auto-sync hacia informacion falló: %s", e)
 
 DATA_NUEVOS_BANCA = PATH_BANCA_NUEVOS
 DATA_PROCESADA_BANCA = PATH_BANCA_PROCESADA_DIR
@@ -355,6 +397,9 @@ class SourcesService:
         except Exception as e:
             logger.warning("Error actualizando pipeline: %s", e)
 
+        # Trigger auto-sync towards informacion
+        trigger_informacion_sync()
+
         chart_data = []
         min_date = None
         max_date = None
@@ -656,6 +701,9 @@ class SourcesService:
                 logger.info("Pipeline actualizado con nuevos datos de tarjeta unida")
         except Exception as e:
             logger.warning("Error actualizando pipeline: %s", e)
+
+        # Trigger auto-sync towards informacion
+        trigger_informacion_sync()
 
         # --- Datos de gráfico ---
         chart_data, min_date, max_date = self._build_card_chart_data(df_unido)

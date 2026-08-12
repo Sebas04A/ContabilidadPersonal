@@ -1,0 +1,102 @@
+#!/usr/bin/env python3
+"""
+Exportador de transacciones de ContabilidadPersonal hacia informacion.
+
+Genera un CSV plano con todas las transacciones de Banca y Tarjeta,
+resolviendo la hora exacta de ambas fuentes sin necesidad de que el
+proyecto destino 'informacion' tenga openpyxl instalado.
+
+Uso:
+    python scripts/exportar_para_informacion.py [--output RUTA_CSV]
+"""
+
+import argparse
+import os
+import sys
+from datetime import datetime, time
+import pandas as pd
+
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.dirname(_SCRIPT_DIR)
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
+
+from contabilidad.backend.services.transaction_service import load_horas, _hora_de_fecha, load_labels
+from contabilidad.backend.storage.data_pipeline import get_pipeline
+
+
+DEFAULT_OUTPUT_DIR = "/home/sebas/dev/projects/informacion/almacen/entrada"
+
+
+def exportar_transacciones(output_path: str = None) -> str:
+    if output_path is None:
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        os.makedirs(DEFAULT_OUTPUT_DIR, exist_ok=True)
+        output_path = os.path.join(DEFAULT_OUTPUT_DIR, f"contabilidad_{today_str}.csv")
+
+    pipeline = get_pipeline()
+    horas = load_horas()
+    labels = load_labels()
+
+    # 1. Banca
+    banca = pipeline.get_bank_data()
+    if not banca.empty:
+        b_fechas = pd.to_datetime(banca["FECHA"])
+        banca["hora"] = _hora_de_fecha(b_fechas)
+        banca["origen_hora"] = banca["hora"].apply(lambda h: "extracto" if h != "" else "")
+        banca["tipo"] = "BANCA"
+        banca["operacion"] = ""
+        banca["fecha"] = b_fechas.dt.strftime("%Y-%m-%d")
+        banca["descripcion"] = banca["DESCRIPCION"]
+        banca["monto"] = banca["MONTO"]
+        banca["saldo"] = banca["SALDO"]
+    else:
+        banca = pd.DataFrame(columns=["id", "fecha", "hora", "tipo", "descripcion", "monto", "saldo", "operacion", "origen_hora"])
+
+    # 2. Tarjeta
+    tarjeta = pipeline.get_credit_card_data()
+    if not tarjeta.empty:
+        t_fechas = pd.to_datetime(tarjeta["FECHA"])
+        tarjeta_m = tarjeta.merge(horas, left_on="id", right_on="source_id", how="left")
+        tarjeta["hora"] = tarjeta_m["HORA"].fillna("")
+        tarjeta["origen_hora"] = tarjeta["hora"].apply(lambda h: "correo" if h != "" else "")
+        tarjeta["tipo"] = "TARJETA"
+        tarjeta["fecha"] = t_fechas.dt.strftime("%Y-%m-%d")
+        tarjeta["descripcion"] = tarjeta["DESCRIPCION"]
+        tarjeta["monto"] = tarjeta["MONTO"]
+        tarjeta["saldo"] = 0.0
+        tarjeta["operacion"] = tarjeta["OPERACION"] if "OPERACION" in tarjeta.columns else ""
+    else:
+        tarjeta = pd.DataFrame(columns=["id", "fecha", "hora", "tipo", "descripcion", "monto", "saldo", "operacion", "origen_hora"])
+
+    # Combinar
+    cols_base = ["id", "fecha", "hora", "tipo", "descripcion", "monto", "saldo", "operacion", "origen_hora"]
+    merged = pd.concat([banca[cols_base], tarjeta[cols_base]], ignore_index=True)
+
+    # Adjuntar establecimiento/nombre_limpio si existe en etiquetas
+    if not labels.empty and "nombre_limpio" in labels.columns:
+        labels_map = labels.drop_duplicates(subset="source_id", keep="first").set_index("source_id")["nombre_limpio"].to_dict()
+        merged["establecimiento"] = merged["id"].map(labels_map).fillna("")
+    else:
+        merged["establecimiento"] = ""
+
+    # Reordenar según especificación del PLAN_CONTABILIDAD.md
+    columnas_finales = ["id", "fecha", "hora", "tipo", "descripcion", "monto", "saldo", "operacion", "establecimiento", "origen_hora"]
+    merged = merged[columnas_finales]
+
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+    merged.to_csv(output_path, index=False, encoding="utf-8")
+    
+    con_hora = (merged["hora"] != "").sum()
+    print(f"Exportación exitosa -> {output_path}")
+    print(f"Filas exportadas: {len(merged)} (Con hora: {con_hora}, Sin hora: {len(merged) - con_hora})")
+
+    return output_path
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Exportar transacciones de ContabilidadPersonal para informacion.")
+    parser.add_argument("--output", help="Ruta de destino del CSV exportado", default=None)
+    args = parser.parse_args()
+
+    exportar_transacciones(args.output)

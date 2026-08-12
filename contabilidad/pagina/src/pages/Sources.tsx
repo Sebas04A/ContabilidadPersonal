@@ -141,18 +141,29 @@ export function Sources() {
     return errors;
   }, [result?.validation_report]);
 
+  const [processStep, setProcessStep] = useState<number>(1);
+
   const handleProcess = async () => {
     setProcessing(true);
+    setProcessStep(1);
     setError(null);
     setResult(null);
+
+    // Simular avance visual por los pasos del pipeline
+    const timer1 = setTimeout(() => setProcessStep(2), 1200);
+    const timer2 = setTimeout(() => setProcessStep(3), 2800);
+
     try {
       const response = activeTab === 'bank' 
         ? await api.processBankSource() 
         : await api.processCardSource();
+      setProcessStep(4);
       setResult(response);
     } catch (err: any) {
       setError(err.response?.data?.detail || err.message || 'Error desconocido al procesar');
     } finally {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
       setProcessing(false);
     }
   };
@@ -248,6 +259,77 @@ export function Sources() {
                   </code>
                 </div>
 
+                {processing && (
+                  <div className="mb-8 p-6 bg-surface-950/80 border border-purple-500/30 rounded-2xl space-y-4 animate-in fade-in duration-300">
+                    <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-purple-300 mb-2">
+                      <span className="flex items-center gap-2">
+                        <Loader2 size={16} className="animate-spin text-purple-400" />
+                        Pipeline de Ingesta & Sincronización en curso
+                      </span>
+                      <span>{processStep === 1 ? '1 / 3' : processStep === 2 ? '2 / 3' : '3 / 3'}</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      {/* Paso 1 */}
+                      <div className={`p-3 rounded-xl border transition-all ${
+                        processStep === 1
+                          ? 'bg-purple-500/20 border-purple-500/50 text-white shadow-lg shadow-purple-500/10'
+                          : processStep > 1
+                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                            : 'bg-surface-900/40 border-white/5 text-surface-500'
+                      }`}>
+                        <div className="flex items-center gap-2 mb-1">
+                          {processStep > 1 ? (
+                            <CheckCircle size={15} className="text-emerald-400 shrink-0" />
+                          ) : (
+                            <Loader2 size={15} className={`shrink-0 ${processStep === 1 ? 'animate-spin text-purple-400' : 'text-surface-600'}`} />
+                          )}
+                          <span className="text-xs font-bold">1. Procesar Extractos</span>
+                        </div>
+                        <p className="text-[10px] opacity-75">Unificando y limpiando archivos de entrada</p>
+                      </div>
+
+                      {/* Paso 2 */}
+                      <div className={`p-3 rounded-xl border transition-all ${
+                        processStep === 2
+                          ? 'bg-purple-500/20 border-purple-500/50 text-white shadow-lg shadow-purple-500/10'
+                          : processStep > 2
+                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                            : 'bg-surface-900/40 border-white/5 text-surface-500'
+                      }`}>
+                        <div className="flex items-center gap-2 mb-1">
+                          {processStep > 2 ? (
+                            <CheckCircle size={15} className="text-emerald-400 shrink-0" />
+                          ) : (
+                            <Loader2 size={15} className={`shrink-0 ${processStep === 2 ? 'animate-spin text-purple-400' : 'text-surface-600'}`} />
+                          )}
+                          <span className="text-xs font-bold">2. Enriquecer Horas</span>
+                        </div>
+                        <p className="text-[10px] opacity-75">Cruzando horarios con notificaciones de correos</p>
+                      </div>
+
+                      {/* Paso 3 */}
+                      <div className={`p-3 rounded-xl border transition-all ${
+                        processStep === 3
+                          ? 'bg-purple-500/20 border-purple-500/50 text-white shadow-lg shadow-purple-500/10'
+                          : processStep > 3
+                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                            : 'bg-surface-900/40 border-white/5 text-surface-500'
+                      }`}>
+                        <div className="flex items-center gap-2 mb-1">
+                          {processStep > 3 ? (
+                            <CheckCircle size={15} className="text-emerald-400 shrink-0" />
+                          ) : (
+                            <Loader2 size={15} className={`shrink-0 ${processStep === 3 ? 'animate-spin text-purple-400' : 'text-surface-600'}`} />
+                          )}
+                          <span className="text-xs font-bold">3. Reconstruir Timeline</span>
+                        </div>
+                        <p className="text-[10px] opacity-75">Sincronizando timeline.db e información</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <button
                   onClick={handleProcess}
                   disabled={processing}
@@ -261,12 +343,14 @@ export function Sources() {
                         {processing ? (
                             <>
                                 <Loader2 size={22} className="animate-spin" />
-                                <span className="tracking-wide">Procesando Archivos...</span>
+                                <span className="tracking-wide">
+                                  {processStep === 1 ? 'Procesando Extractos...' : processStep === 2 ? 'Enriqueciendo Horas desde Correos...' : 'Sincronizando Timeline...'}
+                                </span>
                             </>
                         ) : (
                             <>
                                 <FileSpreadsheet size={22} />
-                                <span className="tracking-wide text-lg">Iniciar Procesamiento</span>
+                                <span className="tracking-wide text-lg">Iniciar Procesamiento Completo</span>
                                 <ArrowRight size={20} className="group-hover/btn:translate-x-1 transition-transform" />
                             </>
                         )}

@@ -5,7 +5,7 @@ import {
   CreditCard, Flame, Heart, Sparkles, User,
   Frown, Meh, DollarSign, StickyNote, Save, AlertCircle,
   Link2, Plus, CheckCircle2, Loader2, Search, Users,
-  HandCoins, Wallet, Unlink, Ban, Scissors, Settings2
+  HandCoins, Wallet, Unlink, Ban, Scissors, Settings2, Clock
 } from 'lucide-react';
 
 interface EditModalProps {
@@ -333,13 +333,21 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
                       }
                   }
 
+                  // La regla solo rellena huecos: nunca pisa lo que ya está etiquetado,
+                  // si no el modal mostraría algo distinto a lo guardado (y lo reescribiría al guardar).
+                  const vacio = (v?: string | null) => {
+                      const s = (v || '').trim();
+                      return !s || s === '---';
+                  };
                   setFormData(prev => ({
                       ...prev,
-                      categoria: rule.categoria || tagRuleData.categoria || prev.categoria,
-                      tags: rule.tags || prev.tags,
-                      prioridad: rule.prioridad || tagRuleData.prioridad || prev.prioridad,
-                      es_fijo: rule.es_fijo !== undefined ? rule.es_fijo : (tagRuleData.es_fijo !== undefined ? tagRuleData.es_fijo : prev.es_fijo),
-                      nota: rule.nota || tagRuleData.nota || prev.nota
+                      categoria: vacio(prev.categoria) ? (rule.categoria || tagRuleData.categoria || prev.categoria) : prev.categoria,
+                      tags: vacio(prev.tags) ? (rule.tags || prev.tags) : prev.tags,
+                      prioridad: vacio(prev.prioridad) ? (rule.prioridad || tagRuleData.prioridad || prev.prioridad) : prev.prioridad,
+                      es_fijo: transaction?.revisado
+                          ? prev.es_fijo
+                          : (rule.es_fijo !== undefined ? rule.es_fijo : (tagRuleData.es_fijo !== undefined ? tagRuleData.es_fijo : prev.es_fijo)),
+                      nota: vacio(prev.nota) ? (rule.nota || tagRuleData.nota || prev.nota) : prev.nota
                   }));
               }
           } catch (e) {
@@ -349,7 +357,7 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
 
       const timer = setTimeout(fetchRule, 500);
       return () => clearTimeout(timer);
-  }, [formData.nombre_limpio, isOpen]);
+  }, [formData.nombre_limpio, isOpen, transaction]);
 
   // Las personas se cargan al abrir: "¿De quién es?" también las usa.
   useEffect(() => {
@@ -774,7 +782,7 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
 
 
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 transition-all duration-200 ${isClosing ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+    <div className={`fixed inset-0 z-[70] flex items-center justify-center p-4 transition-all duration-200 ${isClosing ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
       
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={handleClose} />
 
@@ -816,6 +824,20 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
           </div>
           
           <div className="flex items-center gap-6">
+             {/* Botón Recordar Momento (información) */}
+             {transaction.FECHA && (
+               <a
+                 href={`http://localhost:5273/?mode=recordar&view=momento&from=${fechaDia(transaction.FECHA)}&to=${fechaDia(transaction.FECHA)}`}
+                 target="_blank"
+                 rel="noreferrer"
+                 className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider border border-purple-500/30 bg-purple-500/10 text-purple-300 hover:bg-purple-500/20 hover:text-white transition-all flex items-center gap-2 shadow-sm"
+                 title="Ver momento y ubicación en el timeline unificado"
+               >
+                 <Clock size={14} className="text-purple-400" />
+                 Recordar Momento
+               </a>
+             )}
+
              {/* Split Toggle */}
              <button 
                  onClick={() => setIsSplitting(!isSplitting)}
