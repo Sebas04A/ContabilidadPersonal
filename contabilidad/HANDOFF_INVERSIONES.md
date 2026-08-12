@@ -17,7 +17,7 @@ operativo de lo que existe hoy y lo que falta.
 | 3 | Métricas + Resumen | ✅ hecha |
 | 4 | Evolución + Conciliación (frontend) | ✅ hecha |
 | 5 | Patrimonio con toggle | ✅ **hecha** (2026-08-12) |
-| 6 | Migración de pagos fijos | ⚠️ **previsualizable, sin migrar** |
+| 6 | Migración de pagos fijos | ⚠️ **sombra sembrada y verificada; falta disparar el corte** |
 
 La fase 6 se construyó a propósito **en modo solo lectura**: el generador existe, la
 comparación existe, la pantalla existe. Nada de este módulo escribe en `pagos.csv`.
@@ -30,10 +30,15 @@ comparación existe, la pantalla existe. Nada de este módulo escribe en `pagos.
 |---|---:|---:|---|
 | `Inversiones_Mias` | 0 de 1.320 | 1,38 | ✅ cuadra |
 | `Inversiones_Madre` | 0 de 657 | 1,24 | ✅ cuadra |
-| `Inversiones_Uni` | 806 de 9.721 | 12,59 | redondeo, ver §7.1 |
+| `Inversiones_Uni` | 25 de 9.721 | 3,36 | dos tramos de 2024, ver §7.1 |
 
-**Nada bloquea la fase 6.** Lo que queda son tres cosas, en orden de valor: cerrar el corte
-(§7.4), quitar la dependencia de `pagos.csv` (§3.1 y §7.3) y capturar plazos y tasas (§7.2).
+**La fase 6 está montada y verificada; falta un solo comando.** Los grupos sombra ya están
+sembrados y `corte_inversiones.py --verificar` dice que la serie se movería **3,40 como
+máximo** (683 días cambian, casi todos por céntimos). Como la tolerancia es 2,0, el corte
+se niega solo: hay que resolver §7.1 o pasar `forzar`. Ver §2.7.
+
+Lo demás, en orden de valor: quitar la dependencia de `pagos.csv` (§3.1 y §7.3) y capturar
+plazos y tasas (§7.2).
 
 **Decisión del usuario (2026-08-12): `pagos.csv` se retira** y este módulo lo reemplaza. Se
 verificó vaciándolo sobre una copia: el módulo **no se rompe**. El inventario de lo que
@@ -224,6 +229,40 @@ la capa de Variables **sigue sin arreglar**; ver §7.7.
 
 `pagos.csv` queda con 213 filas y **0 invisibles**.
 
+### 2.7 Fase 6 — la maquinaria del corte
+
+`services/investments/corte.py` + `scripts/corte_inversiones.py`. Tres pasos separados, y
+solo el último escribe sobre lo que el dashboard lee:
+
+```bash
+python scripts/corte_inversiones.py --estado      # dónde está
+python scripts/corte_inversiones.py --sombra      # crea los grupos `shadow`  (aditivo)
+python scripts/corte_inversiones.py --verificar   # compara las dos series    (no escribe)
+python scripts/corte_inversiones.py --cortar      # EL CORTE (pide confirmación)
+python scripts/corte_inversiones.py --limpiar     # borra la sombra
+```
+
+**Estado actual: la sombra está sembrada** (3 grupos `Pagos Inversiones_*` con 35 pagos) y
+**el dashboard no la ve** — verificado: `PAGOS_FIJOS`, `SALDO` y `TARJETA` idénticos antes
+y después, porque `VirtualItemsProcessor` solo aplica `fixed` e `interpolated`. Si aparecen
+en la pantalla de Variables, son eso; `--limpiar` los quita.
+
+**El corte tiene freno de mano.** `aplicar_corte()` corre `verificar()` primero y **se
+niega** si la serie se movería más que `TOLERANCIA_CORTE = 2,0`, salvo `forzar=True`. Hoy
+se niega: el desvío máximo es 3,40 (§7.1).
+
+**El orden del corte importa**: primero se vacían los originales y después se activan los
+sombra. Al revés habría un instante con las dos series aplicándose y el patrimonio
+duplicado; así el peor caso intermedio es un instante sin ninguna.
+
+**No hay endpoint POST para cortar, a propósito** — una operación que reescribe el
+patrimonio histórico no debería estar a una llamada de distancia. Sí hay
+`GET /cut/status`, `POST /cut/shadow`, `DELETE /cut/shadow` y `GET /cut/verify`.
+
+**Una trampa que el test encontró:** un tramo abierto **no se puede escribir con
+`end_date` vacío** — `get_payments()` lo descartaría y el pago sería invisible, el mismo
+defecto de las filas fantasma de §2.3. Se escribe con `FECHA_CENTINELA = '3000-01-01'`.
+
 ### 2.4 Dos bugs que el handoff anterior daba por buenos
 
 - **`GET /api/investments/neutralization/preview` respondía 500, no 200.**
@@ -368,6 +407,7 @@ contabilidad/backend/
     portafolios.py       infiere de qué portafolio es cada posición desde pagos.csv
     metricas.py          XIRR, TNA ponderada, capital-día, devengo, resumen, timeline
     neutralizacion.py    genera los pagos fijos y los compara (NO escribe)
+    corte.py             fase 6: sombra → verificación → corte (§2.7)
     patrimonio.py        capital propio vivo por día → NOTIONCUM (fase 5)
   storage/investments_storage.py    posiciones.csv + movimientos.csv
   storage/variables_storage.py      +columnas es_inversion y es_custodia en grupos.csv
@@ -433,6 +473,10 @@ Ya no hay ninguna posición de tipo `ajuste`: las 2 que había contaban plata do
 | `POST` | `/api/investments/flows` | registra plata que entra o sale del portafolio |
 | `GET` | `/api/investments/flows/preview` | residual antes/después, **sin escribir** |
 | `GET` | `/api/investments/neutralization/preview` | fase 6 **sin escribir** |
+| `GET` | `/api/investments/cut/status` | dónde está el corte |
+| `POST` | `/api/investments/cut/shadow` | siembra los grupos `shadow` (aditivo, idempotente) |
+| `DELETE` | `/api/investments/cut/shadow` | los borra |
+| `GET` | `/api/investments/cut/verify` | compara las dos series **sin escribir** |
 | `GET` | `/api/investments/from-accounts` | legado, delega en el detector |
 | `GET` | `/api/investments/chart-data` | legado (saldo vs inversión) |
 | `GET` | `/api/dashboard/chart-data?incluir_inversiones=` | patrimonio con o sin el capital invertido |
@@ -472,15 +516,24 @@ Ya no hay ninguna posición de tipo `ajuste`: las 2 que había contaban plata do
 
 ### Lo que falta, en orden
 
-1. **Los 12,59 de `Uni`.** Son 8–12 dólares en tres tramos largos, y salen todos del mismo
-   sitio: la posición sembrada `siembra-uni-2024-05-29` no cierra al centavo
-   (10.100 + 172,21 − 3,44 = 10.268,77, pero el CDT siguiente pide 10.278 → faltan 9,23).
-   Están por encima de `TOLERANCIA_REDONDEO = 2,0`, así que la pantalla dice «no cuadra».
+1. **Los 3,23 de `Uni` — lo único que bloquea el corte.** Quedan dos tramos cortos
+   (2024-05-29→06-03, 6 días, 3,23; y 2024-09-04→09-22, 19 días, 3,36 que arrastra el
+   mismo), y los dos salen de **un solo número**: el pago a mano del 2024-05-29 dice
+   **10.272** y el banco devolvió **10.268,77** (10.100 + 172,21 − 3,44). Es el «ajuste a
+   mano viejo» que el plan documenta desde la fase 2.
 
-   **No lo tapes subiendo el umbral.** Las dos salidas honestas son: averiguar de dónde
-   salieron esos 9,23 y registrarlos como `flujo` de entrada el 2024-06-04, o corregir el
-   capital/interés de la siembra si resulta que el dato estaba mal. Hace falta preguntarle
-   al usuario; son 9 dólares, no corre prisa.
+   Los 9,23 que faltaban antes ya están explicados y registrados como
+   `flujo-uni-2024-06-04`: el 2024-06-04 entraron 10.278 al CDT y el bolsillo solo tenía
+   10.268,77, así que 9,23 vinieron de la cuenta general. El extracto de esos días tiene
+   intereses, comisiones y transferencias sueltas y **no permite aislar cuál fue** — que el
+   dinero entró es un hecho (el certificado se abrió por 10.278), lo que no se sabe es de
+   qué fila vino. Si al usuario le cuadra otra explicación, ese flujo se borra y se sustituye.
+
+   **No lo tapes subiendo `TOLERANCIA_REDONDEO`.** Las salidas honestas son dos:
+   preguntarle al usuario de dónde salieron esos 3,23 del 2024-05-29, o **aceptar el
+   cambio** y cortar con `forzar`: el generado es el número del banco, así que el corte
+   dejaría el patrimonio histórico **más** exacto, no menos — 3,40 como mucho, en 25 días
+   de 2024, y céntimos en el resto.
 
 2. **Capturar plazo y tasa pactados**: 0 de 17 plazos fijos los tienen. Sin ellos la TNA que
    se muestra es calendario/365 en vez de la que el banco liquidó (plazo/360) — la
@@ -490,7 +543,8 @@ Ya no hay ninguna posición de tipo `ajuste`: las 2 que había contaban plata do
 3. **Quitar la dependencia de `pagos.csv`** — ver §3.1 para el inventario y §7.5 para la
    única pieza que falta construir (el `saldo_inicial` en la GUI).
 
-4. **Fase 6 — el corte**, ver más abajo.
+4. **Disparar el corte de la fase 6.** La maquinaria está lista y verificada (§2.7); solo
+   falta resolver el punto 1 o aceptar el desvío de 3,40 y correr `--cortar`.
 
 ### Preguntas abiertas para el usuario
 

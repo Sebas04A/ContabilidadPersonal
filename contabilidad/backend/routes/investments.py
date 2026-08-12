@@ -146,6 +146,40 @@ def preview_flujo(
     }
 
 
+@router.get("/cut/status")
+def estado_corte():
+    """Dónde está la fase 6 ahora mismo. Solo lectura."""
+    from contabilidad.backend.services.investments import corte
+    return corte.estado()
+
+
+@router.post("/cut/shadow")
+def sembrar_sombra():
+    """Materializa los pagos generados en grupos `shadow`, que nadie aplica. Idempotente.
+
+    No toca los grupos originales: el dashboard sigue exactamente igual.
+    """
+    from contabilidad.backend.services.investments import corte
+    try:
+        return corte.sembrar_sombra()
+    except Exception as e:
+        logger.error(f"Error sembrando la sombra: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/cut/shadow")
+def limpiar_sombra():
+    from contabilidad.backend.services.investments import corte
+    return {'grupos_borrados': corte.limpiar_sombra()}
+
+
+@router.get("/cut/verify")
+def verificar_corte():
+    """Compara la función escalón antes y después del corte, día a día. **No escribe.**"""
+    from contabilidad.backend.services.investments import corte
+    return corte.verificar()
+
+
 @router.get("/positions/{position_id}")
 def get_position(position_id: str):
     posicion = posiciones_service.get_position(position_id)

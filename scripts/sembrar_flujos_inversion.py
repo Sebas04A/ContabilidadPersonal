@@ -40,6 +40,12 @@ FLUJOS = [
     # es la parte del tramo que tampoco se reinvirtió. Se registra junto porque lo que el
     # residual necesita saber es cuánto salió, no en qué se gastó cada pedazo.
     ('flujo-uni-2024-09-23', 'Inversiones_Uni',   '2024-09-23', 3834.64, 'salida',  'Matrícula 2024-2 (incluye 3.228 de «madre terjeta»)'),
+    # El 2024-06-04 entran 10.278 al CDT y el bolsillo de `Uni` solo tenía 10.268,77
+    # (10.100 + 172,21 − 3,44 de la posición sembrada). Los 9,23 que faltan salieron de la
+    # cuenta general: el extracto de esos días tiene intereses, comisiones y transferencias
+    # sueltas y no permite aislar cuál fue. Que el dinero entró al portafolio es un hecho
+    # —el certificado se abrió por 10.278—; lo único que no se sabe es de qué fila vino.
+    ('flujo-uni-2024-06-04', 'Inversiones_Uni',   '2024-06-04',    9.23, 'entrada', 'Completar el CDT de 10.278'),
     ('flujo-uni-2024-11-18', 'Inversiones_Uni',   '2024-11-18', 3635.07, 'entrada', 'Plata que entra de fuera'),
     ('flujo-uni-2025-04-28', 'Inversiones_Uni',   '2025-04-28', 3213.00, 'salida',  'Matrícula 2025-1'),
     ('flujo-uni-2025-10-24', 'Inversiones_Uni',   '2025-10-24', 3267.00, 'salida',  'Matrícula 2025-2'),
