@@ -6,17 +6,23 @@ import { VariationsChart } from './components/VariationsChart';
 import Variables from './pages/Variables';
 import { Debts } from './pages/Debts';
 import { Funds } from './pages/Funds';
+import { Investments } from './pages/Investments';
 import { Sources } from './pages/Sources';
 import { DataExplorer } from './pages/DataExplorer';
 import { Labeling } from './pages/Labeling';
 import { Verification } from './pages/Verification';
 import { MonthlyBudget } from './pages/MonthlyBudget';
 import { AdvancedAnalytics } from './pages/AdvancedAnalytics';
-import { BarChart3, TrendingUp } from 'lucide-react';
+import { BarChart3, TrendingUp, Landmark } from 'lucide-react';
 
 function App() {
   const [currentView, setCurrentView] = useState('etiquetado');
   const [dashboardView, setDashboardView] = useState<'evolution' | 'variations'>('evolution');
+  // Apagado por defecto: mientras la plata está dentro de un certificado, el patrimonio
+  // de siempre no la cuenta. El toggle la suma, y solo la propia — Uni y Madre son
+  // custodia. Va aquí arriba porque las dos vistas tienen que pedir lo mismo: el desglose
+  // de Variaciones se contrasta contra el total de Evolución.
+  const [incluirInversiones, setIncluirInversiones] = useState(false);
 
   return (
     <div className="min-h-screen flex text-gray-100 overflow-hidden font-sans selection:bg-pink-500/30">
@@ -30,6 +36,8 @@ function App() {
           <Debts />
         ) : currentView === 'fondos' ? (
           <Funds />
+        ) : currentView === 'inversiones' ? (
+          <Investments />
         ) : currentView === 'dashboard' ? (
           <div className="flex-1 overflow-y-auto px-4 md:px-8 pb-8 custom-scrollbar">
              <div className="max-w-[1600px] mx-auto flex flex-col items-center mt-6 gap-8">
@@ -69,14 +77,36 @@ function App() {
                         <BarChart3 size={18} className={dashboardView === 'variations' ? 'text-white' : ''} />
                         <span>Variaciones</span>
                     </button>
+
+                    <div className="w-px h-6 bg-white/10 mx-1"></div>
+
+                    <button
+                        onClick={() => setIncluirInversiones(v => !v)}
+                        title={incluirInversiones
+                            ? 'El patrimonio incluye el capital que está dentro de un certificado (solo el propio; Uni y Madre son custodia)'
+                            : 'El patrimonio no cuenta la plata que está dentro de un certificado'}
+                        aria-pressed={incluirInversiones}
+                        className={`
+                            flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 relative overflow-hidden
+                            ${incluirInversiones
+                                ? 'text-white shadow-lg shadow-emerald-500/25 scale-[1.02]'
+                                : 'text-slate-400 hover:text-white hover:bg-white/5'}
+                        `}
+                    >
+                        {incluirInversiones && (
+                            <div className="absolute inset-0 bg-gradient-to-r from-emerald-600 to-teal-500 opacity-100 rounded-xl -z-10 animate-in fade-in zoom-in-95 duration-300"></div>
+                        )}
+                        <Landmark size={18} className={incluirInversiones ? 'text-white' : ''} />
+                        <span>Con inversiones</span>
+                    </button>
                  </div>
 
                  {/* Content Area */}
                  <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-500 px-1">
                     {dashboardView === 'evolution' ? (
-                        <DashboardChart />
+                        <DashboardChart incluirInversiones={incluirInversiones} />
                     ) : (
-                        <VariationsChart />
+                        <VariationsChart incluirInversiones={incluirInversiones} />
                     )}
                  </div>
 

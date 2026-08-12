@@ -8,6 +8,8 @@ import EnrichedLedger from './EnrichedLedger'
 
 interface Props {
     className?: string
+    /** Si el patrimonio suma el capital que está dentro de una posición de inversión. */
+    incluirInversiones?: boolean
 }
 
 // Helper to classify a driver into a specific component type
@@ -33,8 +35,8 @@ interface Props {
 //     return 'bank';
 // };
 
-export function VariationsChart({ className }: Props) {
-    const { data: variations, isLoading, isError, error } = useVariations()
+export function VariationsChart({ className, incluirInversiones = false }: Props) {
+    const { data: variations, isLoading, isError, error } = useVariations(incluirInversiones)
     const isFirstRender = React.useRef(true)
 
     const getDailyDrivers = (dateStr: string): TransactionDriver[] => {

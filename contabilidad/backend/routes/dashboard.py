@@ -5,7 +5,7 @@ This module provides a unified dashboard service that aggregates financial data
 from multiple sources (Bank, Card, Notion, Virtual Items) and exposes it via FastAPI.
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from typing import List, Dict, Any, Optional
 from contabilidad.backend.logger import get_logger
 from contabilidad.backend.storage.data_pipeline import get_pipeline
@@ -18,13 +18,19 @@ logger = get_logger(__name__)
 router = APIRouter()
 
 @router.get("/chart-data", response_model=DashboardResponse)
-def get_dashboard_chart_data():
+def get_dashboard_chart_data(
+    incluir_inversiones: bool = Query(
+        False,
+        description="Sumar al patrimonio el capital propio que está dentro de una posición "
+                    "de inversión. Apagado por defecto; la custodia nunca suma.",
+    ),
+):
     """
     Generate unified dashboard chart data.
     """
     try:
         service = DashboardService()
-        return service.get_chart_data()
+        return service.get_chart_data(incluir_inversiones=incluir_inversiones)
     except Exception as e:
         logger.error(f"Error generating dashboard data: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error generating dashboard: {str(e)}")
@@ -50,14 +56,21 @@ def get_dashboard_config():
     }
 
 @router.get("/variations", response_model=List[DailyVariation])
-def get_variations_analysis():
+def get_variations_analysis(
+    incluir_inversiones: bool = Query(
+        False,
+        description="Tiene que ir igual que en /chart-data: el desglose diario se contrasta "
+                    "contra el mismo total, y si no coinciden el descuadre cae en "
+                    "unexplained_difference.",
+    ),
+):
     """
     Analyze daily variations regarding ALL components.
     Uses VariationsAnalyzer for cleaner logic.
     """
     try:
         dash_service = DashboardService()
-        dash_data_response = dash_service.get_chart_data()
+        dash_data_response = dash_service.get_chart_data(incluir_inversiones=incluir_inversiones)
         
         analyzer = VariationsAnalyzer()
         analyzer.fetch_all_drivers()

@@ -31,11 +31,13 @@ class DataPipeline:
         """Configura las transformaciones por defecto."""
         from contabilidad.backend.storage.transformations.investments import transform_investments
         from contabilidad.backend.storage.transformations.credit_cards import transform_credit_cards
-        from contabilidad.backend.storage.transformations.dashboard_transforms import transform_virtual_items, transform_metrics
-        
+        from contabilidad.backend.storage.transformations.dashboard_transforms import transform_virtual_items, transform_investment_capital, transform_metrics
+
         self.add_transformation('inversiones', transform_investments, cacheable=True)
         self.add_transformation('tarjetas', transform_credit_cards, cacheable=True)
         self.add_transformation('virtual_items', transform_virtual_items, cacheable=True)
+        # Antes de dashboard_metrics: NOTIONCUM es un insumo de TOTAL_CON_INVERSIONES.
+        self.add_transformation('capital_invertido', transform_investment_capital, cacheable=True)
         self.add_transformation('dashboard_metrics', transform_metrics, cacheable=True)
 
     def get_account_data(self, force_reload: bool = False) -> pd.DataFrame:
@@ -279,7 +281,7 @@ class DataPipeline:
             if transforms_to_run is None:
                 transforms_to_run = [t['name'] for t in self.pipeline.transformations]
                 
-            remaining_transforms = [t for t in transforms_to_run if t in ['virtual_items', 'dashboard_metrics']]
+            remaining_transforms = [t for t in transforms_to_run if t in ['virtual_items', 'capital_invertido', 'dashboard_metrics']]
             if remaining_transforms and not df.empty:
                 df = self.pipeline.execute(
                     df, 

@@ -276,12 +276,16 @@ class MetricProcessor:
             df['saldo_sin_inversion'] +
             df[self.config.col_interpolado] -
             df[self.config.col_tarjeta]
-            + df.get(self.config.col_deuda_acumulada, 0.0) 
+            + df.get(self.config.col_deuda_acumulada, 0.0)
         )
+        # La segunda serie se calcula siempre y `TOTAL` no se toca: quien decide cuál se
+        # grafica es la petición, no el pipeline (que está cacheado y es compartido).
+        df['TOTAL_CON_INVERSIONES'] = df['TOTAL'] + df.get(self.config.col_notion, 0.0)
         return df
     
     def _calculate_differences(self, df: pd.DataFrame) -> pd.DataFrame:
         df['diff_total'] = df['TOTAL'].diff().fillna(0.0)
+        df['diff_total_con_inversiones'] = df['TOTAL_CON_INVERSIONES'].diff().fillna(0.0)
         df['diff_saldo'] = df[self.config.col_saldo].diff().fillna(0.0)
         df['diff_tarjeta'] = df[self.config.col_tarjeta].diff().fillna(0.0)
         df['diff_pago_tarjeta'] = df[self.config.col_pago_tarjeta].diff().fillna(0.0)
@@ -315,23 +319,33 @@ class DashboardService:
         self.virtual_processor = VirtualItemsProcessor(self.config)
         self.metric_processor = MetricProcessor(self.config)
     
-    def get_chart_data(self) -> DashboardResponse:
+    def get_chart_data(self, incluir_inversiones: Optional[bool] = None) -> DashboardResponse:
+        """El patrimonio diario. `incluir_inversiones` suma el capital que está dentro de
+        una posición; por defecto **no** lo suma (`DashboardConfig.include_notion`).
+
+        El flag es un parámetro de la respuesta y no del pipeline a propósito: las dos
+        series se calculan siempre, así el caché no se parte en dos y cada vista cuadra
+        internamente por su lado.
+        """
+        if incluir_inversiones is None:
+            incluir_inversiones = self.config.include_notion
+
         df_master = self.pipeline.get_daily_data(source='all')
         if not df_master.empty:
             df_master = self.pipeline.pipeline.execute(
-                df_master, 
-                skip_cache=False, 
-                run_only=['virtual_items', 'dashboard_metrics']
+                df_master,
+                skip_cache=False,
+                run_only=['virtual_items', 'capital_invertido', 'dashboard_metrics']
             )
-            
+
         if df_master.empty:
             return DashboardResponse(
                 data=[],
                 highlighted_days=self.config.highlighted_days,
                 metadata={'status': 'no_data'}
             )
-        
-        return self._build_response(df_master)
+
+        return self._build_response(df_master, incluir_inversiones)
     
     def _fetch_all_sources(self) -> List[pd.DataFrame]:
         dataframes = []
@@ -381,12 +395,17 @@ class DashboardService:
         
         return df_master
     
-    def _build_response(self, df_master: pd.DataFrame) -> DashboardResponse:
+    def _build_response(self, df_master: pd.DataFrame,
+                        incluir_inversiones: bool = False) -> DashboardResponse:
+        # Las dos series vienen calculadas del pipeline; aquí solo se elige cuál se publica.
+        col_total = 'TOTAL_CON_INVERSIONES' if incluir_inversiones else 'TOTAL'
+        col_diff_total = 'diff_total_con_inversiones' if incluir_inversiones else 'diff_total'
+
         data_points = []
         for _, row in df_master.iterrows():
             data_points.append(ChartDataPoint(
                 date=row[self.config.col_fecha].strftime('%Y-%m-%d'),
-                total=float(row['TOTAL']),
+                total=float(row[col_total]),
                 saldo=float(row.get(self.config.col_saldo, 0.0)),
                 saldo_sin_inversion=float(row.get('saldo_sin_inversion', 0.0)),
                 tarjeta=float(row.get(self.config.col_tarjeta, 0.0)),
@@ -395,12 +414,16 @@ class DashboardService:
                 interpolado=float(row.get(self.config.col_interpolado, 0.0)),
                 notion=float(row.get(self.config.col_notion, 0.0)),
                 deuda_acumulada=float(row.get(self.config.col_deuda_acumulada, 0.0)),
-                diff_total=float(row.get('diff_total', 0.0)),
+                diff_total=float(row.get(col_diff_total, 0.0)),
                 diff_tarjeta=float(row.get('diff_tarjeta', 0.0)),
                 diff_pago_tarjeta=float(row.get('diff_pago_tarjeta', 0.0)),
                 diff_saldo=float(row.get('diff_saldo', 0.0)),
                 diff_saldo_sin_inversion=float(row.get('diff_saldo_sin_inversion', 0.0)),
-                diff_notion=float(row.get('diff_notion', 0.0)),
+                # Forzado a cero con el toggle apagado, y no por cosmética: el desglose
+                # diario de VariationsChart suma sus componentes y los contrasta contra
+                # `total_change`, que es `diff_total`. Un componente que se mueve sin estar
+                # en el total deja el descuadre en `unexplained_difference`.
+                diff_notion=float(row.get('diff_notion', 0.0)) if incluir_inversiones else 0.0,
                 diff_deuda_acumulada=float(row.get('diff_deuda_acumulada', 0.0)),
                 diff_pagos_fijos=float(row.get('diff_pagos_fijos', 0.0)),
                 diff_interpolados=float(row.get('diff_interpolados', 0.0))
@@ -408,6 +431,9 @@ class DashboardService:
         
         metadata = {
             'total_days': len(df_master),
+            'incluir_inversiones': incluir_inversiones,
+            'capital_invertido': float(df_master[self.config.col_notion].iloc[-1])
+                if self.config.col_notion in df_master.columns and len(df_master) else 0.0,
             'date_range': {
                 'start': df_master[self.config.col_fecha].min().strftime('%Y-%m-%d'),
                 'end': df_master[self.config.col_fecha].max().strftime('%Y-%m-%d')
@@ -460,7 +486,13 @@ class VariationsAnalyzer:
             expense_total = sum(d.amount for d in day_drivers if d.amount < 0)
             
             explained_sum = income_total + expense_total
-            residual = net_change - explained_sum
+            # El capital invertido se descuenta aparte porque no tiene transacción propia:
+            # abrir un CDT ya aparece como movimiento del banco y como pago fijo, y lo que
+            # `diff_notion` agrega es el mismo dinero visto desde el otro lado. Sin esta
+            # resta, el día que entra un certificado de 28.000 el desglose lo declararía
+            # entero "sin explicar". Con el toggle apagado `d_notion` es 0 y esto no hace
+            # nada, así que la vista de siempre queda idéntica.
+            residual = net_change - explained_sum - d_notion
 
             variations.append(DailyVariation(
                 date=dt_str,

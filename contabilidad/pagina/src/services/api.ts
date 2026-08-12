@@ -157,6 +157,14 @@ export interface DashboardDataPoint {
 export interface DashboardResponse {
   data: DashboardDataPoint[];
   highlighted_days: string[];
+  metadata?: {
+    total_days?: number;
+    /** Si el patrimonio de esta respuesta ya trae sumado el capital invertido. */
+    incluir_inversiones?: boolean;
+    /** Capital propio que está dentro de una posición hoy. Se informa siempre. */
+    capital_invertido?: number;
+    date_range?: { start: string; end: string };
+  };
 }
 
 export interface SyncResponse {
@@ -542,9 +550,10 @@ export const api = {
   },
 
   // Dashboard
-  getDashboardChartData: async (): Promise<DashboardResponse> => {
-    const res = await axios.get(`${API_BASE}/dashboard/chart-data`);
-    console.log(res.data);
+  getDashboardChartData: async (incluirInversiones = false): Promise<DashboardResponse> => {
+    const res = await axios.get(`${API_BASE}/dashboard/chart-data`, {
+      params: { incluir_inversiones: incluirInversiones },
+    });
     return res.data;
   },
 
@@ -611,8 +620,13 @@ export const api = {
 
 
   // Variations
-  getVariationsAnalysis: async (): Promise<DailyVariation[]> => {
-    const res = await axios.get(`${API_BASE}/dashboard/variations`);
+  // Tiene que ir con el mismo flag que getDashboardChartData: el desglose diario se
+  // contrasta contra el mismo total, y si no coinciden el descuadre aparece como
+  // "diferencia sin explicar".
+  getVariationsAnalysis: async (incluirInversiones = false): Promise<DailyVariation[]> => {
+    const res = await axios.get(`${API_BASE}/dashboard/variations`, {
+      params: { incluir_inversiones: incluirInversiones },
+    });
     return res.data;
   },
 

@@ -1,20 +1,36 @@
+"""
+Columna INVERSION: el escalón de pagos fijos aplicado sobre los datos bancarios.
+
+Ojo con el nombre: la columna NO contiene solo inversiones, contiene *todos* los pagos
+de grupos `fixed` (fondos, arreglos, parqueadero, inversiones…). Es el espejo de
+`PAGOS_FIJOS` del dashboard (`dashboard_service.VirtualItemsProcessor`), que se calcula
+por separado con la misma regla.
+
+Lo que sí se corrigió: antes se leían los grupos con `type_filter=None` y se sumaban
+también los pagos de grupos `interpolated`. Eso estaba mal bajo cualquier lectura —
+un pago interpolado se aplica como rampa, no como escalón — y contaminaba la serie con
+`Mensual_Madre` y compañía.
+
+La serie de capital realmente invertido es otra cosa y vive en el módulo de inversiones.
+"""
 import pandas as pd
 from contabilidad.backend.logger import get_logger
 
 logger = get_logger(__name__)
+
 
 def transform_investments(df: pd.DataFrame) -> pd.DataFrame:
     try:
         from contabilidad.backend.storage.variables_storage import InterpolationStorage
         from contabilidad.backend.services.bank_parser.get_variables import mark_fixed_payments
         from contabilidad.models import Payment
-        
-        groups = InterpolationStorage.get_groups(type_filter=None)
+
+        groups = InterpolationStorage.get_groups(type_filter='fixed')
         all_payments = []
         for group in groups:
             group_payments = InterpolationStorage.get_payments(group['id'])
             all_payments.extend(group_payments)
-        
+
         pagos = []
         for payment in all_payments:
             start_date = pd.to_datetime(payment['start_date']) if payment['start_date'] else None

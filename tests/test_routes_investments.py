@@ -116,3 +116,187 @@ def test_service_exception_returns_error():
     ):
         response = client.get("/api/investments/chart-data")
     assert response.status_code in [500, 200]  # may handle gracefully
+
+
+# ── /api/investments/positions ────────────────────────────────────────────────
+
+@pytest.fixture
+def storage_tmp(tmp_path):
+    """CSV de inversiones y de grupos en tmp_path: las rutas no tocan `data/`."""
+    inversiones = tmp_path / "inversiones"
+    interpolaciones = tmp_path / "interpolaciones"
+    inversiones.mkdir()
+    interpolaciones.mkdir()
+
+    with patch("contabilidad.backend.storage.investments_storage.BASE_DATA_PATH", str(inversiones)), \
+         patch("contabilidad.backend.storage.investments_storage.POSITIONS_FILE", str(inversiones / "posiciones.csv")), \
+         patch("contabilidad.backend.storage.investments_storage.MOVEMENTS_FILE", str(inversiones / "movimientos.csv")), \
+         patch("contabilidad.backend.storage.variables_storage.BASE_DATA_PATH", str(interpolaciones)), \
+         patch("contabilidad.backend.storage.variables_storage.GROUPS_FILE", str(interpolaciones / "grupos.csv")), \
+         patch("contabilidad.backend.storage.variables_storage.PAYMENTS_FILE", str(interpolaciones / "pagos.csv")):
+        yield
+
+
+NUEVA_POSICION = {
+    "tipo": "plazo_fijo",
+    "fecha_apertura": "2025-01-10",
+    "fecha_cierre": "2025-02-10",
+    "movimientos": [
+        {"fecha": "2025-01-10", "tipo": "aporte", "monto": 1000.0},
+        {"fecha": "2025-02-10", "tipo": "retiro", "monto": 1000.0},
+        {"fecha": "2025-02-10", "tipo": "interes", "monto": 10.0},
+    ],
+}
+
+
+def test_crear_posicion_devuelve_derivados(storage_tmp):
+    response = client.post("/api/investments/positions", json=NUEVA_POSICION)
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["capital"] == 1000.0
+    assert data["interes"] == 10.0
+    assert data["estado"] == "cerrada"
+
+
+def test_listar_posiciones(storage_tmp):
+    client.post("/api/investments/positions", json=NUEVA_POSICION)
+    response = client.get("/api/investments/positions")
+
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+
+
+def test_filtrar_posiciones_por_estado(storage_tmp):
+    client.post("/api/investments/positions", json=NUEVA_POSICION)
+    assert client.get("/api/investments/positions?estado=abierta").json() == []
+
+
+def test_actualizar_posicion(storage_tmp):
+    position_id = client.post("/api/investments/positions", json=NUEVA_POSICION).json()["id"]
+    response = client.put(f"/api/investments/positions/{position_id}", json={"nota": "revisada"})
+
+    assert response.status_code == 200
+    assert response.json()["nota"] == "revisada"
+
+
+def test_borrar_posicion(storage_tmp):
+    position_id = client.post("/api/investments/positions", json=NUEVA_POSICION).json()["id"]
+
+    assert client.delete(f"/api/investments/positions/{position_id}").status_code == 200
+    assert client.delete(f"/api/investments/positions/{position_id}").status_code == 404
+
+
+def test_posicion_inexistente_da_404(storage_tmp):
+    assert client.get("/api/investments/positions/no-existe").status_code == 404
+
+
+def test_datos_invalidos_dan_400(storage_tmp):
+    response = client.post("/api/investments/positions", json={**NUEVA_POSICION, "tipo": "cripto"})
+    assert response.status_code == 400
+
+
+def test_posicion_sin_fechas_da_400(storage_tmp):
+    assert client.post("/api/investments/positions", json={}).status_code == 400
+
+
+def test_listar_portafolios(storage_tmp):
+    response = client.get("/api/investments/portfolios")
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+# ── /api/investments/detect ───────────────────────────────────────────────────
+
+MOCK_DIFF = {
+    "nuevas": [], "cambiadas": [], "iguales": [], "huerfanas": [], "solo_guardadas": [],
+    "resumen": {"detectadas": 0, "guardadas": 0, "nuevas": 0, "cambiadas": 0,
+                "iguales": 0, "huerfanas": 0, "solo_guardadas": 0},
+}
+
+
+def test_detect_devuelve_el_diff():
+    with patch("contabilidad.backend.services.investments.reconcile", return_value=MOCK_DIFF):
+        response = client.post("/api/investments/detect")
+
+    assert response.status_code == 200
+    assert response.json()["resumen"]["detectadas"] == 0
+
+
+def test_detect_apply_pasa_la_seleccion():
+    resultado = {"creadas": [], "actualizadas": [], "omitidas": [],
+                 "resumen": {"creadas": 0, "actualizadas": 0, "omitidas": 0}}
+    with patch("contabilidad.backend.services.investments.apply_detection",
+               return_value=resultado) as apply_mock:
+        response = client.post("/api/investments/detect/apply",
+                               json={"tx_apertura_ids": ["tx001"], "portafolio_id": "g1"})
+
+    assert response.status_code == 200
+    assert apply_mock.call_args.kwargs["tx_apertura_ids"] == ["tx001"]
+    assert apply_mock.call_args.kwargs["portafolio_id"] == "g1"
+
+
+def test_detect_apply_portafolio_invalido_da_400():
+    from contabilidad.backend.services.investments import ValidationError
+    with patch("contabilidad.backend.services.investments.apply_detection",
+               side_effect=ValidationError("no existe")):
+        response = client.post("/api/investments/detect/apply", json={"portafolio_id": "no-existe"})
+
+    assert response.status_code == 400
+
+
+# ── /api/investments/summary y /timeline ──────────────────────────────────────
+
+def test_summary_devuelve_los_tres_ambitos(storage_tmp):
+    client.post("/api/investments/positions", json=NUEVA_POSICION)
+    response = client.get("/api/investments/summary")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert {"global", "propio", "custodia", "por_portafolio", "por_anio"} <= set(data)
+    assert data["global"]["capital_rotado"] == 1000.0
+
+
+def test_timeline_devuelve_serie_y_eventos(storage_tmp):
+    client.post("/api/investments/positions", json=NUEVA_POSICION)
+    response = client.get("/api/investments/timeline")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["fechas"]) == len(data["capital"])
+    assert len(data["eventos"]) == 2
+
+
+def test_summary_sin_posiciones_no_falla(storage_tmp):
+    response = client.get("/api/investments/summary")
+    assert response.status_code == 200
+    assert response.json()["global"]["posiciones"] == 0
+
+
+# ── /api/investments/positions/{id}/split ─────────────────────────────────────
+
+def test_split_devuelve_las_partes(storage_tmp):
+    position_id = client.post("/api/investments/positions", json=NUEVA_POSICION).json()["id"]
+    response = client.post(f"/api/investments/positions/{position_id}/split", json={
+        "partes": [{"capital": 600.0}, {"capital": 400.0}],
+    })
+
+    assert response.status_code == 200
+    partes = response.json()["partes"]
+    assert [p["capital"] for p in partes] == [600.0, 400.0]
+    assert [p["interes"] for p in partes] == [6.0, 4.0]
+
+
+def test_split_que_no_suma_da_400(storage_tmp):
+    position_id = client.post("/api/investments/positions", json=NUEVA_POSICION).json()["id"]
+    response = client.post(f"/api/investments/positions/{position_id}/split", json={
+        "partes": [{"capital": 100.0}, {"capital": 100.0}],
+    })
+    assert response.status_code == 400
+
+
+def test_split_de_posicion_inexistente_da_404(storage_tmp):
+    response = client.post("/api/investments/positions/no-existe/split", json={
+        "partes": [{"capital": 1.0}, {"capital": 1.0}],
+    })
+    assert response.status_code == 404

@@ -20,16 +20,29 @@ PAYMENTS_FILE = os.path.join(BASE_DATA_PATH, 'pagos.csv')
 # backward compatibility with older grupos.csv files.
 # `fondo_origen` links a generated payments group back to the fund (fund id) it was
 # materialized from, so re-generating can find and replace it idempotently.
-GROUP_COLUMNS = ['id', 'name', 'description', 'type', 'es_fondo', 'fecha_inicio', 'saldo_inicial', 'tag_vinculado', 'fondo_origen']
+# `es_inversion` marks a group as an investment portfolio (positions in
+# `inversiones/posiciones.csv` point at it), the same way `es_fondo` marks a fund.
+# `es_custodia` marks a portfolio holding somebody else's money: it lives in the user's
+# bank account, so it must be tracked, but it never counts towards their net worth.
+GROUP_COLUMNS = ['id', 'name', 'description', 'type', 'es_fondo', 'fecha_inicio', 'saldo_inicial', 'tag_vinculado', 'fondo_origen', 'es_inversion', 'es_custodia']
+
+
+def _as_bool(value: Any) -> bool:
+    if isinstance(value, str):
+        return value.strip().lower() in ('true', '1', 'yes', 'si', 'sí')
+    if value is None:
+        return False
+    try:
+        if pd.isna(value):
+            return False
+    except (TypeError, ValueError):
+        pass
+    return bool(value)
 
 
 def _normalize_group(row: Dict[str, Any]) -> Dict[str, Any]:
     """Coerce a raw group record into clean, JSON-friendly types."""
-    es_fondo = row.get('es_fondo')
-    if isinstance(es_fondo, str):
-        es_fondo_bool = es_fondo.strip().lower() in ('true', '1', 'yes', 'si', 'sí')
-    else:
-        es_fondo_bool = bool(es_fondo) if es_fondo is not None else False
+    es_fondo_bool = _as_bool(row.get('es_fondo'))
 
     saldo = row.get('saldo_inicial')
     try:
@@ -61,6 +74,8 @@ def _normalize_group(row: Dict[str, Any]) -> Dict[str, Any]:
         'saldo_inicial': saldo_val,
         'tag_vinculado': _clean_str(row.get('tag_vinculado')) or None,
         'fondo_origen': _clean_str(row.get('fondo_origen')) or None,
+        'es_inversion': _as_bool(row.get('es_inversion')),
+        'es_custodia': _as_bool(row.get('es_custodia')),
     }
 
 def ensure_data_dir():
@@ -135,7 +150,9 @@ class InterpolationStorage:
                      es_fondo: bool = False, fecha_inicio: Optional[str] = None,
                      saldo_inicial: Optional[float] = None,
                      tag_vinculado: Optional[str] = None,
-                     fondo_origen: Optional[str] = None) -> Dict[str, Any]:
+                     fondo_origen: Optional[str] = None,
+                     es_inversion: bool = False,
+                     es_custodia: bool = False) -> Dict[str, Any]:
         ensure_data_dir()
         new_id = str(uuid.uuid4())
         new_row = {
@@ -145,6 +162,8 @@ class InterpolationStorage:
             'saldo_inicial': saldo_inicial if saldo_inicial is not None else 0.0,
             'tag_vinculado': tag_vinculado or None,
             'fondo_origen': fondo_origen or None,
+            'es_inversion': bool(es_inversion),
+            'es_custodia': bool(es_custodia),
         }
 
         # Read existing (to guarantee full/consistent columns) then append.

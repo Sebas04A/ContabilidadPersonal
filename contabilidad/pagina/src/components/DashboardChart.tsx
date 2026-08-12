@@ -5,8 +5,13 @@ import { Loader2, AlertCircle, MousePointerClick, Activity, TrendingUp, Layers }
 import { ChartAnalysis, Curve } from './ChartAnalysis';
 import type { EChartsOption } from 'echarts';
 
-export function DashboardChart() {
-  const { data: chartData, isLoading, isError, error } = useDashboardChartData();
+interface DashboardChartProps {
+  /** Si el patrimonio suma el capital que está dentro de una posición de inversión. */
+  incluirInversiones?: boolean;
+}
+
+export function DashboardChart({ incluirInversiones = false }: DashboardChartProps) {
+  const { data: chartData, isLoading, isError, error } = useDashboardChartData(incluirInversiones);
   const [curves, setCurves] = useState<Curve[]>([]);
   const [tempPoint, setTempPoint] = useState<{date: string, value: number} | null>(null);
   const [isSelectionMode, setIsSelectionMode] = useState(false);

@@ -3,75 +3,75 @@ from datetime import datetime
 from contabilidad.backend.storage.data_pipeline import get_pipeline
 from contabilidad.backend.storage.variables_storage import InterpolationStorage
 from contabilidad.backend.services.bank_parser.get_variables import mark_fixed_payments
+from contabilidad.backend.services.investments import detect_positions
 from contabilidad.models import Payment
-from contabilidad.backend.models.investment_models import AccountInvestment, InvestmentsFromAccountsResponse
+from contabilidad.backend.models.investment_models import (
+    AccountInvestment,
+    InvestmentsFromAccountsResponse,
+    OrphanClosingOut,
+)
 
 class InvestmentService:
     def get_investments_from_accounts(self) -> InvestmentsFromAccountsResponse:
+        """Posiciones de plazo fijo reconstruidas del extracto bancario.
+
+        Delega el emparejamiento en `services.investments.detector`. Antes esta función
+        listaba como "finalizada" cada fila `CANCELACION PLAZO FIJO`, pero el banco emite
+        el interés bajo esa misma descripción: sobre los datos reales daba 22 inversiones
+        cerradas donde hay 14 cancelaciones y 8 intereses.
+        """
         try:
             pipeline = get_pipeline()
             df = pipeline.get_account_data()
         except Exception as e:
             raise RuntimeError(f"Error reading account data: {str(e)}")
-        
-        ES_INVERSION_INICIADA = ["CERTIFICADO DE DEPOSITO", "A PLAZO FIJO"]
-        ES_INVERSION_ACABADA = "CANCELACION PLAZO FIJO"
-        
-        inversion_acabada = df[df['DESCRIPCION'] == ES_INVERSION_ACABADA]
-        inversion_iniciada = df[df["DESCRIPCION"].str.contains("|".join(ES_INVERSION_INICIADA), na=False)]
-        
-        iniciadas = []
-        for _, row in inversion_iniciada.iterrows():
-            iniciadas.append(AccountInvestment(
-                fecha=row["FECHA"].strftime('%Y-%m-%d') if hasattr(row["FECHA"], 'strftime') else str(row["FECHA"]),
-                descripcion=str(row["DESCRIPCION"]),
-                monto=float(row["MONTO"]),
-                tipo="iniciada"
-            ))
-        
-        finalizadas = []
-        for _, row in inversion_acabada.iterrows():
-            fecha = row["FECHA"]
-            fecha_str = fecha.strftime('%Y-%m-%d') if hasattr(fecha, 'strftime') else str(fecha)
-            
-            filas_inversion = df[df["FECHA"] == fecha]
-            plazo_fijo = float(row["MONTO"])
-            
-            interes_filtrado = filas_inversion[filas_inversion["DESCRIPCION"] == "TRANSFERENCIA INTERIOR"]
-            if not interes_filtrado.empty:
-                interes = float(interes_filtrado["CREDITO"].values[0])
-            else:
-                cancelacion_rows = filas_inversion[filas_inversion["DESCRIPCION"] == ES_INVERSION_ACABADA]
-                if len(cancelacion_rows) > 1:
-                    interes = float(cancelacion_rows["MONTO"].values[1])
-                else:
-                    interes = 0.0
-            
-            impuesto_filtrado = filas_inversion[filas_inversion["DESCRIPCION"] == "RETENCION RENDIMIENTO FINANCIERO"]
-            if not impuesto_filtrado.empty:
-                impuesto = float(impuesto_filtrado["DEBITO"].values[0])
-            else:
-                impuesto = 0.0
-            
-            total = plazo_fijo + interes - impuesto
-            
-            finalizadas.append(AccountInvestment(
-                fecha=fecha_str,
-                descripcion=str(row["DESCRIPCION"]),
-                monto=plazo_fijo,
+
+        result = detect_positions(df)
+
+        iniciadas = [
+            AccountInvestment(
+                fecha=p.fecha_apertura.isoformat(),
+                descripcion="Apertura de plazo fijo",
+                monto=-p.capital,
+                tipo="iniciada",
+                plazo_fijo=p.capital,
+                fecha_apertura=p.fecha_apertura.isoformat(),
+                fecha_cierre=p.fecha_cierre.isoformat() if p.fecha_cierre else None,
+                dias=p.dias,
+                tna=p.tna,
+                estado=p.estado,
+                ambiguo=p.ambiguo,
+            )
+            for p in result.posiciones
+        ]
+
+        finalizadas = [
+            AccountInvestment(
+                fecha=p.fecha_cierre.isoformat(),
+                descripcion="Cancelación de plazo fijo",
+                monto=p.capital,
                 tipo="finalizada",
-                plazo_fijo=plazo_fijo,
-                interes=interes,
-                impuesto=impuesto,
-                total=total
-            ))
-        
+                plazo_fijo=p.capital,
+                interes=p.interes,
+                impuesto=p.retencion,
+                total=p.total_devuelto,
+                fecha_apertura=p.fecha_apertura.isoformat(),
+                fecha_cierre=p.fecha_cierre.isoformat(),
+                dias=p.dias,
+                tna=p.tna,
+                estado=p.estado,
+                ambiguo=p.ambiguo,
+            )
+            for p in result.cerradas
+        ]
+
         iniciadas.sort(key=lambda x: x.fecha, reverse=True)
         finalizadas.sort(key=lambda x: x.fecha, reverse=True)
-        
+
         return InvestmentsFromAccountsResponse(
             iniciadas=iniciadas,
-            finalizadas=finalizadas
+            finalizadas=finalizadas,
+            huerfanas=[OrphanClosingOut(**h.to_dict()) for h in result.huerfanas],
         )
 
     def get_investment_chart_data(self) -> dict:
@@ -82,7 +82,9 @@ class InvestmentService:
             raise RuntimeError(f"Error reading account data: {str(e)}")
         
         try:
-            groups = InterpolationStorage.get_groups(type_filter=None)
+            # Solo grupos `fixed`: los interpolados se aplican como rampa, no como
+            # escalón, y sumarlos aquí contaminaba la serie (ver transformations/investments.py).
+            groups = InterpolationStorage.get_groups(type_filter='fixed')
             group_map = {g['id']: g['name'] for g in groups}
             
             all_payments = []

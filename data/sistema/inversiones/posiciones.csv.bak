@@ -1,0 +1,28 @@
+id,portafolio_id,tipo,fecha_apertura,fecha_cierre,estado,origen,plazo_pactado_dias,tasa_pactada,institucion,moneda,nota,tx_apertura_id,tx_cierre_id
+siembra-uni-2024-05-29,e996e29a-1443-4026-bb64-13f6da31ab32,plazo_fijo,,2024-05-29,cerrada,manual,,,Pichincha,USD,Inversiones_Uni: abierta antes del historial bancario; solo se ve su cancelación,,92862342325144abb0a2b0ae71b9f1e5
+siembra-madre-2024-10-25,5a1076ed-9b20-4e86-bd35-a91c57db1246,plazo_fijo,,2024-10-25,cerrada,manual,,,Pichincha,USD,Inversiones_Madre: abierta antes del historial bancario; solo se ve su cancelación,,759edc033405dff97012b3af7a4f0168
+c1ea8783-0736-443a-a6cb-98f97ab42a93,bd963a38-13b9-4a6f-80a5-b871f9dc38d7,plazo_fijo,2024-03-28,2025-01-24,cerrada,detectado,,,Pichincha,USD,Detectada en el extracto,1636ba838ecd09bcfbaa9d3ffba88ea1,e7b21186ba7da465c2a1188cc604c88e
+d9b408fc-31ab-40bb-aee3-95175a0cb941,e996e29a-1443-4026-bb64-13f6da31ab32,plazo_fijo,2024-06-04,2024-09-04,cerrada,detectado,,,Pichincha,USD,Detectada en el extracto,5b57bd640da7f8e578d6496497a34696,75ffaf4414d0efd31649d1d84cd100b6
+4e671af5-c055-441d-99f1-6db52407e385,e996e29a-1443-4026-bb64-13f6da31ab32,plazo_fijo,2024-09-23,2024-10-24,cerrada,detectado,,,Pichincha,USD,Detectada en el extracto,9734d2689f4ffe7934b35c628affbf2e,830312714e350ce2920fd2dcdaaa02bc
+1d791544-897b-443a-ab98-1b275f4d8b5d,5a1076ed-9b20-4e86-bd35-a91c57db1246,plazo_fijo,2024-11-18,2025-06-17,cerrada,detectado,,,Pichincha,USD,Detectada en el extracto,02ad1673958c039452d80d403cbefa82,63d133be686777f603ef6f6847ddf702
+2576d700-221c-412c-8ac2-e5b675454f3b,e996e29a-1443-4026-bb64-13f6da31ab32,plazo_fijo,2024-11-18,2025-03-19,cerrada,detectado,,,Pichincha,USD,Detectada en el extracto,712e58416f053b3a1478dcf586b63d40,19d5cb3c174722265f5412c7c99267ee
+5147a74e-f931-4589-940f-4e3885499738,bd963a38-13b9-4a6f-80a5-b871f9dc38d7,plazo_fijo,2025-02-21,2025-03-24,cerrada,detectado,,,Pichincha,USD,Detectada en el extracto,10015b60b38ba30847f6f8bbccb031c8,dff57bbd9a3b2dafa4bf5194cdae5870
+6295b872-efd5-46f6-8830-9b68557987da,e996e29a-1443-4026-bb64-13f6da31ab32,plazo_fijo,2025-04-28,2025-09-25,cerrada,detectado,,,Pichincha,USD,Detectada en el extracto,0baeadfb7f20902e11e4447ff54717ec,d7688adfa182b1dab59ea97fb1f0db4f
+bf2aa375-16c3-4994-8138-b9f839805ab1,bd963a38-13b9-4a6f-80a5-b871f9dc38d7,plazo_fijo,2025-05-12,2025-06-12,cerrada,detectado,,,Pichincha,USD,Detectada en el extracto,d715dcb043ca87b9f66d28b9cd6bcf7f,370e03f846696bdafff4f4b2c55a60b7
+4eee2202-7b62-4f8c-943d-d8937ba198a2,e996e29a-1443-4026-bb64-13f6da31ab32,plazo_fijo,2025-11-18,2026-03-19,cerrada,detectado,,,Pichincha,USD,Detectada en el extracto,f1d00d7f85ebe463813ce7f572db917a,823a2e67fa005c9e1e29b1cc53d48fad
+0582c614-8fd8-492a-9331-6642bd0b5b3f,5a1076ed-9b20-4e86-bd35-a91c57db1246,plazo_fijo,2025-11-18,2025-12-22,cerrada,detectado,,,Pichincha,USD,Detectada en el extracto,ccce0274fdba4dc044a7f003bec591d7,69577003b93fd39745d6aef92131c561
+d5e33863-41f8-470c-9a4d-02e78a19c382,bd963a38-13b9-4a6f-80a5-b871f9dc38d7,plazo_fijo,2025-11-18,2025-12-19,cerrada,detectado,,,Pichincha,USD,Detectada en el extracto,58d39c233bf4f0b2cc84dad71606d833,1ccd65da0fb777af7b3d60a187277391
+2f92888c-de5f-4661-bd52-7fd2235a03aa,bd963a38-13b9-4a6f-80a5-b871f9dc38d7,plazo_fijo,2026-01-21,2026-02-23,cerrada,detectado,,,Pichincha,USD,Detectada en el extracto,05671ca9eb17bfac9b7087af720bd570,091f8defe1cf68faf351a79a9dd4278d
+a59aafb5-75fe-4217-b5eb-c203d6e8f10a,bd963a38-13b9-4a6f-80a5-b871f9dc38d7,plazo_fijo,2026-06-25,2026-07-27,cerrada,detectado,,,Pichincha,USD,Detectada en el extracto,e16ae1ae246a0802ba159b139fc43835,e2ced640c542b0a06ef5010d5a702d35
+ef38bd80-6b86-45bf-a774-adb6d549e427,bd963a38-13b9-4a6f-80a5-b871f9dc38d7,plazo_fijo,2025-08-12,2025-09-12,cerrada,manual,,,Pichincha,USD,Parte de Inversiones_Mias del CDT de 38.000,c009494af39970ea42aa210279572117,0a2da5d7c6b61df051674fb7f575afb4
+e7678f75-b8e9-47f8-a207-bb12c852bfe3,5a1076ed-9b20-4e86-bd35-a91c57db1246,plazo_fijo,2025-08-12,2025-09-12,cerrada,manual,,,Pichincha,USD,Parte de Inversiones_Madre del CDT de 38.000,c009494af39970ea42aa210279572117,0a2da5d7c6b61df051674fb7f575afb4
+flujo-uni-2024-03-18,e996e29a-1443-4026-bb64-13f6da31ab32,flujo,2024-03-18,2024-03-18,cerrada,manual,,,Pichincha,USD,Se acaba el saldo viejo,,
+flujo-uni-2024-09-23,e996e29a-1443-4026-bb64-13f6da31ab32,flujo,2024-09-23,2024-09-23,cerrada,manual,,,Pichincha,USD,Matrícula 2024-2 (incluye 3.228 de «madre terjeta»),,
+flujo-uni-2024-11-18,e996e29a-1443-4026-bb64-13f6da31ab32,flujo,2024-11-18,2024-11-18,cerrada,manual,,,Pichincha,USD,Plata que entra de fuera,,
+flujo-uni-2025-04-28,e996e29a-1443-4026-bb64-13f6da31ab32,flujo,2025-04-28,2025-04-28,cerrada,manual,,,Pichincha,USD,Matrícula 2025-1,,
+flujo-uni-2025-10-24,e996e29a-1443-4026-bb64-13f6da31ab32,flujo,2025-10-24,2025-10-24,cerrada,manual,,,Pichincha,USD,Matrícula 2025-2,,
+flujo-uni-2026-04-29,e996e29a-1443-4026-bb64-13f6da31ab32,flujo,2026-04-29,2026-04-29,cerrada,manual,,,Pichincha,USD,Matrícula 2026-1,,
+flujo-uni-2026-05-18,e996e29a-1443-4026-bb64-13f6da31ab32,flujo,2026-05-18,2026-05-18,cerrada,manual,,,Pichincha,USD,Matrícula 2026-1,,
+flujo-madre-2024-11-18,5a1076ed-9b20-4e86-bd35-a91c57db1246,flujo,2024-11-18,2024-11-18,cerrada,manual,,,Pichincha,USD,Matrícula separada para pagar,,
+flujo-madre-2025-12-26,5a1076ed-9b20-4e86-bd35-a91c57db1246,flujo,2025-12-26,2025-12-26,cerrada,manual,,,Pichincha,USD,Retiro,,
+flujo-madre-2025-12-29,5a1076ed-9b20-4e86-bd35-a91c57db1246,flujo,2025-12-29,2025-12-29,cerrada,manual,,,Pichincha,USD,Retiro,,
