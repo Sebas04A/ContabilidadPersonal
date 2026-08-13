@@ -5,6 +5,7 @@ Proporciona funciones para obtener datos limpios de deudas en formato DataFrame.
 
 import pandas as pd
 from supabase import create_client, Client
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Optional, List
 import os
@@ -573,18 +574,41 @@ def obtener_estado_cuenta(deudor_id: str) -> dict:
         # El mock no tiene detalle_pagos; los pagos quedan como saldo a favor.
         return _construir_flujo_cuenta(deudas_raw, pagos_raw, [])
 
-    deudas_raw = supabase.table('deudas').select('*').eq('deudor_id', deudor_id).execute().data or []
-    pagos_raw = supabase.table('pagos').select('*').eq('deudor_id', deudor_id).execute().data or []
+    # Eran cuatro viajes a Supabase encadenados y cada uno cuesta su ida y vuelta por
+    # internet. Deudas, pagos y el RPC de saldos no dependen entre sí, así que van juntos
+    # y la espera pasa a ser la del más lento. `detalle_pagos` sí necesita los ids de las
+    # deudas, y se queda como segunda tanda.
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        f_deudas = pool.submit(
+            lambda: supabase.table('deudas').select('*').eq('deudor_id', deudor_id).execute().data or [])
+        f_pagos = pool.submit(
+            lambda: supabase.table('pagos').select('*').eq('deudor_id', deudor_id).execute().data or [])
+        f_remoto = pool.submit(_saldos_remotos, deudor_id)
+
+        deudas_raw, pagos_raw, remoto = f_deudas.result(), f_pagos.result(), f_remoto.result()
+
     deuda_ids = [d.get('id') for d in deudas_raw if d.get('id') is not None]
     detalles = []
     if deuda_ids:
         detalles = supabase.table('detalle_pagos').select('*').in_('deuda_id', deuda_ids).execute().data or []
 
     local = _construir_flujo_cuenta(deudas_raw, pagos_raw, detalles)
-    return _con_saldos_del_servidor(deudor_id, local)
+    return _con_saldos_del_servidor(deudor_id, local, remoto)
 
 
-def _con_saldos_del_servidor(deudor_id: str, local: dict) -> dict:
+def _saldos_remotos(deudor_id: str):
+    """
+    Los saldos que decide Postgres. Va aparte para poder lanzarse en paralelo con las
+    lecturas de tablas; si el RPC no está desplegado, devuelve None y se usa el local.
+    """
+    try:
+        return supabase.rpc('estado_cuenta', {'p_deudor_id': deudor_id}).execute().data
+    except Exception as e:
+        logger.warning("estado_cuenta (RPC) no disponible, se usa el cálculo local: %s", e)
+        return None
+
+
+def _con_saldos_del_servidor(deudor_id: str, local: dict, remoto=None) -> dict:
     """
     Los saldos los decide la función `estado_cuenta` de Postgres; aquí solo se arma el
     ledger (que es presentación y no existe en SQL).
@@ -593,11 +617,8 @@ def _con_saldos_del_servidor(deudor_id: str, local: dict) -> dict:
     disponible se sigue con el cálculo local — que es idéntico, pero deja de ser la
     autoridad. Si difiere, se avisa: significa que las dos definiciones se separaron.
     """
-    try:
-        remoto = supabase.rpc('estado_cuenta', {'p_deudor_id': deudor_id}).execute().data
-    except Exception as e:
-        logger.warning("estado_cuenta (RPC) no disponible, se usa el cálculo local: %s", e)
-        return local
+    if remoto is None:
+        remoto = _saldos_remotos(deudor_id)
 
     if not remoto or 'resumen' not in remoto:
         return local
@@ -649,12 +670,14 @@ def obtener_saldos_deudores() -> dict:
         detalles = []
     else:
         try:
-            deudas_raw = supabase.table('deudas').select('*').execute().data or []
-            pagos_raw = supabase.table('pagos').select('*').execute().data or []
-            deuda_ids = [d.get('id') for d in deudas_raw if d.get('id') is not None]
-            detalles = []
-            if deuda_ids:
-                detalles = supabase.table('detalle_pagos').select('*').in_('deuda_id', deuda_ids).execute().data or []
+            # Las tres son globales, así que van en paralelo. `detalle_pagos` se pide
+            # entera: filtrarla por la lista de TODOS los ids de deudas armaba una URL
+            # de miles de caracteres para pedir exactamente lo mismo.
+            with ThreadPoolExecutor(max_workers=3) as pool:
+                f_deudas = pool.submit(lambda: supabase.table('deudas').select('*').execute().data or [])
+                f_pagos = pool.submit(lambda: supabase.table('pagos').select('*').execute().data or [])
+                f_det = pool.submit(lambda: supabase.table('detalle_pagos').select('*').execute().data or [])
+                deudas_raw, pagos_raw, detalles = f_deudas.result(), f_pagos.result(), f_det.result()
         except Exception as e:
             logger.error("Error querying Supabase for deudores balances: %s", e)
             return {}

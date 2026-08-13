@@ -216,12 +216,78 @@ export function AccountStatementModal({ onClose }: { onClose: () => void }) {
 }
 
 /* ── Flujo (ledger cronológico) ─────────────────────────────────────────── */
+
+/** Una deuda del ledger colgada del pago (o cruce) que la liquidó, con lo que le hizo. */
+type DeudaAdjunta = { mov: EstadoCuentaMovimiento; item: MovimientoItem };
+
+/** Todas las deudas que un movimiento tocó, ya sea pago suelto o cruce con dos lados. */
+function itemsDelMovimiento(m: EstadoCuentaMovimiento): MovimientoItem[] {
+  if (m.tipo === 'cruce') {
+    const lados = [...(m.lados?.te_deben.items ?? []), ...(m.lados?.tu_debes.items ?? [])];
+    return lados.length > 0 ? lados : (m.items ?? []);
+  }
+  return m.items ?? [];
+}
+
+/** Una deuda que sigue viva, con lo último que se le abonó (si algo). */
+type Pendiente = { mov: EstadoCuentaMovimiento; item?: MovimientoItem };
+
+/** Un item cierra la deuda si no le queda nada, ni siquiera después del saldo a favor. */
+const cierra = (it: MovimientoItem) =>
+  it.cerrada || (it.saldo_despues - (it.abono_saldo_favor ?? 0)) <= 0.01;
+
+/**
+ * Cuelga cada deuda SALDADA del movimiento que la cerró: el ledger deja de ser una lista
+ * plana donde pagos y deudas se intercalan por fecha, y pasa a leerse como "este pago, y
+ * debajo lo que saldó". Recorriendo presente→pasado, la deuda se la queda el movimiento
+ * que la terminó, así una deuda pagada a plazos aparece una sola vez.
+ *
+ * Todo lo que sigue debiéndose —sin tocar o abonado a medias— NO baja al historial: se
+ * junta arriba del todo y ahí se queda hasta que un pago futuro lo cierre.
+ */
+function agruparPorPago(movimientos: EstadoCuentaMovimiento[]) {
+  const deudaPorId = new Map<string, EstadoCuentaMovimiento>();
+  for (const m of movimientos) if (m.tipo === 'deuda') deudaPorId.set(m.id, m);
+
+  const tomadas = new Set<string>();
+  const adjuntas = new Map<string, DeudaAdjunta[]>();
+  // El abono más reciente de cada deuda que quedó viva: da el "abonado / le falta".
+  const ultimoAbono = new Map<string, MovimientoItem>();
+
+  for (const m of movimientos) {
+    if (m.tipo === 'deuda') continue;
+    const mias: DeudaAdjunta[] = [];
+    for (const item of itemsDelMovimiento(m)) {
+      const deuda = deudaPorId.get(item.deuda_id);
+      if (!deuda || tomadas.has(item.deuda_id)) continue;
+      if (!ultimoAbono.has(item.deuda_id)) ultimoAbono.set(item.deuda_id, item);
+      if (!cierra(item)) continue;
+      tomadas.add(item.deuda_id);
+      mias.push({ mov: deuda, item });
+    }
+    if (mias.length > 0) adjuntas.set(`${m.tipo}-${m.id}`, mias);
+  }
+
+  const pendientes: Pendiente[] = movimientos
+    .filter(m => m.tipo === 'deuda' && !tomadas.has(m.id))
+    .map(m => ({ mov: m, item: ultimoAbono.get(m.id) }));
+
+  return {
+    pendientes,
+    deudasDe: (m: EstadoCuentaMovimiento) => adjuntas.get(`${m.tipo}-${m.id}`) ?? [],
+    fueraDelHistorial: (m: EstadoCuentaMovimiento) => m.tipo === 'deuda',
+  };
+}
+
 function FlowLedger({ movimientos, nombre }: { movimientos: EstadoCuentaMovimiento[]; nombre: string }) {
+  const { pendientes, deudasDe, fueraDelHistorial } = agruparPorPago(movimientos);
+
   // La lista viene presente→pasado, así que un cruce aparece JUSTO DEBAJO del pago que lo
   // disparó (ocurrió antes). Cuando ese par existe se dibujan dentro de un mismo bloque.
   const filas: { pago?: EstadoCuentaMovimiento; mov: EstadoCuentaMovimiento }[] = [];
   for (let i = 0; i < movimientos.length; i++) {
     const m = movimientos[i];
+    if (fueraDelHistorial(m)) continue;
     const sig = movimientos[i + 1];
     if (m.tipo === 'pago' && sig?.tipo === 'cruce' && sig.pago_vinculado?.id === m.id) {
       filas.push({ pago: m, mov: sig });
@@ -236,18 +302,23 @@ function FlowLedger({ movimientos, nombre }: { movimientos: EstadoCuentaMovimien
       {/* línea vertical del timeline */}
       <div className="absolute left-[9px] top-2 bottom-2 w-px bg-white/10" />
       <div className="space-y-2.5">
+        {pendientes.length > 0 && <PendientesBlock pendientes={pendientes} />}
         {filas.map((f, i) =>
           f.pago ? (
-            <LiquidacionGroup key={`liq-${f.pago.id}-${i}`} pago={f.pago} cruce={f.mov} nombre={nombre} />
+            <LiquidacionGroup
+              key={`liq-${f.pago.id}-${i}`}
+              pago={f.pago} cruce={f.mov} nombre={nombre}
+              deudasPago={deudasDe(f.pago)} deudasCruce={deudasDe(f.mov)}
+            />
           ) : f.mov.tipo === 'cruce' ? (
             <div key={`cruce-${f.mov.id}-${i}`} className="relative">
               <TimelineDot tone="sky" />
-              <CruceCard m={f.mov} />
+              <CruceCard m={f.mov} deudas={deudasDe(f.mov)} />
             </div>
           ) : (
             <div key={`${f.mov.tipo}-${f.mov.id}-${i}`} className="relative">
               <TimelineDot tone={f.mov.tipo === 'pago' ? 'emerald' : f.mov.es_tu_deuda ? 'rose' : 'indigo'} />
-              <MovimientoCard m={f.mov} nombre={nombre} />
+              <MovimientoCard m={f.mov} nombre={nombre} deudas={deudasDe(f.mov)} />
             </div>
           )
         )}
@@ -256,27 +327,83 @@ function FlowLedger({ movimientos, nombre }: { movimientos: EstadoCuentaMovimien
   );
 }
 
-function TimelineDot({ tone }: { tone: 'sky' | 'emerald' | 'rose' | 'indigo' }) {
-  const bg = { sky: 'bg-sky-500', emerald: 'bg-emerald-500', rose: 'bg-rose-500', indigo: 'bg-indigo-500' }[tone];
+/** Rótulo fino entre bloques, del mismo tipo que el "antes de este pago" del cruce. */
+function Separador({ texto, tone = 'neutral' }: { texto: string; tone?: 'neutral' | 'sky' | 'amber' }) {
+  const linea = { neutral: 'bg-white/10', sky: 'bg-sky-500/20', amber: 'bg-amber-500/20' }[tone];
+  const color = { neutral: 'text-surface-500', sky: 'text-sky-400/70', amber: 'text-amber-400/80' }[tone];
+  return (
+    <div className={`flex items-center gap-2 px-2 text-[10px] font-bold uppercase tracking-wider ${color}`}>
+      <div className={`h-px flex-1 ${linea}`} />
+      {texto}
+      <div className={`h-px flex-1 ${linea}`} />
+    </div>
+  );
+}
+
+/* ── Lo que sigue vivo: siempre arriba del todo, hasta que un pago lo cierre ─── */
+function PendientesBlock({ pendientes }: { pendientes: Pendiente[] }) {
+  const falta = ({ mov, item }: Pendiente) =>
+    item ? Math.max(0, item.saldo_despues - (item.abono_saldo_favor ?? 0)) : Math.abs(mov.delta);
+  const total = pendientes.reduce((s, p) => s + falta(p), 0);
+
+  return (
+    <div className="space-y-2.5">
+      <Separador
+        tone="amber"
+        texto={`sin pagar todavía · ${pendientes.length} deuda${pendientes.length === 1 ? '' : 's'} · $${fmt(total)}`}
+      />
+      {pendientes.map(p => (
+        <div key={p.mov.id} className="relative">
+          <TimelineDot tone={p.mov.es_tu_deuda ? 'rose' : 'indigo'} />
+          <DeudaCard m={p.mov} abonado={Math.abs(p.mov.delta) - falta(p)} />
+        </div>
+      ))}
+      <Separador texto="ya saldado" />
+    </div>
+  );
+}
+
+function TimelineDot({ tone }: { tone: 'sky' | 'emerald' | 'rose' | 'indigo' | 'amber' }) {
+  const bg = {
+    sky: 'bg-sky-500', emerald: 'bg-emerald-500', rose: 'bg-rose-500',
+    indigo: 'bg-indigo-500', amber: 'bg-amber-500',
+  }[tone];
   return <div className={`absolute -left-[19px] top-3 w-3.5 h-3.5 rounded-full border-2 border-surface-950 ${bg}`} />;
 }
 
 /* El cruce se genera siempre justo antes de un pago: se muestran encadenados. */
-function LiquidacionGroup({ pago, cruce, nombre }: {
+function LiquidacionGroup({ pago, cruce, nombre, deudasPago, deudasCruce }: {
   pago: EstadoCuentaMovimiento; cruce: EstadoCuentaMovimiento; nombre: string;
+  deudasPago: DeudaAdjunta[]; deudasCruce: DeudaAdjunta[];
 }) {
   return (
     <div className="relative">
       <TimelineDot tone="emerald" />
       <div className="rounded-xl border border-sky-500/20 bg-sky-500/[0.03] p-1.5 space-y-1.5">
-        <MovimientoCard m={pago} nombre={nombre} />
+        <MovimientoCard m={pago} nombre={nombre} deudas={deudasPago} />
         <div className="flex items-center gap-2 px-2 text-[10px] font-bold uppercase tracking-wider text-sky-400/70">
           <div className="h-px flex-1 bg-sky-500/20" />
           antes de este pago
           <div className="h-px flex-1 bg-sky-500/20" />
         </div>
-        <CruceCard m={cruce} />
+        <CruceCard m={cruce} deudas={deudasCruce} />
       </div>
+    </div>
+  );
+}
+
+/**
+ * Las deudas que este movimiento liquidó, ya no como eventos sueltos del timeline sino
+ * colgadas debajo de él. Siempre visibles: son el "qué pagué" de la fila de arriba.
+ */
+function DeudasLiquidadas({ deudas, tone }: { deudas: DeudaAdjunta[]; tone: 'emerald' | 'sky' }) {
+  return (
+    <div className="px-2.5 pb-2.5 space-y-2">
+      <Separador
+        tone={tone === 'sky' ? 'sky' : 'neutral'}
+        texto={deudas.length === 1 ? 'saldó esta deuda' : `saldó estas ${deudas.length} deudas`}
+      />
+      {deudas.map(({ mov }) => <DeudaCard key={mov.id} m={mov} />)}
     </div>
   );
 }
@@ -411,13 +538,14 @@ function SaldoResultante({ saldo, label }: { saldo: number; label: string }) {
 }
 
 /* ── Cruce de cuentas: dos lados, colapsable ───────────────────────────── */
-function CruceCard({ m }: { m: EstadoCuentaMovimiento }) {
+function CruceCard({ m, deudas = [] }: { m: EstadoCuentaMovimiento; deudas?: DeudaAdjunta[] }) {
   const [open, setOpen] = useState(false);
   const teDeben = m.lados?.te_deben ?? { total: 0, items: [] };
   const tuDebes = m.lados?.tu_debes ?? { total: 0, items: [] };
   const items = m.items ?? [];
-  const saldadas = items.filter(it => it.cerrada);
-  const parciales = items.filter(it => !it.cerrada);
+  const saldadas = items.filter(cierra);
+  // Las que no cerró siguen vivas arriba, en "Sin pagar todavía": aquí solo se cuentan.
+  const abiertas = items.length - saldadas.length;
   const cruzado = m.monto_cruzado ?? 0;
 
   return (
@@ -440,6 +568,11 @@ function CruceCard({ m }: { m: EstadoCuentaMovimiento }) {
                   <CheckCircle2 size={10} />{saldadas.length} saldada{saldadas.length === 1 ? '' : 's'}
                 </span>
               )}
+              {abiertas > 0 && (
+                <span className="text-amber-400/80 flex items-center gap-1">
+                  <AlertTriangle size={10} />{abiertas} sin cerrar
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -451,12 +584,8 @@ function CruceCard({ m }: { m: EstadoCuentaMovimiento }) {
         </div>
       </button>
 
-      {/* Siempre visible: lo que el cruce NO alcanzó a saldar sigue vivo. */}
-      {parciales.length > 0 && (
-        <div className="px-4 pb-3 space-y-1.5">
-          {parciales.map(it => <DeudaParcialRow key={it.deuda_id} it={it} />)}
-        </div>
-      )}
+      {/* Las deudas que este cruce compensó, colgadas debajo de él. */}
+      {deudas.length > 0 && <DeudasLiquidadas deudas={deudas} tone="sky" />}
 
       {open && (
         <div className="px-4 pb-3.5 pt-3 border-t border-sky-500/15">
@@ -509,39 +638,86 @@ function CruceLado({ titulo, tone, total, items }: {
 }
 
 /* ── Movimiento normal (deuda o pago) ──────────────────────────────────── */
-function MovimientoCard({ m, nombre }: { m: EstadoCuentaMovimiento; nombre: string }) {
-  if (m.tipo === 'pago') return <PagoCard m={m} nombre={nombre} />;
+function MovimientoCard({ m, nombre, deudas }: {
+  m: EstadoCuentaMovimiento; nombre: string; deudas?: DeudaAdjunta[];
+}) {
+  if (m.tipo === 'pago') return <PagoCard m={m} nombre={nombre} deudas={deudas} />;
+  return <DeudaCard m={m} />;
+}
+
+/** La deuda tal cual nació: el mismo formato que tenía suelta en la línea de tiempo. */
+function DeudaCard({ m, abonado }: { m: EstadoCuentaMovimiento; abonado?: number }) {
+  const original = Math.abs(m.delta);
+  // Una deuda a medio pagar es la misma tarjeta: solo se le añade lo que le falta.
+  const parcial = (abonado ?? 0) > 0.01 && (abonado ?? 0) < original - 0.01;
+  const falta = original - (abonado ?? 0);
+
   return (
-    <div className="rounded-xl bg-surface-900/40 border border-white/5 px-4 py-3">
+    <div className={`rounded-xl border px-4 py-3 ${
+      parcial ? 'bg-amber-500/[0.06] border-amber-500/30' : 'bg-surface-900/40 border-white/5'
+    }`}>
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className={`p-1.5 rounded-lg shrink-0 ${m.es_tu_deuda ? 'bg-rose-500/15 text-rose-300' : 'bg-indigo-500/15 text-indigo-300'}`}>
             <ArrowUpRight size={15} />
           </div>
           <div className="min-w-0">
-            <div className="text-sm font-bold text-surface-100 truncate">{m.concepto}</div>
-            <div className="text-[11px] text-surface-500 flex items-center gap-1"><Calendar size={10} />{fecha(m.fecha)}</div>
+            <div className="text-sm font-bold text-surface-100 flex items-center gap-1.5">
+              <span className="truncate">{m.concepto}</span>
+              {parcial && (
+                <span className="px-1.5 py-px rounded bg-amber-500/20 text-amber-300 font-bold uppercase tracking-wide text-[9px] shrink-0">
+                  Parcial
+                </span>
+              )}
+            </div>
+            <div className="text-[11px] text-surface-500 flex items-center gap-1">
+              <Calendar size={10} />{fecha(m.fecha)}
+              {parcial && <span>· abonado ${fmt(abonado!)} de ${fmt(original)}</span>}
+            </div>
           </div>
         </div>
         <div className="text-right shrink-0">
-          <div className={`font-mono font-bold text-sm ${m.delta >= 0 ? 'text-indigo-300' : 'text-emerald-300'}`}>
-            {m.delta >= 0 ? '+' : '−'}${fmt(Math.abs(m.delta))}
-          </div>
-          <div className="text-[10px] text-surface-500 flex items-center gap-1 justify-end">
-            <TrendingUp size={9} /> saldo ${fmt(m.saldo_acumulado)}
-          </div>
+          {parcial ? (
+            <>
+              <div className="text-[9px] font-bold uppercase tracking-wider text-amber-400/70">Le falta</div>
+              <div className="font-mono font-bold text-lg text-amber-300 leading-tight">${fmt(falta)}</div>
+            </>
+          ) : (
+            <>
+              <div className={`font-mono font-bold text-sm ${m.delta >= 0 ? 'text-indigo-300' : 'text-emerald-300'}`}>
+                {m.delta >= 0 ? '+' : '−'}${fmt(original)}
+              </div>
+              <div className="text-[10px] text-surface-500 flex items-center gap-1 justify-end">
+                <TrendingUp size={9} /> saldo ${fmt(m.saldo_acumulado)}
+              </div>
+            </>
+          )}
         </div>
       </div>
+      {parcial && (
+        <div className="h-1.5 rounded-full bg-white/5 overflow-hidden mt-2">
+          <div
+            className="h-full bg-gradient-to-r from-amber-500/60 to-amber-400 rounded-full"
+            style={{ width: `${Math.min(1, (abonado ?? 0) / original) * 100}%` }}
+          />
+        </div>
+      )}
     </div>
   );
 }
 
 /* ── Pago: mismo lenguaje visual que el cruce ──────────────────────────── */
-function PagoCard({ m, nombre }: { m: EstadoCuentaMovimiento; nombre: string }) {
+function PagoCard({ m, nombre, deudas = [] }: {
+  m: EstadoCuentaMovimiento; nombre: string; deudas?: DeudaAdjunta[];
+}) {
   const [open, setOpen] = useState(false);
   const items = m.items ?? [];
-  const saldadas = items.filter(it => it.cerrada);
-  const parciales = items.filter(it => !it.cerrada);
+  const saldadas = items.filter(cierra);
+  // Las deudas colgadas ya se muestran enteras debajo; aquí solo queda lo que este pago
+  // tocó sin cerrarlo (esas siguen vivas arriba) o lo que cerró otro movimiento.
+  const colgadas = new Set(deudas.map(d => d.item.deuda_id));
+  const sueltos = items.filter(it => !colgadas.has(it.deuda_id));
+  const abiertas = items.length - saldadas.length;
   const sobrante = m.sobrante ?? 0;
   const entregado = !!m.es_mi_pago;
   const tone = entregado ? 'text-indigo-300' : 'text-emerald-300';
@@ -572,6 +748,11 @@ function PagoCard({ m, nombre }: { m: EstadoCuentaMovimiento; nombre: string }) 
                   <CheckCircle2 size={10} />{saldadas.length} saldada{saldadas.length === 1 ? '' : 's'}
                 </span>
               )}
+              {abiertas > 0 && (
+                <span className="text-amber-400/80 flex items-center gap-1">
+                  <AlertTriangle size={10} />{abiertas} sin cerrar
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -585,31 +766,34 @@ function PagoCard({ m, nombre }: { m: EstadoCuentaMovimiento; nombre: string }) 
         </div>
       </button>
 
-      {/* Siempre visible: lo que quedó a favor y lo que el pago no alcanzó a cerrar. */}
-      {(sobrante > 0.01 || parciales.length > 0) && (
-        <div className="px-4 pb-3 space-y-1.5">
-          {sobrante > 0.01 && (
-            <SaldoFavorBanner monto={sobrante} deQuien={entregado ? 'ti' : nombre} />
-          )}
-          {parciales.map(it => <DeudaParcialRow key={it.deuda_id} it={it} />)}
+      {/* Lo que quedó a favor. Las deudas que no cerró viven arriba, en "Sin pagar todavía". */}
+      {sobrante > 0.01 && (
+        <div className="px-4 pb-3">
+          <SaldoFavorBanner monto={sobrante} deQuien={entregado ? 'ti' : nombre} />
         </div>
       )}
 
+      {/* Las deudas de este pago, siempre visibles justo debajo de él. */}
+      {deudas.length > 0 && <DeudasLiquidadas deudas={deudas} tone="emerald" />}
+
       {open && items.length > 0 && (
         <div className="px-4 pb-3.5 pt-3 border-t border-white/5">
-          <div className="rounded-lg bg-surface-950/40 border border-white/5 p-2.5">
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-surface-400">
-                Abonó a {items.length} deuda{items.length === 1 ? '' : 's'}
-              </span>
-              <span className={`font-mono text-xs font-bold ${tone}`}>${fmt(asignado)}</span>
+          {sueltos.length > 0 && (
+            <div className="rounded-lg bg-surface-950/40 border border-white/5 p-2.5">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-surface-400">
+                  Abonó a {items.length} deuda{items.length === 1 ? '' : 's'}
+                  {deudas.length > 0 && ` · ${sueltos.length} de otro movimiento`}
+                </span>
+                <span className={`font-mono text-xs font-bold ${tone}`}>${fmt(asignado)}</span>
+              </div>
+              <div className="space-y-1.5">
+                {sueltos.map(it => it.cerrada
+                  ? <DeudaSaldadaRow key={it.deuda_id} it={it} tone={tone} />
+                  : <DeudaParcialRow key={it.deuda_id} it={it} />)}
+              </div>
             </div>
-            <div className="space-y-1.5">
-              {items.map(it => it.cerrada
-                ? <DeudaSaldadaRow key={it.deuda_id} it={it} tone={tone} />
-                : <DeudaParcialRow key={it.deuda_id} it={it} />)}
-            </div>
-          </div>
+          )}
           <div className="mt-3">
             <SaldoResultante saldo={m.saldo_acumulado} label="Saldo después del pago" />
           </div>
