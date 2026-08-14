@@ -1,44 +1,108 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, useEffect } from 'react';
 import { Transaction, TransactionUpdate } from '../services/api';
-import { useAllTransactions, useTags, useUpdateTransaction } from '../hooks/useTransactions';
+import { useAllTransactions, useCategories, useTags, useUpdateTransaction } from '../hooks/useTransactions';
 import { EditModal } from '../components/EditModal';
 import VerificationChart, { MonthlyIssuePoint } from '../components/VerificationChart';
 import {
-  ShieldCheck, Tag, CheckCircle2, AlertCircle, RefreshCw,
-  ChevronRight, ArrowUpRight, ArrowDownLeft, Search, X, Sparkles, Scissors, Flame, Heart, Calendar,
+  ShieldCheck, Tag, CheckCircle2, AlertCircle, RefreshCw, Settings2, Plus,
+  ChevronRight, ArrowUpRight, ArrowDownLeft, Search, X, Sparkles, Scissors, Flame, Heart, Calendar, RotateCcw
 } from 'lucide-react';
+
+// ── Exclusion rules interface and default state ───────────────────────────────
+
+// ── Exclusion rules interface and default state ───────────────────────────────
+
+interface VerificationExclusionRules {
+  excludeReembolsableGlobal: boolean;
+  categoriaExcludedCategories: string[];
+  categoriaExcludedTags: string[];
+  prioridadExcludedCategories: string[];
+  prioridadExcludedTags: string[];
+  felicidadExcludedCategories: string[];
+  felicidadExcludedTags: string[];
+  felicidadExcludeReembolsable: boolean;
+  tagsExcludedCategories: string[];
+  tagsExcludedTags: string[];
+}
+
+const DEFAULT_EXCLUSION_RULES: VerificationExclusionRules = {
+  excludeReembolsableGlobal: true,
+  categoriaExcludedCategories: [],
+  categoriaExcludedTags: [],
+  prioridadExcludedCategories: ['inversion', 'inversión', 'inversiones', 'deuda', 'deudas', 'tarjeta', 'tarjetas'],
+  prioridadExcludedTags: [],
+  felicidadExcludedCategories: ['inversion', 'inversión', 'inversiones', 'deuda', 'deudas', 'tarjeta', 'tarjetas'],
+  felicidadExcludedTags: [],
+  felicidadExcludeReembolsable: true,
+  tagsExcludedCategories: [],
+  tagsExcludedTags: [],
+};
+
+const STORAGE_KEY = 'verification_exclusion_rules_v1';
+
+function loadExclusionRules(): VerificationExclusionRules {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return {
+        excludeReembolsableGlobal: parsed.excludeReembolsableGlobal ?? DEFAULT_EXCLUSION_RULES.excludeReembolsableGlobal,
+        categoriaExcludedCategories: Array.isArray(parsed.categoriaExcludedCategories) ? parsed.categoriaExcludedCategories : DEFAULT_EXCLUSION_RULES.categoriaExcludedCategories,
+        categoriaExcludedTags: Array.isArray(parsed.categoriaExcludedTags) ? parsed.categoriaExcludedTags : DEFAULT_EXCLUSION_RULES.categoriaExcludedTags,
+        prioridadExcludedCategories: Array.isArray(parsed.prioridadExcludedCategories)
+          ? parsed.prioridadExcludedCategories
+          : DEFAULT_EXCLUSION_RULES.prioridadExcludedCategories,
+        prioridadExcludedTags: Array.isArray(parsed.prioridadExcludedTags)
+          ? parsed.prioridadExcludedTags
+          : DEFAULT_EXCLUSION_RULES.prioridadExcludedTags,
+        felicidadExcludedCategories: Array.isArray(parsed.felicidadExcludedCategories)
+          ? parsed.felicidadExcludedCategories
+          : DEFAULT_EXCLUSION_RULES.felicidadExcludedCategories,
+        felicidadExcludedTags: Array.isArray(parsed.felicidadExcludedTags)
+          ? parsed.felicidadExcludedTags
+          : DEFAULT_EXCLUSION_RULES.felicidadExcludedTags,
+        felicidadExcludeReembolsable: parsed.felicidadExcludeReembolsable ?? DEFAULT_EXCLUSION_RULES.felicidadExcludeReembolsable,
+        tagsExcludedCategories: Array.isArray(parsed.tagsExcludedCategories) ? parsed.tagsExcludedCategories : DEFAULT_EXCLUSION_RULES.tagsExcludedCategories,
+        tagsExcludedTags: Array.isArray(parsed.tagsExcludedTags) ? parsed.tagsExcludedTags : DEFAULT_EXCLUSION_RULES.tagsExcludedTags,
+      };
+    }
+  } catch (e) {
+    console.error('Error loading verification exclusion rules from localStorage', e);
+  }
+  return DEFAULT_EXCLUSION_RULES;
+}
 
 // ── Issue definitions ─────────────────────────────────────────────────────────
 
 type IssueKey = 'sin_revisar' | 'sin_categoria' | 'sin_prioridad' | 'sin_felicidad' | 'sin_tags';
 
-const catMissing = (t: Transaction) => {
+// Helper to check if a transaction's category is in an excluded list (case-insensitive)
+const isCategoryExcluded = (catRaw: string | undefined, excludedList: string[]) => {
+  const c = (catRaw || '').trim().toLowerCase();
+  if (!c) return false;
+  return excludedList.some(ex => ex.trim().toLowerCase() === c);
+};
+
+// Helper to check if a transaction's tags match any excluded tag (case-insensitive)
+const hasExcludedTag = (tagsRaw: string | undefined, excludedTags: string[]) => {
+  if (!tagsRaw || !excludedTags.length) return false;
+  const itemTags = tagsRaw.split(',').map(tag => tag.trim().toLowerCase()).filter(Boolean);
+  return excludedTags.some(ex => itemTags.includes(ex.trim().toLowerCase()));
+};
+
+const catMissing = (t: Transaction, rules: VerificationExclusionRules) => {
+  if (isCategoryExcluded(t.categoria, rules.categoriaExcludedCategories)) return false;
+  if (hasExcludedTag(t.tags, rules.categoriaExcludedTags)) return false;
   const c = (t.categoria || '').trim().toLowerCase();
   return !c || c === '---' || c === 'sin categoría' || c === 'sin categoria';
 };
-const tagsMissing = (t: Transaction) => !(t.tags || '').trim();
-const prioridadMissing = (t: Transaction) => {
-  const cat = (t.categoria || '').trim().toLowerCase();
-  const isExcluded = cat === 'inversion' || cat === 'inversión' || cat === 'inversiones' ||
-                     cat === 'deuda' || cat === 'deudas' ||
-                     cat === 'tarjeta' || cat === 'tarjetas';
-  if (isExcluded) return false;
 
-  const p = (t.prioridad || '').trim().toLowerCase();
-  return !p || p === '---';
+const tagsMissing = (t: Transaction, rules: VerificationExclusionRules) => {
+  if (isCategoryExcluded(t.categoria, rules.tagsExcludedCategories)) return false;
+  if (hasExcludedTag(t.tags, rules.tagsExcludedTags)) return false;
+  return !(t.tags || '').trim();
 };
-const felicidadMissing = (t: Transaction) => {
-  if (t.es_reembolsable) return false;
 
-  const cat = (t.categoria || '').trim().toLowerCase();
-  const isExcluded = cat === 'inversion' || cat === 'inversión' || cat === 'inversiones' ||
-                     cat === 'deuda' || cat === 'deudas' ||
-                     cat === 'tarjeta' || cat === 'tarjetas';
-  if (isExcluded) return false;
-
-  const f = Number(t.felicidad);
-  return t.felicidad == null || Number.isNaN(f) || f === 0;
-};
 const reviewMissing = (t: Transaction) => !t.revisado;
 
 const SECTION_LIMIT = 6;
@@ -52,8 +116,24 @@ interface IssueDef {
   icon: any;
   color: string;       // tailwind text color
   ring: string;        // hex for ring / chart
-  test: (t: Transaction) => boolean;
+  test: (t: Transaction, rules: VerificationExclusionRules) => boolean;
 }
+
+const prioridadMissing = (t: Transaction, rules: VerificationExclusionRules) => {
+  if (isCategoryExcluded(t.categoria, rules.prioridadExcludedCategories)) return false;
+  if (hasExcludedTag(t.tags, rules.prioridadExcludedTags)) return false;
+  const p = (t.prioridad || '').trim().toLowerCase();
+  return !p || p === '---';
+};
+
+const felicidadMissing = (t: Transaction, rules: VerificationExclusionRules) => {
+  if (rules.felicidadExcludeReembolsable && t.es_reembolsable) return false;
+  if (isCategoryExcluded(t.categoria, rules.felicidadExcludedCategories)) return false;
+  if (hasExcludedTag(t.tags, rules.felicidadExcludedTags)) return false;
+
+  const f = Number(t.felicidad);
+  return t.felicidad == null || Number.isNaN(f) || f === 0;
+};
 
 // Order = hierarchy (most important first): drives cards, sections and chart.
 const ISSUES: IssueDef[] = [
@@ -65,20 +145,20 @@ const ISSUES: IssueDef[] = [
 ];
 
 // A display transaction fails an issue if it — or any of its split parts — fails.
-function txFails(t: Transaction, test: (t: Transaction) => boolean): boolean {
+function txFails(t: Transaction, test: (t: Transaction, rules: VerificationExclusionRules) => boolean, rules: VerificationExclusionRules): boolean {
   if (t.subTransactions && t.subTransactions.length > 0) {
-    return t.subTransactions.some(test);
+    return t.subTransactions.some(sub => test(sub, rules));
   }
-  return test(t);
+  return test(t, rules);
 }
 
 // Issues that apply to a transaction. An unreviewed transaction can't reasonably
 // have the rest filled in, so it only surfaces under "Sin revisar".
-function activeIssuesFor(t: Transaction): IssueDef[] {
-  if (txFails(t, reviewMissing)) {
+function activeIssuesFor(t: Transaction, rules: VerificationExclusionRules): IssueDef[] {
+  if (txFails(t, reviewMissing, rules)) {
     return ISSUES.filter(i => i.key === 'sin_revisar');
   }
-  return ISSUES.filter(i => i.key !== 'sin_revisar' && txFails(t, i.test));
+  return ISSUES.filter(i => i.key !== 'sin_revisar' && txFails(t, i.test, rules));
 }
 
 // Group split parts into a single "master" display transaction (mirrors Labeling).
@@ -119,12 +199,590 @@ function Ring({ pct, color, size = 88 }: { pct: number; color: string; size?: nu
   );
 }
 
+// ── Interactive Autocomplete Tag/Category Input Component ─────────────────────
+
+function AutocompleteExclusionInput({
+  placeholder,
+  items,
+  existingList,
+  onAdd,
+  isTag = false,
+}: {
+  placeholder: string;
+  items: string[];
+  existingList: string[];
+  onAdd: (value: string) => void;
+  isTag?: boolean;
+}) {
+  const [query, setQuery] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
+
+  const filteredItems = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return items.filter(item => {
+      const isAlreadyAdded = existingList.some(ex => ex.toLowerCase() === item.toLowerCase());
+      if (isAlreadyAdded) return false;
+      if (!q) return true;
+      return item.toLowerCase().includes(q);
+    });
+  }, [items, existingList, query]);
+
+  const handleAdd = (val: string) => {
+    const trimmed = val.trim();
+    if (!trimmed) return;
+    onAdd(trimmed);
+    setQuery('');
+    setIsOpen(false);
+  };
+
+  return (
+    <div className="relative flex-1">
+      <div className="relative">
+        <input
+          type="text"
+          value={query}
+          onChange={e => {
+            setQuery(e.target.value);
+            setIsOpen(true);
+          }}
+          onFocus={() => setIsOpen(true)}
+          onBlur={() => setTimeout(() => setIsOpen(false), 200)}
+          onKeyDown={e => {
+            if (e.key === 'Enter' && query.trim()) {
+              e.preventDefault();
+              handleAdd(query);
+            }
+          }}
+          placeholder={placeholder}
+          className="w-full bg-surface-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder:text-gray-600 focus:outline-none focus:border-emerald-500/40"
+        />
+        {query && (
+          <button
+            type="button"
+            onClick={() => { setQuery(''); setIsOpen(false); }}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+          >
+            <X size={14} />
+          </button>
+        )}
+      </div>
+
+      {isOpen && (
+        <div className="absolute left-0 right-0 top-full mt-1 bg-surface-900 border border-white/10 rounded-xl shadow-2xl max-h-48 overflow-y-auto z-50 divide-y divide-white/5 custom-scrollbar">
+          {filteredItems.map(item => (
+            <button
+              key={item}
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); handleAdd(item); }}
+              className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white transition-colors flex items-center justify-between group"
+            >
+              <span>{isTag ? `#${item}` : item}</span>
+              <span className="text-[10px] text-gray-600 group-hover:text-gray-400">Seleccionar</span>
+            </button>
+          ))}
+          {query.trim() && !items.some(i => i.toLowerCase() === query.trim().toLowerCase()) && (
+            <button
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); handleAdd(query); }}
+              className="w-full text-left px-3 py-2 text-xs text-emerald-400 hover:bg-emerald-500/10 transition-colors flex items-center gap-1.5 font-bold"
+            >
+              <Plus size={14} /> Crear y añadir: "{query.trim()}"
+            </button>
+          )}
+          {filteredItems.length === 0 && !query.trim() && (
+            <div className="px-3 py-2 text-xs text-gray-600 italic text-center">
+              No hay más sugerencias disponibles
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Settings Modal ─────────────────────────────────────────────────────────
+
+type GroupTab = 'global' | 'sin_categoria' | 'sin_prioridad' | 'sin_felicidad' | 'sin_tags';
+
+function SettingsModal({
+  isOpen,
+  onClose,
+  rules,
+  onSaveRules,
+  allCategories = [],
+  allTags = [],
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  rules: VerificationExclusionRules;
+  onSaveRules: (newRules: VerificationExclusionRules) => void;
+  allCategories?: string[];
+  allTags?: string[];
+}) {
+  const [draft, setDraft] = useState<VerificationExclusionRules>(rules);
+  const [activeGroupTab, setActiveGroupTab] = useState<GroupTab>('sin_prioridad');
+
+  useEffect(() => {
+    if (isOpen) setDraft(rules);
+  }, [isOpen, rules]);
+
+  if (!isOpen) return null;
+
+  const handleSave = () => {
+    onSaveRules(draft);
+    onClose();
+  };
+
+  const handleReset = () => {
+    setDraft(DEFAULT_EXCLUSION_RULES);
+  };
+
+  const addCategory = (key: 'categoria' | 'prioridad' | 'felicidad' | 'tags', cat: string) => {
+    const fieldKey = `${key}ExcludedCategories` as keyof VerificationExclusionRules;
+    const current = draft[fieldKey] as string[];
+    if (!current.some(c => c.toLowerCase() === cat.toLowerCase())) {
+      setDraft({ ...draft, [fieldKey]: [...current, cat] });
+    }
+  };
+
+  const removeCategory = (key: 'categoria' | 'prioridad' | 'felicidad' | 'tags', cat: string) => {
+    const fieldKey = `${key}ExcludedCategories` as keyof VerificationExclusionRules;
+    const current = draft[fieldKey] as string[];
+    setDraft({ ...draft, [fieldKey]: current.filter(c => c.toLowerCase() !== cat.toLowerCase()) });
+  };
+
+  const addTag = (key: 'categoria' | 'prioridad' | 'felicidad' | 'tags', tag: string) => {
+    const fieldKey = `${key}ExcludedTags` as keyof VerificationExclusionRules;
+    const current = draft[fieldKey] as string[];
+    if (!current.some(t => t.toLowerCase() === tag.toLowerCase())) {
+      setDraft({ ...draft, [fieldKey]: [...current, tag] });
+    }
+  };
+
+  const removeTag = (key: 'categoria' | 'prioridad' | 'felicidad' | 'tags', tag: string) => {
+    const fieldKey = `${key}ExcludedTags` as keyof VerificationExclusionRules;
+    const current = draft[fieldKey] as string[];
+    setDraft({ ...draft, [fieldKey]: current.filter(t => t.toLowerCase() !== tag.toLowerCase()) });
+  };
+
+  const GROUP_TABS: { id: GroupTab; label: string; icon: any; color: string }[] = [
+    { id: 'sin_prioridad', label: 'Sin Necesidad/Deseo', icon: Flame, color: 'text-emerald-400' },
+    { id: 'sin_felicidad', label: 'Sin Felicidad', icon: Heart, color: 'text-pink-400' },
+    { id: 'sin_categoria', label: 'Sin Categoría', icon: Tag, color: 'text-amber-400' },
+    { id: 'sin_tags', label: 'Sin Etiquetas', icon: Sparkles, color: 'text-violet-400' },
+    { id: 'global', label: 'General / Reembolsos', icon: ShieldCheck, color: 'text-blue-400' },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-fadeIn">
+      <div className="bg-surface-900 border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-white/[0.02]">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+              <Settings2 size={20} />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-white tracking-tight">Reglas de Exclusión</h2>
+              <p className="text-xs text-gray-400">Configura qué transacciones omitir según el tipo de verificación</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors">
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Group Selector (Tabs) */}
+        <div className="px-6 pt-4 border-b border-white/5 flex items-center gap-1.5 overflow-x-auto custom-scrollbar shrink-0 bg-surface-900/40">
+          {GROUP_TABS.map(tab => {
+            const Icon = tab.icon;
+            const isActive = activeGroupTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveGroupTab(tab.id)}
+                className={`
+                  flex items-center gap-2 px-3 py-2 rounded-t-xl text-xs font-bold transition-all border-t border-x whitespace-nowrap
+                  ${isActive
+                    ? 'bg-surface-800 text-white border-white/10 shadow-lg'
+                    : 'bg-transparent text-gray-400 hover:text-white border-transparent hover:bg-white/[0.03]'
+                  }
+                `}
+              >
+                <Icon size={14} className={tab.color} />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Body */}
+        <div className="p-6 overflow-y-auto space-y-6 flex-1 custom-scrollbar">
+
+          {/* TAB: GLOBAL */}
+          {activeGroupTab === 'global' && (
+            <div className="space-y-4">
+              <div className="glass-card p-4 rounded-xl flex items-center justify-between gap-4 border border-white/5">
+                <div>
+                  <h3 className="text-sm font-bold text-white">Excluir reembolsables globalmente</h3>
+                  <p className="text-xs text-gray-400 mt-0.5">Oculta movimientos marcados como reembolsables/deuda de todas las verificaciones de la página.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDraft({ ...draft, excludeReembolsableGlobal: !draft.excludeReembolsableGlobal })}
+                  className={`w-12 h-7 rounded-full relative transition-colors border shrink-0 ${
+                    draft.excludeReembolsableGlobal ? 'bg-emerald-600 border-emerald-500/50' : 'bg-surface-800 border-white/10'
+                  }`}
+                >
+                  <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform shadow-sm ${
+                    draft.excludeReembolsableGlobal ? 'translate-x-5' : 'translate-x-0'
+                  }`} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: SIN PRIORIDAD / NECESIDAD O DESEO */}
+          {activeGroupTab === 'sin_prioridad' && (
+            <div className="space-y-6">
+              <div className="glass-card p-4 rounded-xl border border-white/5 space-y-4">
+                <div>
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Flame size={16} className="text-emerald-400" /> Exclusiones para "Sin Necesidad/Deseo"
+                  </h3>
+                  <p className="text-xs text-gray-400 mt-0.5">Las transacciones que coincidan con estas categorías o etiquetas no se exigirán con prioridad.</p>
+                </div>
+
+                {/* Categorías */}
+                <div className="space-y-2">
+                  <p className="text-xs text-gray-300 font-semibold">Categorías excluidas:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {draft.prioridadExcludedCategories.map(cat => (
+                      <span key={cat} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-xs font-semibold">
+                        {cat}
+                        <button type="button" onClick={() => removeCategory('prioridad', cat)} className="hover:text-red-400 transition-colors">
+                          <X size={14} />
+                        </button>
+                      </span>
+                    ))}
+                    {draft.prioridadExcludedCategories.length === 0 && (
+                      <span className="text-xs text-gray-600 italic">Ninguna categoría excluida</span>
+                    )}
+                  </div>
+
+                  <div className="pt-1">
+                    <AutocompleteExclusionInput
+                      placeholder="Buscar o escribir categoría..."
+                      items={allCategories}
+                      existingList={draft.prioridadExcludedCategories}
+                      onAdd={cat => addCategory('prioridad', cat)}
+                      isTag={false}
+                    />
+                  </div>
+                </div>
+
+                {/* Etiquetas */}
+                <div className="space-y-2 border-t border-white/5 pt-3">
+                  <p className="text-xs text-gray-300 font-semibold">Etiquetas (Tags) excluidas:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {draft.prioridadExcludedTags.map(tag => (
+                      <span key={tag} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-teal-500/10 text-teal-300 border border-teal-500/20 text-xs font-semibold">
+                        #{tag}
+                        <button type="button" onClick={() => removeTag('prioridad', tag)} className="hover:text-red-400 transition-colors">
+                          <X size={14} />
+                        </button>
+                      </span>
+                    ))}
+                    {draft.prioridadExcludedTags.length === 0 && (
+                      <span className="text-xs text-gray-600 italic">Ninguna etiqueta excluida</span>
+                    )}
+                  </div>
+
+                  <div className="pt-1">
+                    <AutocompleteExclusionInput
+                      placeholder="Buscar o escribir etiqueta (tag)..."
+                      items={allTags}
+                      existingList={draft.prioridadExcludedTags}
+                      onAdd={tag => addTag('prioridad', tag)}
+                      isTag={true}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: SIN FELICIDAD */}
+          {activeGroupTab === 'sin_felicidad' && (
+            <div className="space-y-6">
+              <div className="glass-card p-4 rounded-xl border border-white/5 space-y-4">
+                <div>
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Heart size={16} className="text-pink-400" /> Exclusiones para "Sin Felicidad"
+                  </h3>
+                  <p className="text-xs text-gray-400 mt-0.5">Configura qué movimientos no requieren la puntuación de felicidad.</p>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-lg bg-white/[0.02] border border-white/5">
+                  <span className="text-xs text-gray-300 font-medium">Excluir reembolsables de la verificación de felicidad</span>
+                  <button
+                    type="button"
+                    onClick={() => setDraft({ ...draft, felicidadExcludeReembolsable: !draft.felicidadExcludeReembolsable })}
+                    className={`w-10 h-6 rounded-full relative transition-colors border shrink-0 ${
+                      draft.felicidadExcludeReembolsable ? 'bg-pink-600 border-pink-500/50' : 'bg-surface-800 border-white/10'
+                    }`}
+                  >
+                    <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform shadow-sm ${
+                      draft.felicidadExcludeReembolsable ? 'translate-x-4' : 'translate-x-0'
+                    }`} />
+                  </button>
+                </div>
+
+                {/* Categorías */}
+                <div className="space-y-2">
+                  <p className="text-xs text-gray-300 font-semibold">Categorías excluidas:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {draft.felicidadExcludedCategories.map(cat => (
+                      <span key={cat} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-pink-500/10 text-pink-300 border border-pink-500/20 text-xs font-semibold">
+                        {cat}
+                        <button type="button" onClick={() => removeCategory('felicidad', cat)} className="hover:text-red-400 transition-colors">
+                          <X size={14} />
+                        </button>
+                      </span>
+                    ))}
+                    {draft.felicidadExcludedCategories.length === 0 && (
+                      <span className="text-xs text-gray-600 italic">Ninguna categoría excluida</span>
+                    )}
+                  </div>
+
+                  <div className="pt-1">
+                    <AutocompleteExclusionInput
+                      placeholder="Buscar o escribir categoría..."
+                      items={allCategories}
+                      existingList={draft.felicidadExcludedCategories}
+                      onAdd={cat => addCategory('felicidad', cat)}
+                      isTag={false}
+                    />
+                  </div>
+                </div>
+
+                {/* Etiquetas */}
+                <div className="space-y-2 border-t border-white/5 pt-3">
+                  <p className="text-xs text-gray-300 font-semibold">Etiquetas (Tags) excluidas:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {draft.felicidadExcludedTags.map(tag => (
+                      <span key={tag} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-pink-500/10 text-pink-300 border border-pink-500/20 text-xs font-semibold">
+                        #{tag}
+                        <button type="button" onClick={() => removeTag('felicidad', tag)} className="hover:text-red-400 transition-colors">
+                          <X size={14} />
+                        </button>
+                      </span>
+                    ))}
+                    {draft.felicidadExcludedTags.length === 0 && (
+                      <span className="text-xs text-gray-600 italic">Ninguna etiqueta excluida</span>
+                    )}
+                  </div>
+
+                  <div className="pt-1">
+                    <AutocompleteExclusionInput
+                      placeholder="Buscar o escribir etiqueta (tag)..."
+                      items={allTags}
+                      existingList={draft.felicidadExcludedTags}
+                      onAdd={tag => addTag('felicidad', tag)}
+                      isTag={true}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: SIN CATEGORIA */}
+          {activeGroupTab === 'sin_categoria' && (
+            <div className="space-y-6">
+              <div className="glass-card p-4 rounded-xl border border-white/5 space-y-4">
+                <div>
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Tag size={16} className="text-amber-400" /> Exclusiones para "Sin Categoría"
+                  </h3>
+                  <p className="text-xs text-gray-400 mt-0.5">Define excepciones para no marcar transacciones como pendientes de categoría.</p>
+                </div>
+
+                {/* Categorías (por nombre exacto o patrón) */}
+                <div className="space-y-2">
+                  <p className="text-xs text-gray-300 font-semibold">Categorías excluidas:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {draft.categoriaExcludedCategories.map(cat => (
+                      <span key={cat} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/20 text-xs font-semibold">
+                        {cat}
+                        <button type="button" onClick={() => removeCategory('categoria', cat)} className="hover:text-red-400 transition-colors">
+                          <X size={14} />
+                        </button>
+                      </span>
+                    ))}
+                    {draft.categoriaExcludedCategories.length === 0 && (
+                      <span className="text-xs text-gray-600 italic">Ninguna categoría excluida</span>
+                    )}
+                  </div>
+
+                  <div className="pt-1">
+                    <AutocompleteExclusionInput
+                      placeholder="Buscar o escribir categoría..."
+                      items={allCategories}
+                      existingList={draft.categoriaExcludedCategories}
+                      onAdd={cat => addCategory('categoria', cat)}
+                      isTag={false}
+                    />
+                  </div>
+                </div>
+
+                {/* Etiquetas */}
+                <div className="space-y-2 border-t border-white/5 pt-3">
+                  <p className="text-xs text-gray-300 font-semibold">Etiquetas (Tags) excluidas:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {draft.categoriaExcludedTags.map(tag => (
+                      <span key={tag} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/20 text-xs font-semibold">
+                        #{tag}
+                        <button type="button" onClick={() => removeTag('categoria', tag)} className="hover:text-red-400 transition-colors">
+                          <X size={14} />
+                        </button>
+                      </span>
+                    ))}
+                    {draft.categoriaExcludedTags.length === 0 && (
+                      <span className="text-xs text-gray-600 italic">Ninguna etiqueta excluida</span>
+                    )}
+                  </div>
+
+                  <div className="pt-1">
+                    <AutocompleteExclusionInput
+                      placeholder="Buscar o escribir etiqueta (tag)..."
+                      items={allTags}
+                      existingList={draft.categoriaExcludedTags}
+                      onAdd={tag => addTag('categoria', tag)}
+                      isTag={true}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: SIN ETIQUETAS */}
+          {activeGroupTab === 'sin_tags' && (
+            <div className="space-y-6">
+              <div className="glass-card p-4 rounded-xl border border-white/5 space-y-4">
+                <div>
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Sparkles size={16} className="text-violet-400" /> Exclusiones para "Sin Etiquetas"
+                  </h3>
+                  <p className="text-xs text-gray-400 mt-0.5">Transacciones con estas categorías o tags no requerirán etiquetas adicionales.</p>
+                </div>
+
+                {/* Categorías */}
+                <div className="space-y-2">
+                  <p className="text-xs text-gray-300 font-semibold">Categorías excluidas:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {draft.tagsExcludedCategories.map(cat => (
+                      <span key={cat} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-violet-500/10 text-violet-300 border border-violet-500/20 text-xs font-semibold">
+                        {cat}
+                        <button type="button" onClick={() => removeCategory('tags', cat)} className="hover:text-red-400 transition-colors">
+                          <X size={14} />
+                        </button>
+                      </span>
+                    ))}
+                    {draft.tagsExcludedCategories.length === 0 && (
+                      <span className="text-xs text-gray-600 italic">Ninguna categoría excluida</span>
+                    )}
+                  </div>
+
+                  <div className="pt-1">
+                    <AutocompleteExclusionInput
+                      placeholder="Buscar o escribir categoría..."
+                      items={allCategories}
+                      existingList={draft.tagsExcludedCategories}
+                      onAdd={cat => addCategory('tags', cat)}
+                      isTag={false}
+                    />
+                  </div>
+                </div>
+
+                {/* Etiquetas */}
+                <div className="space-y-2 border-t border-white/5 pt-3">
+                  <p className="text-xs text-gray-300 font-semibold">Etiquetas (Tags) excluidas:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {draft.tagsExcludedTags.map(tag => (
+                      <span key={tag} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-violet-500/10 text-violet-300 border border-violet-500/20 text-xs font-semibold">
+                        #{tag}
+                        <button type="button" onClick={() => removeTag('tags', tag)} className="hover:text-red-400 transition-colors">
+                          <X size={14} />
+                        </button>
+                      </span>
+                    ))}
+                    {draft.tagsExcludedTags.length === 0 && (
+                      <span className="text-xs text-gray-600 italic">Ninguna etiqueta excluida</span>
+                    )}
+                  </div>
+
+                  <div className="pt-1">
+                    <AutocompleteExclusionInput
+                      placeholder="Buscar o escribir etiqueta (tag)..."
+                      items={allTags}
+                      existingList={draft.tagsExcludedTags}
+                      onAdd={tag => addTag('tags', tag)}
+                      isTag={true}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-white/10 flex items-center justify-between bg-white/[0.02]">
+          <button
+            type="button"
+            onClick={handleReset}
+            className="flex items-center gap-1.5 text-xs font-bold text-gray-400 hover:text-white px-3 py-2 rounded-lg hover:bg-white/5 transition-colors"
+          >
+            <RotateCcw size={14} /> Restablecer predeterminados
+          </button>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-xs font-bold text-gray-400 hover:text-white rounded-xl hover:bg-white/5 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              className="px-5 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-colors shadow-lg shadow-emerald-500/20"
+            >
+              Guardar Reglas
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Page ────────────────────────────────────────────────────────────────────
 
 export function Verification() {
   const { data: rawTx, isLoading, isError, refetch, isFetching } = useAllTransactions();
   const { data: existingTags } = useTags();
+  const { data: categories } = useCategories();
   const updateMutation = useUpdateTransaction();
+
+  // Rules state initialized from localStorage
+  const [rules, setRules] = useState<VerificationExclusionRules>(loadExclusionRules);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const [activeIssue, setActiveIssue] = useState<IssueKey | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
@@ -135,7 +793,23 @@ export function Verification() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  const allTx = useMemo(() => groupSplits((rawTx || []).filter(t => !t.es_reembolsable)), [rawTx]);
+  // Persist rules whenever updated
+  const handleSaveRules = (newRules: VerificationExclusionRules) => {
+    setRules(newRules);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newRules));
+    } catch (e) {
+      console.error('Error saving verification exclusion rules to localStorage', e);
+    }
+  };
+
+  const allTx = useMemo(() => {
+    const base = rawTx || [];
+    const filtered = rules.excludeReembolsableGlobal
+      ? base.filter(t => !t.es_reembolsable)
+      : base;
+    return groupSplits(filtered);
+  }, [rawTx, rules.excludeReembolsableGlobal]);
 
   // Full available date span (for presets / input bounds).
   const dateBounds = useMemo(() => {
@@ -182,10 +856,10 @@ export function Verification() {
       sin_revisar: [], sin_categoria: [], sin_prioridad: [], sin_felicidad: [], sin_tags: [],
     };
     for (const t of displayTx) {
-      for (const issue of activeIssuesFor(t)) b[issue.key].push(t);
+      for (const issue of activeIssuesFor(t, rules)) b[issue.key].push(t);
     }
     return b;
-  }, [displayTx]);
+  }, [displayTx, rules]);
 
   const total = displayTx.length;
 
@@ -196,10 +870,10 @@ export function Verification() {
   const health = useMemo(() => {
     if (total === 0) return 100;
     const clean = displayTx.filter(t =>
-      !txFails(t, reviewMissing) && !txFails(t, catMissing) && !txFails(t, prioridadMissing)
+      !txFails(t, reviewMissing, rules) && !txFails(t, catMissing, rules) && !txFails(t, prioridadMissing, rules)
     ).length;
     return Math.round((clean / total) * 100);
-  }, [displayTx, total]);
+  }, [displayTx, total, rules]);
 
   const monthly: MonthlyIssuePoint[] = useMemo(() => {
     const m = new Map<string, MonthlyIssuePoint>();
@@ -211,10 +885,10 @@ export function Verification() {
       }
       const p = m.get(month)!;
       p.total += 1;
-      for (const issue of activeIssuesFor(t)) p[issue.key] += 1;
+      for (const issue of activeIssuesFor(t, rules)) p[issue.key] += 1;
     }
     return Array.from(m.values()).sort((a, b) => a.month.localeCompare(b.month));
-  }, [displayTx]);
+  }, [displayTx, rules]);
 
   // Apply month + search filters and sort by most-negative amount first.
   const filterSort = useCallback((base: Transaction[]) => {
@@ -282,6 +956,15 @@ export function Verification() {
               <p className="text-sm font-bold text-white">{total.toLocaleString()} movimientos</p>
             </div>
           </div>
+
+          <button
+            onClick={() => setIsSettingsOpen(true)}
+            className="glass p-3.5 rounded-2xl text-emerald-400 hover:text-white hover:bg-emerald-600 transition-all duration-300 shadow-lg group active:scale-95 flex items-center gap-2"
+            title="Configurar Reglas de Exclusión"
+          >
+            <Settings2 size={22} className="transition-transform duration-300 group-hover:rotate-45" />
+            <span className="hidden sm:inline text-xs font-bold pr-1">Reglas</span>
+          </button>
 
           <button
             onClick={() => refetch()}
@@ -583,7 +1266,7 @@ export function Verification() {
                       <div className="divide-y divide-white/[0.04]">
                         {shown.map(t => {
                           const isExpense = t.MONTO < 0;
-                          const flags = activeIssuesFor(t);
+                          const flags = activeIssuesFor(t, rules);
                           const isSplit = !!(t.subTransactions && t.subTransactions.length > 1);
                           return (
                             <button
@@ -644,15 +1327,26 @@ export function Verification() {
         </div>
       </div>
 
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        rules={rules}
+        onSaveRules={handleSaveRules}
+        allCategories={categories || []}
+        allTags={existingTags || []}
+      />
+
       {/* Edit Modal */}
       <EditModal
         transaction={editing}
         isOpen={!!editing}
         onClose={() => setEditing(null)}
         onSave={handleSave}
-        categories={[]}
+        categories={categories || []}
         existingTags={existingTags || []}
       />
     </div>
   );
 }
+
