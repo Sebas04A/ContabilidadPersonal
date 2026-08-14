@@ -40,6 +40,22 @@ Validación robusta de los modelos y lógica tras las métricas interactivas y g
 - **`tests/test_investment_service.py`**: Aseguramiento de lógica que arma arreglos para ECharts en las Inversiones, asegurando longitud equitativa en arreglos temporales (`dates` y `saldo`).
 - **`tests/test_routes_investments.py`**: Validación JSON Response del servicio completo en base API (`/api/investments/chart-data` y `/from-accounts`).
 - **`tests/test_routes_dashboard.py`**: Confirmación sobre generación global unificada de dashboard report (`DashboardResponse`), asegurando que todos los atributos esperados salgan, sumado a endpoints directos de `cache stats`.
+- **`tests/test_dashboard_filters.py`**: Filtro a nivel transacción del dashboard. Los predicados de `TxFilter` (que deben responder igual que los del presupuesto en `MonthlyBudget.tsx`) y la aritmética del descuento sobre las series diarias, incluidas la neutralidad del pago de tarjeta y el corte del ancla. Todo con datos sintéticos: si dependieran de los CSV reales avisarían de cambios en los datos en vez de cambios en el código.
+
+### 7. Regresión del dashboard (snapshot dorado)
+
+La suite no cubre el caso más peligroso del dashboard: que un refactor mueva el patrimonio un
+centavo sobre 944 días sin que nada falle. Para eso está `scripts/snapshot_dashboard.py`, que se
+corre a mano **antes y después** de tocar el dashboard:
+
+```bash
+python scripts/snapshot_dashboard.py capturar --nombre baseline   # antes de editar
+python scripts/snapshot_dashboard.py comparar --nombre baseline   # después
+```
+
+Congela `/chart-data` y `/variations` en sus dos variantes de `incluir_inversiones`. Con los
+filtros apagados tiene que dar **IDÉNTICO**. Usar `--via http` contra el backend corriendo: es el
+autoritativo. Detalles en `contabilidad/FILTROS_DASHBOARD.md` §6.
 
 ---
 
