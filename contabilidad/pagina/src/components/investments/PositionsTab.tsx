@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
+import * as echarts from 'echarts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowDownLeft, ArrowUpRight, ChevronDown, Landmark, Pencil, Trash2, TrendingUp } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, ChevronDown, Landmark, Microscope, Pencil, Trash2, TrendingUp } from 'lucide-react';
 import {
   investmentsApi,
   type FlowDirection,
   type Portfolio,
   type Position,
 } from '../../services/investments';
-import { Badge, EmptyState, Section, Spinner, fmt, money, pct } from './shared';
+import { Badge, Chart, EJE, EmptyState, Section, Spinner, TOOLTIP, fmt, money, pct } from './shared';
 
 const TIPO_LABEL: Record<string, string> = {
   plazo_fijo: 'Plazo fijo',
@@ -20,7 +21,11 @@ const TIPO_LABEL: Record<string, string> = {
  * The master table. Open positions come first because they are the ones that still need
  * a decision; within each group the most recent leads.
  */
-export function PositionsTab({ portfolios }: { portfolios: Portfolio[] }) {
+export function PositionsTab({ portfolios, onAnalizar }: {
+  portfolios: Portfolio[];
+  /** Salta a la pestaña de Detalle con este portafolio y esta posición ya abiertos. */
+  onAnalizar: (portafolioId: string | null, posicionId: string) => void;
+}) {
   const [portafolio, setPortafolio] = useState('');
   const [estado, setEstado] = useState('');
   const [abierta, setAbierta] = useState<string | null>(null);
@@ -52,6 +57,13 @@ export function PositionsTab({ portfolios }: { portfolios: Portfolio[] }) {
   }, [positions]);
 
   return (
+    <div className="space-y-4">
+      <LineaDeTiempo
+        posiciones={ordenadas}
+        nombres={nombres}
+        onAnalizar={onAnalizar}
+      />
+
     <Section
       title="Posiciones"
       subtitle={`${ordenadas.length} guardadas`}
@@ -126,12 +138,170 @@ export function PositionsTab({ portfolios }: { portfolios: Portfolio[] }) {
                   esCustodia={!!p.portafolio_id && custodia.has(p.portafolio_id)}
                   abierta={abierta === p.id}
                   onToggle={() => setAbierta(abierta === p.id ? null : p.id)}
+                  onAnalizar={() => onAnalizar(p.portafolio_id, p.id)}
                 />
               ))}
             </tbody>
           </table>
         </div>
       )}
+    </Section>
+    </div>
+  );
+}
+
+/**
+ * Cada certificado como una barra en su portafolio, de apertura a cierre.
+ *
+ * La tabla contesta «qué hay» y era lo único que había; esto contesta **«cuándo»**, que es
+ * lo que ninguna fila puede enseñar. Las barras son los días en que la plata rendía y —lo
+ * importante— **los huecos entre barras son los días en que no**: el mismo argumento que
+ * hace la barra de porcentajes del Detalle, pero repartido en el tiempo y comparable entre
+ * portafolios sobre un solo eje.
+ *
+ * El ancho es tiempo, no capital: dos certificados del mismo tamaño a distinto plazo tienen
+ * que verse distintos, porque lo que rinde es el capital *por día*. El capital va en el
+ * tooltip y en la etiqueta, no en la geometría.
+ */
+function LineaDeTiempo({ posiciones, nombres, onAnalizar }: {
+  posiciones: Position[];
+  nombres: Record<string, string>;
+  onAnalizar: (portafolioId: string | null, posicionId: string) => void;
+}) {
+  const hoy = useMemo(() => new Date().toISOString().slice(0, 10), []);
+
+  const { option, filas, barras } = useMemo(() => {
+    // Los flujos y los ajustes son eventos de un día: como barra no serían más que una
+    // astilla de dos píxeles, y además no son plata trabajando, que es de lo que habla
+    // este gráfico. Se quedan en la tabla de abajo, que es donde se pueden leer.
+    const conFechas = posiciones.filter(
+      p => p.fecha_apertura && p.tipo !== 'flujo' && p.tipo !== 'ajuste',
+    );
+    // Un carril por portafolio, en el orden en que aparecen; las sueltas van juntas al final.
+    const carriles: string[] = [];
+    for (const p of conFechas) {
+      const clave = p.portafolio_id ? (nombres[p.portafolio_id] ?? p.portafolio_id) : 'Sin portafolio';
+      if (!carriles.includes(clave)) carriles.push(clave);
+    }
+
+    const datos = conFechas.map(p => {
+      const clave = p.portafolio_id ? (nombres[p.portafolio_id] ?? p.portafolio_id) : 'Sin portafolio';
+      // Una posición abierta no termina: se dibuja hasta hoy, que es hasta donde se sabe.
+      const fin = p.fecha_cierre || hoy;
+      return {
+        value: [carriles.indexOf(clave), p.fecha_apertura as string, fin, p.capital,
+                p.estado === 'abierta' ? 1 : 0, p.tna],
+        posicion: p,
+      };
+    });
+
+    const opcion: echarts.EChartsOption = {
+      grid: { left: 130, right: 28, top: 16, bottom: 56 },
+      tooltip: {
+        ...TOOLTIP,
+        formatter: (params: any) => {
+          const p: Position = params.data.posicion;
+          const dias = p.dias ?? null;
+          return `<div style="font-weight:600;margin-bottom:4px">${
+            p.portafolio_id ? nombres[p.portafolio_id] ?? '—' : 'Sin portafolio'}</div>
+            <div>${p.fecha_apertura} → ${p.fecha_cierre ?? 'sigue abierta'}</div>
+            <div style="margin-top:4px">Capital <b>${money(p.capital)}</b></div>
+            <div>Interés <b>${p.interes ? money(p.interes) : '—'}</b>${
+              p.tna !== null ? ` · TNA <b>${fmt(p.tna)} %</b>` : ''}</div>
+            ${dias !== null ? `<div style="color:#a1a1aa">${dias} días</div>` : ''}`;
+        },
+      },
+      xAxis: {
+        type: 'time',
+        ...EJE,
+        splitLine: { lineStyle: { color: 'rgba(255,255,255,0.04)' } },
+      },
+      yAxis: {
+        type: 'category',
+        data: carriles,
+        // Sin esto el primer portafolio queda abajo del todo: echarts dibuja el índice 0
+        // en la base del eje y la lectura natural es de arriba abajo.
+        inverse: true,
+        ...EJE,
+        axisLabel: { color: '#d4d4d8', fontSize: 11, fontWeight: 'bold' },
+        splitLine: { show: false },
+      },
+      dataZoom: [
+        { type: 'inside' },
+        { type: 'slider', height: 16, bottom: 12, borderColor: 'transparent',
+          fillerColor: 'rgba(139,92,246,0.15)', handleStyle: { color: '#8b5cf6' },
+          textStyle: { color: '#71717a', fontSize: 10 } },
+      ],
+      series: [{
+        type: 'custom',
+        renderItem: (params: any, api: any) => {
+          const carril = api.value(0);
+          const inicio = api.coord([api.value(1), carril]);
+          const fin = api.coord([api.value(2), carril]);
+          const alto = Math.min(26, api.size([0, 1])[1] * 0.55);
+          const ancho = Math.max(fin[0] - inicio[0], 3);
+          const abierta = api.value(4) === 1;
+          const forma = echarts.graphic.clipRectByRect(
+            { x: inicio[0], y: inicio[1] - alto / 2, width: ancho, height: alto },
+            { x: params.coordSys.x, y: params.coordSys.y,
+              width: params.coordSys.width, height: params.coordSys.height },
+          );
+          if (!forma) return null;
+          const barra = {
+            type: 'rect' as const,
+            shape: { ...forma, r: 3 },
+            style: {
+              fill: abierta ? 'rgba(52,211,153,0.35)' : 'rgba(139,92,246,0.55)',
+              stroke: abierta ? '#34d399' : '#8b5cf6',
+              lineWidth: 1,
+            },
+          };
+          // La tasa dentro de la barra cuando cabe: es lo que convierte la línea de tiempo
+          // en algo que se lee de un vistazo — se ve cómo las tasas bajan con los años sin
+          // tener que pasar el ratón por cada certificado.
+          const tna = api.value(5);
+          if (forma.width < 46 || tna === null || tna === undefined) return barra;
+          return {
+            type: 'group' as const,
+            children: [barra, {
+              type: 'text' as const,
+              style: {
+                x: forma.x + forma.width / 2,
+                y: forma.y + forma.height / 2,
+                text: `${Number(tna).toFixed(1)} %`,
+                textAlign: 'center',
+                textVerticalAlign: 'middle',
+                fill: '#ede9fe',
+                font: 'bold 10px sans-serif',
+              },
+            }],
+          };
+        },
+        encode: { x: [1, 2], y: 0 },
+        data: datos,
+      }],
+    };
+
+    return { option: opcion, filas: carriles.length, barras: datos.length };
+  }, [posiciones, nombres, hoy]);
+
+  if (!barras) return null;
+
+  return (
+    <Section
+      title="Cuándo estuvo trabajando la plata"
+      subtitle="Cada barra es un certificado, de apertura a cierre. Los huecos entre barras son los días en que esa plata no rendía — verde, lo que sigue abierto. Clic en una barra para abrirla en Detalle"
+    >
+      <Chart
+        option={option}
+        height={Math.max(190, 76 + filas * 54)}
+        onEvento={{
+          click: (params: any) => {
+            const p: Position | undefined = params?.data?.posicion;
+            if (p) onAnalizar(p.portafolio_id, p.id);
+          },
+        }}
+      />
     </Section>
   );
 }
@@ -303,13 +473,14 @@ function Campo({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function PositionRow({ position, portfolios, nombre, esCustodia, abierta, onToggle }: {
+function PositionRow({ position, portfolios, nombre, esCustodia, abierta, onToggle, onAnalizar }: {
   position: Position;
   portfolios: Portfolio[];
   nombre: string | null;
   esCustodia: boolean;
   abierta: boolean;
   onToggle: () => void;
+  onAnalizar: () => void;
 }) {
   const viva = position.estado === 'abierta';
   return (
@@ -357,7 +528,7 @@ function PositionRow({ position, portfolios, nombre, esCustodia, abierta, onTogg
       {abierta && (
         <tr>
           <td colSpan={9} className="px-4 pb-4 bg-surface-950/40">
-            <PositionDetail position={position} portfolios={portfolios} />
+            <PositionDetail position={position} portfolios={portfolios} onAnalizar={onAnalizar} />
           </td>
         </tr>
       )}
@@ -374,7 +545,11 @@ const MOVIMIENTO_TONE: Record<string, string> = {
   comision: 'text-amber-400',
 };
 
-function PositionDetail({ position, portfolios }: { position: Position; portfolios: Portfolio[] }) {
+function PositionDetail({ position, portfolios, onAnalizar }: {
+  position: Position;
+  portfolios: Portfolio[];
+  onAnalizar: () => void;
+}) {
   const queryClient = useQueryClient();
   const [editando, setEditando] = useState(false);
   const [form, setForm] = useState({
@@ -432,6 +607,16 @@ function PositionDetail({ position, portfolios }: { position: Position; portfoli
         <div className="flex items-center justify-between">
           <span className="text-[11px] font-bold uppercase tracking-wider text-surface-400">Datos pactados</span>
           <div className="flex gap-1.5">
+            {(position.tipo === 'plazo_fijo' || position.tipo === 'valuada') && (
+              <button
+                onClick={onAnalizar}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary-600/15 border border-primary-500/30 text-primary-300 hover:bg-primary-600/25 text-[11px] font-semibold transition-all"
+                title="Ver su curva de crecimiento y cuánto rindió"
+              >
+                <Microscope size={13} />
+                Analizar
+              </button>
+            )}
             <button
               onClick={() => setEditando(!editando)}
               className="p-1.5 rounded-lg bg-surface-800 hover:bg-primary-600/20 text-surface-300 hover:text-primary-300 transition-all"
@@ -492,8 +677,22 @@ function PositionDetail({ position, portfolios }: { position: Position; portfoli
         ) : (
           <dl className="grid grid-cols-2 gap-y-2 gap-x-3 text-xs">
             <Dato label="Institución" valor={position.institucion ?? '—'} />
-            <Dato label="Plazo pactado" valor={position.plazo_pactado_dias ? `${position.plazo_pactado_dias} días` : 'sin capturar'} />
-            <Dato label="Tasa pactada" valor={position.tasa_pactada ? `${fmt(position.tasa_pactada)} %` : 'sin capturar'} />
+            <Dato
+              label="Plazo pactado"
+              valor={position.plazo_pactado_dias
+                ? `${position.plazo_pactado_dias} días`
+                : position.plazo_inferido
+                  ? `${position.plazo_inferido} días (deducido)`
+                  : 'sin capturar'}
+            />
+            <Dato
+              label="Tasa pactada"
+              valor={position.tasa_pactada
+                ? `${fmt(position.tasa_pactada)} %`
+                : position.tasa_inferida
+                  ? `${fmt(position.tasa_inferida)} % (deducida)`
+                  : 'sin capturar'}
+            />
             <Dato label="TNA calendario" valor={pct(position.tna)} />
             <Dato label="TNA liquidada" valor={pct(position.tna_pactada)} />
             <Dato label="Vencimiento" valor={position.fecha_vencimiento ?? '—'} />
@@ -506,7 +705,14 @@ function PositionDetail({ position, portfolios }: { position: Position; portfoli
           </dl>
         )}
 
-        {!position.plazo_pactado_dias && position.estado === 'cerrada' && (
+        {position.plazo_es_inferido && position.inferencia && (
+          <p className="text-[11px] text-primary-300/80 leading-snug">
+            {position.inferencia} Captura el plazo si tienes el certificado a mano y este
+            número se reemplaza por el tuyo.
+          </p>
+        )}
+
+        {!position.plazo_pactado_dias && !position.plazo_inferido && position.estado === 'cerrada' && (
           <p className="text-[11px] text-amber-400/80 leading-snug">
             Sin el plazo pactado, la TNA que ves usa días calendario y base 365. El banco
             liquida sobre el plazo pactado y base 360, así que la tasa real es un poco mayor.
