@@ -54,13 +54,20 @@ class GeneratePaymentsRequest(BaseModel):
 
 
 @router.get("/")
-def list_funds():
-    return fund_service.get_all_funds()
+def list_funds(
+    from_date: Optional[str] = Query(None, alias="from"),
+    to_date: Optional[str] = Query(None, alias="to"),
+):
+    return fund_service.get_all_funds(from_date=from_date, to_date=to_date)
 
 
 @router.get("/{fund_id}")
-def get_fund(fund_id: str, from_date: Optional[str] = Query(None, alias="from")):
-    detail = fund_service.get_fund_detail(fund_id, view_start=from_date)
+def get_fund(
+    fund_id: str,
+    from_date: Optional[str] = Query(None, alias="from"),
+    to_date: Optional[str] = Query(None, alias="to"),
+):
+    detail = fund_service.get_fund_detail(fund_id, view_start=from_date, view_end=to_date)
     if detail is None:
         raise HTTPException(status_code=404, detail="Fund not found")
     return detail
@@ -137,7 +144,7 @@ def generate_payments(fund_id: str, req: GeneratePaymentsRequest):
         InterpolationStorage.delete_group(g['id'])
 
     group = InterpolationStorage.create_group(
-        name=f"Pagos {fund['name']}",
+        name=f"{fund['name']} Pagos",
         description=f"Pagos generados automáticamente del fondo «{fund['name']}»",
         group_type='fixed',
         es_fondo=False,

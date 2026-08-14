@@ -184,14 +184,15 @@ def _compute_metrics(movements: List[Dict[str, Any]], saldo_inicial: float,
     }
 
 
-def get_fund_detail(group_id: str, view_start: Optional[str] = None) -> Optional[Dict[str, Any]]:
+def get_fund_detail(group_id: str, view_start: Optional[str] = None, view_end: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """
     Full fund detail: config + ordered movements with running balance + metrics.
 
-    `view_start` is a display-only lens: when given, only movements on/after that
-    date are shown, the running balance restarts at 0 (prior accumulation is
-    ignored), and metrics are recomputed over that window. It does NOT change the
-    fund's permanent `fecha_inicio`.
+    `view_start` and `view_end` provide a display-only lens: when `view_start` is given,
+    only movements on/after that date are shown, the running balance restarts at 0
+    (prior accumulation is ignored), and metrics are recomputed over that window.
+    When `view_end` is given, only movements on/before that date are included.
+    It does NOT change the fund's permanent `fecha_inicio`.
     """
     group = InterpolationStorage.get_group(group_id)
     if group is None:
@@ -212,12 +213,17 @@ def get_fund_detail(group_id: str, view_start: Optional[str] = None) -> Optional
 
     # Display lens: restart the view from a chosen date, balance from 0.
     view_start_date = _to_date(view_start)
+    view_end_date = _to_date(view_end)
+
     if view_start_date is not None:
         movements = [m for m in movements if m['date'] >= view_start_date]
         base_balance = 0.0
         start_date = view_start_date
     else:
         base_balance = saldo_inicial
+
+    if view_end_date is not None:
+        movements = [m for m in movements if m['date'] <= view_end_date]
 
     # Order by date, then manual after transaction on ties (stable), and cumsum.
     movements.sort(key=lambda m: (m['date'], 0 if m['source'] == 'transaction' else 1))
@@ -259,12 +265,12 @@ def get_fund_detail(group_id: str, view_start: Optional[str] = None) -> Optional
     }
 
 
-def get_all_funds() -> List[Dict[str, Any]]:
+def get_all_funds(from_date: Optional[str] = None, to_date: Optional[str] = None) -> List[Dict[str, Any]]:
     """List every fund with a lightweight summary + balance sparkline."""
     groups = InterpolationStorage.get_groups(type_filter=None, fund_only=True)
     funds: List[Dict[str, Any]] = []
     for g in groups:
-        detail = get_fund_detail(g['id'])
+        detail = get_fund_detail(g['id'], view_start=from_date, view_end=to_date)
         if detail is None:
             continue
         sparkline = [m['running_balance'] for m in detail['movements']]
@@ -278,3 +284,4 @@ def get_all_funds() -> List[Dict[str, Any]]:
             'sparkline': sparkline,
         })
     return funds
+

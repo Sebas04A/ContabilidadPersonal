@@ -43,22 +43,36 @@ const LARGE_INCOME_FRAC = 0.4;
 
 /**
  * PREVIEW ONLY (no data changes): flatten the running balance using the
- * fixed-payment approach. Each "large" income (a monthly allowance) opens a coverage
- * window that runs until the NEXT large income; small incomes inside the window are
- * pooled into its credit rather than closing it. The window's credit covers the
- * expenses inside it (partially covering the straddling expense). Each covered chunk
- * becomes a fixed-payment offset [income_date, expense_date) for the covered amount.
- * Subtracting the offset from the raw balance cancels matched income/expense, leaving
- * only excess / savings.
+ * fixed-payment approach. Matching runs in two passes:
+ *
+ *  1. Forward: each "large" income (a monthly allowance) opens a coverage window that
+ *     runs until the NEXT large income; small incomes inside the window are pooled into
+ *     its credit rather than closing it. The window's credit covers the expenses inside
+ *     it (partially covering the straddling expense), producing a POSITIVE offset over
+ *     [income_date, expense_date) — this flattens the upward spike of money sitting in
+ *     the fund before being spent.
+ *  2. Backward: any expense still uncovered was paid before its money arrived, so it is
+ *     matched against the earliest LATER income with credit left, producing a NEGATIVE
+ *     offset over [expense_date, income_date) — this flattens the downward dip.
+ *
+ * Subtracting the offset from the raw balance cancels matched income/expense in both
+ * directions, leaving only excess / savings.
  */
 function computeFlatten(movs: FundMovement[]): FlattenResult {
   const expenseRemaining = movs.map(m => (m.amount < 0 ? -m.amount : 0));
+  const incomeRemaining = movs.map(m => (m.amount > 0 ? m.amount : 0));
   // Boundaries use the movement INDEX, not the date: several movements can share
   // the same day, so a date-based range would deactivate all same-day payments at
   // the first movement of that day and desync from the raw balance.
   const internal: { startIdx: number; endIdx: number; amount: number }[] = [];
   const payments: FlattenPayment[] = [];
 
+  const addPayment = (startIdx: number, endIdx: number, amount: number) => {
+    internal.push({ startIdx, endIdx, amount });
+    payments.push({ start: movs[startIdx].date, end: movs[endIdx].date, amount });
+  };
+
+  // --- Pass 1: an income covers later expenses (upward spikes) ---
   let i = 0;
   while (i < movs.length) {
     if (movs[i].amount <= 0) { i++; continue; }
@@ -67,6 +81,7 @@ function computeFlatten(movs: FundMovement[]): FlattenResult {
     // (>= LARGE_INCOME_FRAC of the anchor) ends it. Small ones are pooled as credit.
     const groupStart = i;
     const anchor = movs[i].amount;
+    const members = [i]; // income indices whose credit this window pools
     let remaining = anchor;
     i++;
     while (i < movs.length) {
@@ -74,6 +89,7 @@ function computeFlatten(movs: FundMovement[]): FlattenResult {
       if (amt > 0) {
         if (amt >= LARGE_INCOME_FRAC * anchor) break; // large income -> new window
         remaining += amt;                             // small income -> pool as credit
+        members.push(i);
       }
       i++;
     }
@@ -82,13 +98,41 @@ function computeFlatten(movs: FundMovement[]): FlattenResult {
     for (let k = groupStart + 1; k < windowEnd && remaining > 0; k++) {
       if (movs[k].amount < 0 && expenseRemaining[k] > 0) {
         const cover = round2(Math.min(remaining, expenseRemaining[k]));
-        internal.push({ startIdx: groupStart, endIdx: k, amount: cover });
-        payments.push({ start: movs[groupStart].date, end: movs[k].date, amount: cover });
-        remaining -= cover;
-        expenseRemaining[k] -= cover;
+        remaining = round2(remaining - cover);
+        expenseRemaining[k] = round2(expenseRemaining[k] - cover);
+        // Draw the credit down from the pooled incomes (FIFO), emitting one payment per
+        // chunk: each starts at the date of the income that actually funded it, so a
+        // chunk coming from a pooled small income doesn't offset the days before it
+        // arrived. Pass 2 then only sees credit that is genuinely left over.
+        let left = cover;
+        for (const m of members) {
+          if (left <= 0) break;
+          const take = round2(Math.min(left, incomeRemaining[m]));
+          if (take <= 0) continue;
+          addPayment(m, k, take);
+          incomeRemaining[m] = round2(incomeRemaining[m] - take);
+          left = round2(left - take);
+        }
       }
     }
   }
+
+  // --- Pass 2: expenses paid ahead of their income (downward dips) ---
+  for (let k = 0; k < movs.length; k++) {
+    if (expenseRemaining[k] <= 0) continue;
+    for (let j = k + 1; j < movs.length && expenseRemaining[k] > 0; j++) {
+      if (incomeRemaining[j] <= 0) continue;
+      const cover = round2(Math.min(expenseRemaining[k], incomeRemaining[j]));
+      // Negative offset: the raw balance is DOWN by `cover` over [expense, income),
+      // so the payment must be negative for `raw - offset` to come back to level.
+      addPayment(k, j, -cover);
+      expenseRemaining[k] = round2(expenseRemaining[k] - cover);
+      incomeRemaining[j] = round2(incomeRemaining[j] - cover);
+    }
+  }
+
+  // Both passes emit in their own order; sort so the list reads like a timeline.
+  payments.sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0));
 
   const offsetAt = (j: number) =>
     internal.reduce((s, p) => s + (j >= p.startIdx && j < p.endIdx ? p.amount : 0), 0);
@@ -387,7 +431,7 @@ function FundTracking({ fund }: { fund: import('../services/api').FundDetail }) 
             <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[11px] font-bold text-violet-300 uppercase tracking-wide">Pagos a crear ({flat.payments.length})</span>
-                <span className="text-[11px] text-surface-500">cada ingreso cubre gastos hasta el próximo ingreso</span>
+                <span className="text-[11px] text-surface-500">cada gasto se empareja con el ingreso que lo cubre, antes o después</span>
                 {generated && (
                   <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 flex items-center gap-1">
                     <Check size={10} /> {generated.payment_count} creados en «{generated.name}»
@@ -417,7 +461,13 @@ function FundTracking({ fund }: { fund: import('../services/api').FundDetail }) 
                     <span className="text-surface-400 font-mono flex items-center gap-1">
                       {p.start} <span className="text-surface-600">→</span> {p.end}
                     </span>
-                    <span className="font-mono font-bold text-violet-300">${fmt(p.amount)}</span>
+                    {/* Negative = the gasto came first and a later ingreso repaid it. */}
+                    <span
+                      className={`font-mono font-bold ${p.amount < 0 ? 'text-amber-300' : 'text-violet-300'}`}
+                      title={p.amount < 0 ? 'Gasto adelantado: el ingreso que lo cubre llega después' : 'Ingreso que cubre un gasto posterior'}
+                    >
+                      {p.amount < 0 ? '−' : ''}${fmt(Math.abs(p.amount))}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -425,7 +475,8 @@ function FundTracking({ fund }: { fund: import('../services/api').FundDetail }) 
           </div>
 
           <p className="text-[11px] text-surface-500 mt-3">
-            Cada pago cubre un ingreso hasta el gasto que lo consume. Con <span className="text-violet-300 font-semibold">Crear pagos</span> se
+            Cada pago cubre un ingreso hasta el gasto que lo consume; si el gasto ocurrió <em>antes</em> que su ingreso, el pago sale
+            en <span className="text-amber-300 font-semibold">negativo</span> y cubre el tramo inverso. Con <span className="text-violet-300 font-semibold">Crear pagos</span> se
             materializan en un grupo <span className="text-surface-400">fixed</span> aparte, vinculado a este fondo, que alimenta el dashboard. Regenerar reemplaza el grupo anterior.
           </p>
         </div>
