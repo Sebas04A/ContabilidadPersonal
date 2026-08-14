@@ -133,7 +133,11 @@
         "SUPERMAXI POMASQUI 122 Q CONSUMO ECU": "Supermaxi",
         "DLC*UBER RIDESLD S CONSUMO CRI": "Uber",
         "TRANSFERENCIA DIRECTA A VALLEJO TRUJILLO JANETH ESTHER": "Poliburger",
-        "TRANSF. DIRECTA A VALLEJO  TRUJILLO JANETH ESTHER": "Poliburger"
+        "TRANSF. DIRECTA A VALLEJO  TRUJILLO JANETH ESTHER": "Poliburger",
+        "RET IVA SERV DIGITAL 100% N/D": "Ret IVA SERV DIGITAL",
+        "DLC*UBER EATSNLD S CONSUMO CRI": "Subcripcion Uber",
+        "DLC*UBER RIDESSA S CONSUMO CRI": "Uber",
+        "COSTO DE LA TRANSACCION GAD CONSUMO": "PTP - PEAJE CONSEJO PROVINCIAL CONSUMO"
     },
     "entity_data": {
         "Canelazo": {
@@ -639,6 +643,13 @@
             "prioridad": "Necesidad",
             "es_fijo": false,
             "tags": "Almuerzo",
+            "nota": ""
+        },
+        "Ret IVA SERV DIGITAL": {
+            "categoria": "Subscripciones",
+            "prioridad": "Deseo",
+            "es_fijo": false,
+            "tags": "",
             "nota": ""
         }
     },
