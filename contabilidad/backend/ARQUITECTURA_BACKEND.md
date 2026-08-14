@@ -188,11 +188,16 @@ save_csv()               # Guarda DataFrame a CSV
 
 **Operaciones CRUD para Grupos**:
 ```python
-get_groups(type_filter)          # Listar grupos
+get_groups(type_filter, fund_only, origen)
+                                 # Listar grupos. `type` dice cómo se EJECUTA (al patrimonio
+                                 # solo se aplican fixed e interpolated), no qué es el grupo:
+                                 # para eso está `origen`, derivado en _normalize_group() —
+                                 # manual | fondo | inversion | generado.
 get_group(group_id)              # Obtener grupo específico
 create_group(...)                # Crear nuevo grupo
 update_group(group_id, updates)  # Actualizar grupo
 delete_group(group_id)           # Eliminar grupo (cascada)
+                                 # La RUTA lo protege: 409 si el grupo no es origen='manual'
 ```
 
 **Operaciones CRUD para Pagos**:
