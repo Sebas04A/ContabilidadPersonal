@@ -147,6 +147,68 @@ def _tna_pactada(capital: float, interes: float, plazo_pactado_dias: Optional[in
     return round(interes / capital * 360 / plazo_pactado_dias * 100, 4)
 
 
+#: Los bancos cotizan en pasos de 0,05 %. Es lo que convierte la inferencia en una lectura
+#: y no en una regresión: si el número que sale no cae en un peldaño, no se afirma nada.
+PASO_TASA = 0.0005
+
+#: Cuánto puede separarse el interés recalculado del que pagó el banco para dar la
+#: inferencia por buena: un centavo, que es la resolución con la que el banco liquida.
+#: Medido sobre los 15 plazos fijos reales, el peor caso es 0,0053.
+#:
+#: La fuerza de esta comprobación depende del tamaño de la posición: un peldaño de 0,05 %
+#: sobre 27.000 a 31 días son 1,16 USD, así que acertar dentro de un centavo es ~1 % de
+#: probabilidad por azar. Sobre montos pequeños el peldaño se encoge y la prueba pierde
+#: valor —por eso lo que sostiene la convención no es una posición sino que **las 15**
+#: caigan en su peldaño a la vez, y ninguna lo haga con base 365.
+TOLERANCIA_INFERENCIA = 0.01
+
+
+def inferir_plazo_y_tasa(capital: float, interes: float,
+                         apertura: Optional[date], cierre: Optional[date]) -> Dict[str, Any]:
+    """Deduce el plazo y la tasa pactados de una posición ya cerrada.
+
+    Se apoya en dos hechos comprobados sobre los 15 plazos fijos del historial:
+
+    1. **El banco liquida actual/360** y el certificado se cancela a vencimiento, así que
+       el plazo pactado son los días calendario entre apertura y cierre.
+    2. **La tasa cae en un múltiplo de 0,05 %.** Despejándola de
+       `interes = capital · tasa · plazo/360` salen 8,70 / 7,95 / 4,80 / 6,60 / 6,50 /
+       5,80 / 5,50 / 5,30 / 4,75 / 2,90 / 3,55 … — todas exactas. Con base 365 no cae
+       ninguna, y eso es lo que identifica la convención.
+
+    La comprobación es el propio interés: se redondea la tasa al peldaño y se recalcula lo
+    que el banco habría pagado. Si no coincide al centavo, la hipótesis no se sostiene para
+    esa posición y **no se devuelve nada**, en vez de un número aproximado que luego nadie
+    distinguiría de un dato real.
+
+    Una posición **abierta** no se puede inferir: sin cierre no hay plazo del que despejar.
+    Ahí sigue haciendo falta capturar la tasa a mano, y por eso el campo no desaparece.
+    """
+    vacio = {'plazo_inferido': None, 'tasa_inferida': None, 'inferencia': None}
+    if apertura is None or cierre is None or capital <= 0 or interes <= 0:
+        return vacio
+
+    plazo = (cierre - apertura).days
+    if plazo <= 0:
+        return vacio
+
+    cruda = interes / capital * 360 / plazo
+    tasa = round(cruda / PASO_TASA) * PASO_TASA
+    if tasa <= 0:
+        return vacio
+
+    recalculado = capital * tasa * plazo / 360
+    if abs(recalculado - interes) > TOLERANCIA_INFERENCIA:
+        return vacio
+
+    return {
+        'plazo_inferido': plazo,
+        'tasa_inferida': round(tasa * 100, 4),
+        'inferencia': (f'Deducida: {interes:,.2f} sobre {capital:,.2f} en {plazo} días '
+                       f'son {tasa * 100:.2f} % base 360 (±{abs(recalculado - interes):.2f}).'),
+    }
+
+
 def armar_vista(posicion: Dict[str, Any], movimientos: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
     """Posición + sus movimientos + los montos derivados, lista para la API."""
     totales = calcular_totales(movimientos)
@@ -155,14 +217,20 @@ def armar_vista(posicion: Dict[str, Any], movimientos: Sequence[Dict[str, Any]])
     cierre = _to_date(posicion.get('fecha_cierre'))
     dias = (cierre - apertura).days if apertura and cierre else None
 
+    inferido = inferir_plazo_y_tasa(totales['capital'], totales['interes'], apertura, cierre)
+
+    # El plazo capturado a mano manda siempre: es un dato, no una deducción. El inferido
+    # solo rellena el hueco, y viaja aparte para que la UI pueda decir cuál está mostrando.
+    plazo_efectivo = posicion.get('plazo_pactado_dias') or inferido['plazo_inferido']
+
     vista = {
         **posicion,
         **totales,
+        **inferido,
         'dias': dias,
         'tna': _tna(totales['capital'], totales['interes'], dias),
-        'tna_pactada': _tna_pactada(
-            totales['capital'], totales['interes'], posicion.get('plazo_pactado_dias')
-        ),
+        'tna_pactada': _tna_pactada(totales['capital'], totales['interes'], plazo_efectivo),
+        'plazo_es_inferido': not posicion.get('plazo_pactado_dias') and bool(inferido['plazo_inferido']),
         'movimientos': list(movimientos),
     }
 
@@ -194,6 +262,34 @@ def get_position(position_id: str) -> Optional[Dict[str, Any]]:
     return armar_vista(posicion, InvestmentStorage.get_movements(position_id))
 
 
+def get_analysis(position_id: str) -> Optional[Dict[str, Any]]:
+    """El análisis de una sola posición: cómo creció, cómo puede seguir y cuánto rindió.
+
+    Se importa dentro de la función igual que `neutralizacion`: `analisis` importa
+    `metricas`, y traerlo arriba cerraría el ciclo con este módulo.
+    """
+    from contabilidad.backend.services.investments import analisis
+    vista = get_position(position_id)
+    if vista is None:
+        return None
+    return analisis.analizar(vista)
+
+
+def get_portfolio_analysis(portafolio_id: str) -> Optional[Dict[str, Any]]:
+    """Cómo creció un portafolio entero: el bolsillo que rueda de certificado en certificado.
+
+    Es la unidad que el usuario llama «una inversión». El arranque de la curva es el
+    `saldo_inicial` de `grupos.csv`; si no está configurado, la serie empieza en cero y la
+    respuesta lo dice con `saldo_inicial_configurado: false` en vez de deducir por detrás
+    un número que la pantalla presentaría como dato.
+    """
+    from contabilidad.backend.services.investments import analisis
+    portafolio = next((p for p in list_portfolios() if p['id'] == portafolio_id), None)
+    if portafolio is None:
+        return None
+    return analisis.analizar_portafolio(list_positions(), _con_saldo_inicial([portafolio])[0])
+
+
 def get_summary() -> Dict[str, Any]:
     """KPIs globales, por portafolio y separando lo propio de lo que está en custodia."""
     vistas = list_positions()
@@ -218,12 +314,51 @@ def get_neutralization_preview() -> Dict[str, Any]:
     return neutralizacion.preview(list_positions(), _con_saldo_inicial(portafolios))
 
 
+def configurar_saldo_inicial(portafolio_id: str, saldo: Optional[float]) -> Dict[str, Any]:
+    """Fija (o borra) el saldo inicial de un portafolio en `grupos.csv`.
+
+    Es la pieza que permite retirar `pagos.csv`: hoy el residual de partida se deduce de
+    los pagos escritos a mano, y cuando esos desaparezcan no habrá de dónde deducirlo.
+
+    `saldo=None` **borra** la configuración y devuelve el portafolio a la deducción. Es
+    distinto de `saldo=0`, que afirma que el portafolio arranca vacío; por eso se escribe
+    la celda en blanco y no un cero.
+    """
+    grupo = InterpolationStorage.get_group(portafolio_id)
+    if grupo is None:
+        raise ValidationError(f"El portafolio {portafolio_id!r} no existe en grupos.csv")
+
+    if saldo is None:
+        valor: Any = ''
+    else:
+        try:
+            valor = round(float(saldo), 2)
+        except (TypeError, ValueError):
+            raise ValidationError(f"Saldo inicial inválido: {saldo!r}")
+
+    actualizado = InterpolationStorage.update_group(portafolio_id, {'saldo_inicial': valor})
+    return {
+        'portafolio_id': portafolio_id,
+        'nombre': actualizado['name'],
+        'saldo_inicial': actualizado['saldo_inicial'],
+        'saldo_inicial_configurado': actualizado['saldo_inicial_configurado'],
+    }
+
+
 def _con_saldo_inicial(portafolios: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """`list_portfolios()` no trae `saldo_inicial`, y el residual arranca de ahí."""
+    """`list_portfolios()` no trae `saldo_inicial`, y el residual arranca de ahí.
+
+    Viaja junto con `saldo_inicial_configurado`, que es lo que distingue «configurado en
+    cero» de «sin configurar»: los dos valen 0.0 y solo uno pide que se deduzca.
+    """
     completos = []
     for portafolio in portafolios:
         grupo = InterpolationStorage.get_group(portafolio['id']) or {}
-        completos.append({**portafolio, 'saldo_inicial': grupo.get('saldo_inicial', 0.0)})
+        completos.append({
+            **portafolio,
+            'saldo_inicial': grupo.get('saldo_inicial', 0.0),
+            'saldo_inicial_configurado': bool(grupo.get('saldo_inicial_configurado')),
+        })
     return completos
 
 
@@ -250,6 +385,8 @@ def list_portfolios() -> List[Dict[str, Any]]:
             'es_inversion': bool(grupo.get('es_inversion')),
             # Plata de otro que vive en tu cuenta: se sigue igual, pero no es patrimonio tuyo.
             'es_custodia': bool(grupo.get('es_custodia')),
+            'saldo_inicial': float(grupo.get('saldo_inicial') or 0.0),
+            'saldo_inicial_configurado': bool(grupo.get('saldo_inicial_configurado')),
             'posiciones': conteo.get(grupo['id'], 0),
         })
     return encontrados
@@ -384,12 +521,14 @@ def residual_portafolio(portafolio_id: str, fecha: Any = None) -> Optional[float
     Es el número contra el que hay que mirar un flujo antes de registrarlo: si sacar la
     matrícula deja el residual en negativo, o falta registrar algo o el monto está mal.
 
-    Se calcula con **las dos pasadas de `neutralizacion.preview`**, no con el
-    `saldo_inicial` guardado en `grupos.csv`. Tiene que ser así o el formulario y la
-    pestaña de Neutralización mostrarían números distintos para el mismo día: mientras el
-    saldo inicial siga sin configurarse, el de `grupos.csv` es 0 y el sugerido son los
-    26.000 de `Mias` o los 3.177 de `Uni`. Comparar contra dos bases distintas es
-    exactamente la clase de confusión que la pantalla existe para evitar.
+    Sigue **la misma regla de precedencia que `neutralizacion.preview`**, y tiene que ser
+    la misma o el formulario y la pestaña de Neutralización mostrarían números distintos
+    para el mismo día — comparar contra dos bases distintas es exactamente la clase de
+    confusión que la pantalla existe para evitar:
+
+    - si el portafolio tiene `saldo_inicial` configurado en `grupos.csv`, se usa ése;
+    - si no, se deduce con las dos pasadas, que es lo que pasaba siempre antes de que
+      hubiera dónde configurarlo (0 en `grupos.csv` y 26.000 deducidos para `Mias`).
     """
     from contabilidad.backend.services.investments import neutralizacion
 
@@ -406,7 +545,9 @@ def residual_portafolio(portafolio_id: str, fecha: Any = None) -> Optional[float
     # Sin pagos a mano no hay nada de donde deducirlo: la diferencia del primer día sería
     # el propio primer aporte y la "siembra" acabaría cancelando la primera inversión.
     siembra = 0.0
-    if actuales:
+    if base[0].get('saldo_inicial_configurado'):
+        siembra = round(float(base[0].get('saldo_inicial') or 0.0), 2)
+    elif actuales:
         tanteo = [p.to_dict() for p in neutralizacion.generar_pagos(vistas, base)]
         siembra = neutralizacion.saldo_inicial_sugerido(neutralizacion.comparar(actuales, tanteo))
 

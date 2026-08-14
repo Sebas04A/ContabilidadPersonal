@@ -13,6 +13,7 @@ import pytest
 from unittest.mock import patch
 
 from contabilidad.backend.services.investments import corte
+from contabilidad.backend.services.investments import neutralizacion
 from contabilidad.backend.services.investments import posiciones as svc
 
 
@@ -107,21 +108,21 @@ def test_la_sombra_se_localiza_por_fondo_origen_no_por_nombre(escenario, storage
     assert len([g for g in storage.get_groups(type_filter=None) if g['type'] == 'shadow']) == 1
 
 
-def test_un_tramo_abierto_no_se_escribe_con_end_date_vacio(escenario, storage):
-    """Si se escribiera vacío, `get_payments()` lo descartaría y el pago sería invisible.
+def test_un_tramo_abierto_se_escribe_con_end_date_vacio(escenario, storage):
+    """El último tramo de cada portafolio no tiene fin, y eso ahora se escribe vacío.
 
-    Es el mismo defecto de las filas fantasma que hubo que limpiar a mano: sin una de las
-    dos fechas la fila desaparece del dashboard *y* de la UI. El generador emite el último
-    tramo de cada portafolio sin fin, así que sin la centinela el corte perdería justo el
-    tramo vigente.
+    Hasta el 2026-08-12 había que poner la centinela `3000-01-01`: `get_payments()` hacía
+    `dropna` sobre las dos fechas, así que un fin vacío hacía desaparecer la fila del
+    dashboard *y* de la UI, y el corte habría perdido justo el tramo vigente. Ya no.
+
+    Lo que este test protege de verdad es la segunda mitad: **ningún pago se pierde por el
+    camino**, que es lo que la centinela existía para garantizar.
     """
     corte.sembrar_sombra()
     sombra = [g for g in storage.get_groups(type_filter=None) if g['type'] == 'shadow'][0]
 
     pagos = storage.get_payments(sombra['id'])
-    assert all(p['end_date'] is not None for p in pagos)
-    assert any(p['end_date'].isoformat() == corte.FECHA_CENTINELA for p in pagos)
-    # Y sobre todo: ninguno se pierde por el camino.
+    assert any(p['end_date'] is None for p in pagos), "el tramo vigente no tiene fin"
     assert len(pagos) == len(corte._pagos_de_grupos(['shadow']))
 
 
@@ -252,3 +253,292 @@ def test_el_estado_dice_donde_esta_el_corte(escenario):
     assert estado['cortado'] is True
     assert estado['portafolios'][0]['pagos_propios'] == 0
     assert estado['portafolios'][0]['generado_activo'] > 0
+
+
+# ── La unidad de la tolerancia ───────────────────────────────────────────────
+#
+# `TOLERANCIA_CORTE` mide el redondeo a enteros de UN portafolio. Medirla contra la serie
+# agregada compara la suma de N redondeos independientes contra una vara calibrada para
+# uno, y el corte se niega por un descuadre que no existe en ninguna contabilidad. Pasó de
+# verdad: el agregado marcaba 3,40 y era 1,09 + 1,07 + 1,24.
+
+def _portafolio_con_redondeo(storage, nombre, desvio):
+    """Un portafolio cuyo pago a mano difiere `desvio` del que genera el módulo.
+
+    El certificado devuelve 10.200 exactos; el pago escrito a mano dice 10.200 − desvío,
+    que es justo lo que pasa cuando el usuario redondea a enteros.
+    """
+    grupo = storage.create_group(name=nombre, group_type="fixed", es_inversion=True)
+    storage.create_payment(grupo["id"], 10000.0, "2024-06-01", "2025-01-10")
+    storage.create_payment(grupo["id"], 10200.0 - desvio, "2025-04-10", "3000-01-01")
+
+    svc.create_position({
+        "portafolio_id": grupo["id"],
+        "tipo": "plazo_fijo",
+        "origen": "detectado",
+        "fecha_apertura": "2025-01-10",
+        "fecha_cierre": "2025-04-10",
+        "movimientos": [
+            {"fecha": "2025-01-10", "tipo": "aporte", "monto": 10000.0},
+            {"fecha": "2025-04-10", "tipo": "retiro", "monto": 10000.0},
+            {"fecha": "2025-04-10", "tipo": "interes", "monto": 200.0},
+        ],
+    })
+    return grupo
+
+
+def test_tres_redondeos_pequenos_no_se_suman_para_bloquear_el_corte(storage):
+    """Cada portafolio dentro de tolerancia ⇒ se puede cortar, aunque el agregado no.
+
+    Es el caso real que tenía la fase 6 parada.
+    """
+    _portafolio_con_redondeo(storage, "Inversiones_Mias", 1.4)
+    _portafolio_con_redondeo(storage, "Inversiones_Uni", 1.3)
+    _portafolio_con_redondeo(storage, "Inversiones_Madre", 1.2)
+    corte.sembrar_sombra()
+
+    r = corte.verificar(hoy=HOY)
+
+    assert [p['cuadra'] for p in r['por_portafolio']] == [True, True, True]
+    assert r['peor_portafolio'] <= corte.TOLERANCIA_CORTE
+    assert r['max_desvio'] > corte.TOLERANCIA_CORTE, "el agregado sí los suma"
+    assert r['equivalente'] is True, "el agregado no puede ser la puerta"
+
+
+def test_un_solo_portafolio_fuera_de_tolerancia_bloquea_el_corte(storage):
+    """La vara no se movió: un descuadre real de un portafolio sigue parando el corte."""
+    _portafolio_con_redondeo(storage, "Inversiones_Mias", 1.0)
+    _portafolio_con_redondeo(storage, "Inversiones_Uni", 40.0)
+    corte.sembrar_sombra()
+
+    r = corte.verificar(hoy=HOY)
+
+    assert r['equivalente'] is False
+    culpables = [p['portafolio'] for p in r['por_portafolio'] if not p['cuadra']]
+    assert culpables == ["Inversiones_Uni"]
+
+    resultado = corte.aplicar_corte(hoy=HOY)
+    assert resultado['ok'] is False
+    assert "Inversiones_Uni" in resultado['error']
+
+
+def test_verificar_reporta_el_agregado_aunque_no_decida(storage):
+    """El impacto sobre el patrimonio se sigue viendo: es lo que el usuario firma."""
+    _portafolio_con_redondeo(storage, "Inversiones_Mias", 1.4)
+    _portafolio_con_redondeo(storage, "Inversiones_Uni", 1.3)
+    corte.sembrar_sombra()
+
+    r = corte.verificar(hoy=HOY)
+
+    assert r['max_desvio'] == pytest.approx(2.7, abs=0.01)
+    assert r['dias'] > 0 and r['dias_que_cambian'] > 0
+    assert r['peores_dias'], "hay que poder ver qué días se mueven"
+
+
+def test_el_corte_solo_toca_grupos_marcados_es_inversion(storage):
+    """`es_inversion` no es decorativo: es lo que el corte tiene permiso de vaciar.
+
+    `list_portfolios()` es permisivo a propósito —incluye cualquier grupo que ya tenga una
+    posición colgando, para que ninguna quede huérfana en la UI—, pero `_portafolios()`
+    filtra por la marca. Sin ella, un grupo al que se le asignó una posición por error en
+    Conciliación se quedaría sin sus pagos escritos a mano el día del corte.
+    """
+    marcado = storage.create_group(name="Inversiones_Mias", group_type="fixed", es_inversion=True)
+    storage.create_payment(marcado["id"], 10000.0, "2024-06-01", "2025-01-10")
+
+    # Un grupo normal del usuario, con una posición mal asignada colgando.
+    ajeno = storage.create_group(name="Mis Depositos", group_type="fixed")
+    storage.create_payment(ajeno["id"], 500.0, "2024-06-01", "3000-01-01")
+
+    for grupo, apertura, cierre in [(marcado, "2025-01-10", "2025-04-10"),
+                                    (ajeno, "2025-01-10", "2025-04-10")]:
+        svc.create_position({
+            "portafolio_id": grupo["id"], "tipo": "plazo_fijo", "origen": "detectado",
+            "fecha_apertura": apertura, "fecha_cierre": cierre,
+            "movimientos": [
+                {"fecha": apertura, "tipo": "aporte", "monto": 10000.0},
+                {"fecha": cierre, "tipo": "retiro", "monto": 10000.0},
+                {"fecha": cierre, "tipo": "interes", "monto": 200.0},
+            ],
+        })
+
+    # La UI ve los dos; el corte, solo el marcado.
+    assert len(svc.list_portfolios()) == 2
+    assert [p['name'] for p in corte._portafolios()] == ["Inversiones_Mias"]
+
+    corte.sembrar_sombra()
+    corte.aplicar_corte(forzar=True, hoy=HOY)
+
+    assert storage.get_payments(marcado["id"]) == [], "el marcado sí se vacía"
+    assert len(storage.get_payments(ajeno["id"])) == 1, "el ajeno no se toca"
+
+
+def test_sembrar_sombra_se_niega_si_ya_se_corto(escenario, storage):
+    """Sembrar dos veces con el corte hecho **duplicaba el patrimonio**.
+
+    `_grupo_sombra()` busca por `fondo_origen` **y** `type == 'shadow'`. Tras el corte el
+    grupo generado pasa a `fixed`, así que dejaba de encontrarlo y creaba uno nuevo al lado
+    en vez de reemplazarlo. Con los dos grupos vivos, un `aplicar_corte(forzar=True)`
+    activaba el segundo sobre el primero: medido, 10.200 pasaban a 20.400.
+
+    `verificar()` lo detecta y el corte sin `forzar` se niega, pero eso es la última red —
+    y forzar es exactamente lo que se hace cuando la verificación «no cuadra por poco».
+    """
+    corte.sembrar_sombra()
+    corte.aplicar_corte(forzar=True, hoy=HOY)
+    assert corte.estado()['cortado'] is True
+
+    fechas = [date(2025, 5, 1)]
+    antes = neutralizacion.serie(corte._pagos_de_grupos(['fixed']), fechas)
+
+    resultado = corte.sembrar_sombra()
+
+    assert 'error' in resultado
+    assert resultado['ya_cortados'] == ["Inversiones_Mias"]
+    assert [g for g in storage.get_groups(type_filter=None) if g['type'] == 'shadow'] == []
+
+    corte.aplicar_corte(forzar=True, hoy=HOY)
+    assert neutralizacion.serie(corte._pagos_de_grupos(['fixed']), fechas) == antes, \
+        "el patrimonio se duplicó"
+
+
+# ── Después del corte: mantener los pagos al día ─────────────────────────────
+#
+# El corte es de una sola vez; regenerar es la operación de todos los días. Lo que la hace
+# segura de correr es que **es idempotente**: sin cambios en las posiciones, la serie no se
+# mueve ni un día. Si eso deja de cumplirse, correr la actualización rutinaria empieza a
+# desplazar el patrimonio histórico solita, y nadie lo notaría.
+
+def _nueva_posicion(grupo_id, apertura, cierre, capital, interes):
+    svc.create_position({
+        "portafolio_id": grupo_id, "tipo": "plazo_fijo", "origen": "detectado",
+        "fecha_apertura": apertura, "fecha_cierre": cierre,
+        "movimientos": [
+            {"fecha": apertura, "tipo": "aporte", "monto": capital},
+            {"fecha": cierre, "tipo": "retiro", "monto": capital},
+            {"fecha": cierre, "tipo": "interes", "monto": interes},
+        ],
+    })
+
+
+@pytest.fixture
+def cortado(escenario, storage):
+    """Un portafolio ya migrado, con su saldo inicial configurado.
+
+    Lo segundo no es decorado: tras el corte no quedan pagos a mano de los que deducir el
+    residual de partida, así que `grupos.csv` es la única fuente. Sin él, regenerar se
+    niega — ver `test_regenerar_exige_el_saldo_inicial_configurado`.
+    """
+    corte.sembrar_sombra()
+    corte.aplicar_corte(forzar=True, hoy=HOY)
+    assert corte.estado()['cortado'] is True
+    svc.configurar_saldo_inicial(escenario['id'], 10000.0)
+    return escenario
+
+
+def test_regenerar_sin_cambios_no_mueve_la_serie(cortado, storage):
+    """El invariante que hace seguro correrlo por rutina."""
+    fechas = [date(2024, 12, 1), date(2025, 2, 1), date(2025, 5, 1)]
+    antes = neutralizacion.serie(corte._pagos_de_grupos(['fixed']), fechas)
+    pagos_antes = len(storage.get_payments(corte._grupo_generado_activo(cortado['id'])['id']))
+
+    previa = corte.previsualizar_regeneracion(hoy=HOY)
+    assert previa['sin_cambios'] is True
+
+    resultado = corte.regenerar(hoy=HOY)
+
+    assert resultado['ok'] is True
+    grupo = corte._grupo_generado_activo(cortado['id'])
+    assert len(storage.get_payments(grupo['id'])) == pagos_antes
+    assert neutralizacion.serie(corte._pagos_de_grupos(['fixed']), fechas) == antes
+
+
+def test_regenerar_recoge_una_inversion_nueva(cortado, storage):
+    """Para esto existe: el certificado nuevo tiene que llegar al patrimonio."""
+    _nueva_posicion(cortado['id'], "2025-04-10", "2025-05-10", 10200.0, 300.0)
+
+    previa = corte.previsualizar_regeneracion(hoy=HOY)
+    assert previa['sin_cambios'] is False
+    assert previa['por_portafolio'][0]['dias_que_cambian'] > 0
+
+    corte.regenerar(hoy=HOY)
+
+    # Mientras el CDT nuevo está abierto, el residual del portafolio es cero.
+    dentro = neutralizacion.serie(corte._pagos_de_grupos(['fixed']), [date(2025, 4, 20)])
+    assert dentro == [0.0]
+    # Y al vencer vuelve, con su interés.
+    fuera = neutralizacion.serie(corte._pagos_de_grupos(['fixed']), [date(2025, 5, 20)])
+    assert fuera == [10500.0]
+
+
+def test_regenerar_es_idempotente_tambien_despues_de_un_cambio(cortado, storage):
+    _nueva_posicion(cortado['id'], "2025-04-10", "2025-05-10", 10200.0, 300.0)
+    corte.regenerar(hoy=HOY)
+
+    fechas = [date(2025, 4, 20), date(2025, 5, 20)]
+    primera = neutralizacion.serie(corte._pagos_de_grupos(['fixed']), fechas)
+    corte.regenerar(hoy=HOY)
+
+    assert neutralizacion.serie(corte._pagos_de_grupos(['fixed']), fechas) == primera
+    assert corte.previsualizar_regeneracion(hoy=HOY)['sin_cambios'] is True
+
+
+def test_regenerar_no_crea_grupos(cortado, storage):
+    """Reemplaza en su sitio. Es lo que lo distingue de sembrar otra sombra."""
+    antes = sorted(g['id'] for g in storage.get_groups(type_filter=None))
+    _nueva_posicion(cortado['id'], "2025-04-10", "2025-05-10", 10200.0, 300.0)
+    corte.regenerar(hoy=HOY)
+
+    assert sorted(g['id'] for g in storage.get_groups(type_filter=None)) == antes
+
+
+def test_regenerar_conserva_el_tramo_del_saldo_inicial(cortado, storage):
+    """`preview()` deduce el arranque de los pagos a mano, y tras el corte no queda ninguno.
+
+    Sin `_arranques_vigentes()` el tramo más viejo de cada portafolio —el del saldo
+    inicial— desaparecería en la primera regeneración, y es justo el que nadie miraría.
+    """
+    grupo = corte._grupo_generado_activo(cortado['id'])
+    inicio_antes = min(p['start_date'] for p in storage.get_payments(grupo['id'])
+                       if p['start_date'])
+
+    corte.regenerar(hoy=HOY)
+
+    inicio_despues = min(p['start_date'] for p in storage.get_payments(grupo['id'])
+                         if p['start_date'])
+    assert inicio_despues == inicio_antes
+
+
+def test_regenerar_se_niega_si_el_portafolio_no_esta_cortado(escenario, storage):
+    """Sin corte hay dos fuentes compitiendo, y esa es la migración, no la rutina."""
+    resultado = corte.regenerar(hoy=HOY)
+
+    assert resultado['ok'] is False
+    assert "no está cortado" in resultado['error']
+
+
+def test_regenerar_exige_el_saldo_inicial_configurado(escenario, storage):
+    """Sin él la pérdida sería muda, que es lo peor que puede pasar aquí.
+
+    Antes del corte el residual de partida se deducía de los pagos a mano. El corte los
+    borra, así que el generador arrancaría de cero y la serie se hundiría el importe del
+    saldo inicial — y el tramo más viejo del portafolio, el que nadie mira, desaparecería
+    sin que nada lo avisara.
+    """
+    corte.sembrar_sombra()
+    corte.aplicar_corte(forzar=True, hoy=HOY)   # sin configurar el saldo
+
+    fechas = [date(2024, 12, 1), date(2025, 5, 1)]
+    antes = neutralizacion.serie(corte._pagos_de_grupos(['fixed']), fechas)
+
+    resultado = corte.regenerar(hoy=HOY)
+
+    assert resultado['ok'] is False
+    assert "saldo_inicial" in resultado['error']
+    assert neutralizacion.serie(corte._pagos_de_grupos(['fixed']), fechas) == antes, \
+        "se negó, así que no puede haber tocado nada"
+
+    # Y en cuanto se configura, funciona.
+    svc.configurar_saldo_inicial(escenario['id'], 10000.0)
+    assert corte.regenerar(hoy=HOY)['ok'] is True
+    assert neutralizacion.serie(corte._pagos_de_grupos(['fixed']), fechas) == antes

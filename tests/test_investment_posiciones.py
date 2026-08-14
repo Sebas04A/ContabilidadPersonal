@@ -644,3 +644,188 @@ def test_timeline_devuelve_serie_y_eventos(storage):
 
     assert len(serie["fechas"]) == len(serie["capital"]) > 0
     assert len(serie["eventos"]) == 2
+
+
+# ── Inferir el plazo y la tasa pactados ──────────────────────────────────────
+#
+# Los 17 plazos fijos del historial tenían 0 plazos capturados a mano, así que la
+# `tna_pactada` no se podía calcular para ninguno. Resulta que no hacía falta pedirla: el
+# banco liquida actual/360 y cancela a vencimiento, así que el plazo son los días
+# calendario y la tasa se despeja del interés. Las 15 con apertura caen en un múltiplo
+# exacto de 0,05 %; con base 365 no cae ninguna.
+
+def test_infiere_la_tasa_de_una_posicion_real(storage):
+    """El CDT de 27.000 del 2025-11-18: 67,43 de interés son 2,90 % base 360."""
+    creada = svc.create_position(plazo_fijo(capital=27000.0, interes=67.43,
+                                            fecha_apertura="2025-11-18", fecha_cierre="2025-12-19"))
+
+    assert creada["plazo_inferido"] == 31
+    assert creada["tasa_inferida"] == pytest.approx(2.90, abs=0.001)
+    assert creada["plazo_es_inferido"] is True
+    assert creada["tna_pactada"] == pytest.approx(2.90, abs=0.01)
+
+
+def test_la_inferencia_no_pisa_el_plazo_capturado_a_mano(storage):
+    """Un dato escrito por el usuario manda sobre cualquier deducción."""
+    creada = svc.create_position(plazo_fijo(capital=27000.0, interes=67.43,
+                                            fecha_apertura="2025-11-18", fecha_cierre="2025-12-19",
+                                            plazo_pactado_dias=30))
+
+    assert creada["plazo_es_inferido"] is False
+    assert creada["tna_pactada"] == pytest.approx(3.0, abs=0.01), "usó los 30 del usuario"
+    assert creada["plazo_inferido"] == 31, "la deducción se sigue reportando aparte"
+
+
+def test_no_se_infiere_sin_fecha_de_apertura(storage):
+    """Las sembradas a mano: con una sola ecuación y dos incógnitas hay infinitas
+    soluciones (10.100 con 172,21 admite 62 días al 9,90 %, 93 al 6,60 %, 186 al 3,30 %…).
+    """
+    creada = svc.create_position({
+        "tipo": "plazo_fijo", "origen": "manual",
+        "fecha_apertura": None, "fecha_cierre": "2024-05-29",
+        "movimientos": [
+            {"fecha": "2024-03-12", "tipo": "aporte", "monto": 10100.0},
+            {"fecha": "2024-05-29", "tipo": "retiro", "monto": 10100.0},
+            {"fecha": "2024-05-29", "tipo": "interes", "monto": 172.21},
+        ],
+    })
+
+    assert creada["plazo_inferido"] is None
+    assert creada["tasa_inferida"] is None
+    assert creada["plazo_es_inferido"] is False
+
+
+def test_no_se_infiere_una_posicion_abierta(storage):
+    creada = svc.create_position(plazo_fijo(fecha_cierre=None))
+    assert creada["plazo_inferido"] is None
+
+
+def test_no_se_infiere_si_el_interes_no_cae_en_un_peldano(storage):
+    """La comprobación es el propio interés: si recalcularlo no da lo que pagó el banco,
+    la hipótesis no se sostiene y no se afirma nada.
+    """
+    # 27.000 a 31 días: un peldaño de 0,05 % son 1,16 USD. Un interés a medio camino
+    # entre dos peldaños no puede venir de una tasa cotizada.
+    creada = svc.create_position(plazo_fijo(capital=27000.0, interes=68.01,
+                                            fecha_apertura="2025-11-18", fecha_cierre="2025-12-19"))
+
+    assert creada["tasa_inferida"] is None
+    assert creada["tna_pactada"] is None
+
+
+@pytest.mark.parametrize("capital,interes,apertura,cierre,tasa", [
+    (26000.0, 1897.57, "2024-03-28", "2025-01-24", 8.70),
+    (10278.0, 208.82, "2024-06-04", "2024-09-04", 7.95),
+    (6648.0, 27.48, "2024-09-23", "2024-10-24", 4.80),
+    (10003.0, 386.95, "2024-11-18", "2025-06-17", 6.60),
+    (10310.0, 225.25, "2024-11-18", "2025-03-19", 6.50),
+    (28000.0, 139.84, "2025-02-21", "2025-03-24", 5.80),
+    (7317.0, 167.68, "2025-04-28", "2025-09-25", 5.50),
+    (27000.0, 123.23, "2025-05-12", "2025-06-12", 5.30),
+    (4214.0, 67.28, "2025-11-18", "2026-03-19", 4.75),
+    (10419.0, 28.54, "2025-11-18", "2025-12-22", 2.90),
+    (28304.0, 75.24, "2026-01-21", "2026-02-23", 2.90),
+    (27611.0, 84.40, "2025-08-12", "2025-09-12", 3.55),
+])
+def test_los_plazos_fijos_reales_caen_todos_en_un_peldano(capital, interes, apertura, cierre, tasa):
+    """Los certificados del historial, con sus cifras exactas del banco.
+
+    Es la evidencia que sostiene la convención: 12 posiciones independientes, todas en un
+    múltiplo de 0,05 % con base 360. Si alguna dejara de caer, la regla habría cambiado y
+    hay que mirarla antes de fiarse de la `tna_pactada`.
+    """
+    from datetime import date as _date
+
+    r = svc.inferir_plazo_y_tasa(capital, interes,
+                                 _date.fromisoformat(apertura), _date.fromisoformat(cierre))
+
+    assert r["tasa_inferida"] == pytest.approx(tasa, abs=0.001)
+    assert r["plazo_inferido"] == (_date.fromisoformat(cierre) - _date.fromisoformat(apertura)).days
+
+
+# ── Precedencia del saldo inicial ────────────────────────────────────────────
+#
+# El residual de partida se deduce hoy de `pagos.csv`, que es justo lo que la fase 6
+# retira. Configurarlo en `grupos.csv` es lo que permite retirarlo sin perder el número, y
+# para eso «vacío» y «cero» tienen que ser cosas distintas: los dos llegan como 0.0 y solo
+# uno pide que se deduzca.
+
+@pytest.fixture
+def con_historial(storage, portafolio):
+    """Un portafolio cuyo residual deducido son 26.000: el pago a mano que precede al CDT."""
+    from contabilidad.backend.storage.variables_storage import InterpolationStorage
+    InterpolationStorage.create_payment(portafolio["id"], 26000.0, "2024-01-01", "2024-03-28")
+    svc.create_position({
+        "portafolio_id": portafolio["id"], "tipo": "plazo_fijo", "origen": "detectado",
+        "fecha_apertura": "2024-03-28", "fecha_cierre": "2024-06-28",
+        "movimientos": [
+            {"fecha": "2024-03-28", "tipo": "aporte", "monto": 26000.0},
+            {"fecha": "2024-06-28", "tipo": "retiro", "monto": 26000.0},
+            {"fecha": "2024-06-28", "tipo": "interes", "monto": 500.0},
+        ],
+    })
+    return portafolio
+
+
+def _fila(portafolio_id):
+    detalle = svc.get_neutralization_preview()["por_portafolio"]
+    return next(f for f in detalle if f["portafolio_id"] == portafolio_id)
+
+
+def test_sin_configurar_el_saldo_se_deduce_como_siempre(con_historial):
+    fila = _fila(con_historial["id"])
+    assert fila["saldo_inicial_configurado"] is False
+    assert fila["saldo_inicial_sugerido"] == pytest.approx(26000.0)
+
+
+def test_el_saldo_configurado_manda_sobre_el_deducido(con_historial):
+    svc.configurar_saldo_inicial(con_historial["id"], 12345.0)
+
+    fila = _fila(con_historial["id"])
+    assert fila["saldo_inicial_configurado"] is True
+    assert fila["saldo_inicial_sugerido"] == pytest.approx(12345.0)
+
+
+def test_cero_configurado_no_es_lo_mismo_que_vacio(con_historial):
+    """Un cero escrito por el usuario afirma que el portafolio arranca vacío."""
+    svc.configurar_saldo_inicial(con_historial["id"], 0.0)
+
+    fila = _fila(con_historial["id"])
+    assert fila["saldo_inicial_configurado"] is True
+    assert fila["saldo_inicial_sugerido"] == 0.0, "no debía volver a deducir los 26.000"
+
+
+def test_borrar_el_saldo_devuelve_a_la_deduccion(con_historial):
+    svc.configurar_saldo_inicial(con_historial["id"], 999.0)
+    svc.configurar_saldo_inicial(con_historial["id"], None)
+
+    fila = _fila(con_historial["id"])
+    assert fila["saldo_inicial_configurado"] is False
+    assert fila["saldo_inicial_sugerido"] == pytest.approx(26000.0)
+
+
+def test_el_residual_del_formulario_usa_la_misma_precedencia(con_historial):
+    """Si no la usara, el formulario de flujos y la pestaña de Neutralización dirían
+    números distintos del mismo día — la confusión que la pantalla existe para evitar.
+    """
+    svc.configurar_saldo_inicial(con_historial["id"], 1000.0)
+
+    # Antes de abrir el certificado, el residual es exactamente el saldo configurado.
+    assert svc.residual_portafolio(con_historial["id"], "2024-03-01") == pytest.approx(1000.0)
+
+
+def test_list_portfolios_reporta_si_esta_configurado(con_historial):
+    antes = next(p for p in svc.list_portfolios() if p["id"] == con_historial["id"])
+    assert antes["saldo_inicial_configurado"] is False
+    assert antes["saldo_inicial"] == 0.0
+
+    svc.configurar_saldo_inicial(con_historial["id"], 777.0)
+
+    despues = next(p for p in svc.list_portfolios() if p["id"] == con_historial["id"])
+    assert despues["saldo_inicial_configurado"] is True
+    assert despues["saldo_inicial"] == pytest.approx(777.0)
+
+
+def test_configurar_un_portafolio_que_no_existe(storage):
+    with pytest.raises(svc.ValidationError):
+        svc.configurar_saldo_inicial("no-existe", 100.0)

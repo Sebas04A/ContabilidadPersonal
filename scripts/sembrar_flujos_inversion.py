@@ -46,13 +46,34 @@ FLUJOS = [
     # sueltas y no permite aislar cuál fue. Que el dinero entró al portafolio es un hecho
     # —el certificado se abrió por 10.278—; lo único que no se sabe es de qué fila vino.
     ('flujo-uni-2024-06-04', 'Inversiones_Uni',   '2024-06-04',    9.23, 'entrada', 'Completar el CDT de 10.278'),
-    ('flujo-uni-2024-11-18', 'Inversiones_Uni',   '2024-11-18', 3635.07, 'entrada', 'Plata que entra de fuera'),
+    # Traspaso desde `Madre`, confirmado por las notas del usuario (2026-08-12): al vencer
+    # el CDT de `Madre` el 2024-10-25 se sacan 3.635,07 «para Uni para mejorar inversión».
+    # Es el mismo dinero que sale en `flujo-madre-2024-11-18`, no plata de fuera.
+    ('flujo-uni-2024-11-18', 'Inversiones_Uni',   '2024-11-18', 3635.07, 'entrada', 'Traspaso desde Inversiones_Madre'),
     ('flujo-uni-2025-04-28', 'Inversiones_Uni',   '2025-04-28', 3213.00, 'salida',  'Matrícula 2025-1'),
     ('flujo-uni-2025-10-24', 'Inversiones_Uni',   '2025-10-24', 3267.00, 'salida',  'Matrícula 2025-2'),
     ('flujo-uni-2026-04-29', 'Inversiones_Uni',   '2026-04-29', 3279.00, 'salida',  'Matrícula 2026-1'),
     ('flujo-uni-2026-05-18', 'Inversiones_Uni',   '2026-05-18', 1000.00, 'salida',  'Matrícula 2026-1'),
-    # `Madre` — la matrícula que se separó para pagar después, y los dos retiros.
-    ('flujo-madre-2024-11-18', 'Inversiones_Madre', '2024-11-18', 3533.84, 'salida', 'Matrícula separada para pagar'),
+    # `Madre` — el traspaso a `Uni` y los dos retiros.
+    #
+    # Esto era **un solo flujo neto de 3.533,84** con la nota «matrícula separada para
+    # pagar», y las dos cosas estaban mal. Las notas del usuario (2026-08-12) cuentan lo que
+    # pasó de verdad, y los números cuadran al centavo:
+    #
+    #     13.536,84  devuelve el CDT (12.854,21 + 682,63)
+    #     − 3.635,07  se van a `Uni` «para mejorar inversión»
+    #     ─────────
+    #       9.901,77  «Se queda con 9901»
+    #     +   101,23  «Puse 102 para completar para la inversión» (plata de fuera)
+    #     ─────────
+    #      10.003,00  el CDT que se abre el 2024-11-18
+    #
+    # El neto es idéntico (3.635,07 − 101,23 = 3.533,84), así que la serie no se mueve; lo
+    # que cambia es que ahora se puede leer. Separarlo importa porque el traspaso empareja
+    # con `flujo-uni-2024-11-18` y el aporte no: son dos hechos distintos el mismo día.
+    ('flujo-madre-2024-11-18', 'Inversiones_Madre', '2024-11-18', 3635.07, 'salida', 'Traspaso a Inversiones_Uni'),
+    ('flujo-madre-2024-11-18-aporte', 'Inversiones_Madre', '2024-11-18', 101.23, 'entrada',
+     'Plata propia para completar los 10.003 del CDT'),
     ('flujo-madre-2025-12-26', 'Inversiones_Madre', '2025-12-26', 4900.00, 'salida', 'Retiro'),
     ('flujo-madre-2025-12-29', 'Inversiones_Madre', '2025-12-29', 4900.00, 'salida', 'Retiro'),
     # El sobrante del último ciclo. La fila «Lo que sobra» termina el 2026-03-02, así que

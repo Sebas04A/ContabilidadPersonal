@@ -215,11 +215,17 @@ def test_la_ventana_incluye_el_inicio_y_excluye_el_fin():
     assert neu.serie([pago(100.0, "2025-01-10", "2025-01-12")], fechas) == [0.0, 100.0, 100.0, 0.0]
 
 
-def test_un_pago_sin_start_date_no_entra_en_la_serie():
-    """El dashboard los descarta (`if not start: return`), así que aquí tampoco cuentan."""
+def test_un_pago_sin_start_date_aplica_desde_siempre():
+    """Un inicio vacío significa «desde siempre», y el dashboard hace lo mismo.
+
+    Hasta el 2026-08-12 era al revés: `_apply_payment` hacía `if not start: return` y la
+    fila no contaba en ningún lado. Se cambió a petición del usuario, para no tener que
+    inventar fechas de referencia. La equivalencia con el dashboard está fijada en
+    `tests/test_pagos_sin_fecha.py`.
+    """
     fechas = [date(2025, 1, 10), date(2026, 1, 10)]
 
-    assert neu.serie([pago(26000.0, None, "2025-06-01")], fechas) == [0.0, 0.0]
+    assert neu.serie([pago(26000.0, None, "2025-06-01")], fechas) == [26000.0, 0.0]
 
 
 def test_un_pago_sin_end_date_no_termina_nunca():
@@ -394,8 +400,8 @@ def interpolaciones(tmp_path):
         yield InterpolationStorage
 
 
-def test_pagos_actuales_marca_las_filas_sin_start_date_como_que_no_aplican(interpolaciones):
-    """Existen en el CSV, ocupan lugar y el dashboard las ignora. Hay que poder verlas."""
+def test_pagos_actuales_incluye_las_filas_sin_start_date(interpolaciones):
+    """Una fila sin inicio ya no es una fila muerta: vale «desde siempre» y sí aplica."""
     grupo = interpolaciones.create_group(name="Inversiones_Mias", group_type="fixed",
                                          es_inversion=True)
     interpolaciones.create_payment(grupo["id"], 26000.0, None, "2025-01-24")
@@ -403,16 +409,17 @@ def test_pagos_actuales_marca_las_filas_sin_start_date_como_que_no_aplican(inter
 
     actuales = neu.pagos_actuales([{**grupo, "saldo_inicial": 0.0}])
 
-    assert [(p["amount"], p["aplica"]) for p in actuales] == [(26000.0, False), (27897.0, True)]
+    assert [(p["amount"], p["aplica"]) for p in actuales] == [(26000.0, True), (27897.0, True)]
+    assert [p["start"] for p in actuales] == [None, "2025-01-24"]
 
 
-def test_pagos_actuales_tambien_descarta_las_filas_sin_end_date(interpolaciones):
-    """`get_payments()` hace dropna sobre las DOS fechas, no solo sobre `start_date`.
+def test_pagos_actuales_incluye_las_filas_sin_end_date(interpolaciones):
+    """Un fin vacío significa «para siempre», no «fila inválida».
 
-    Una fila sin fin es invisible en las dos puntas: el dashboard no la aplica y la
-    pantalla de Variables no la lista, así que el usuario tampoco puede borrarla. En los
-    datos reales hay una así —los 647 duplicados de `Madre`— y contarla inventaba un
-    descuadre de 645,79 que ningún dashboard tenía.
+    Antes esta fila era invisible en las dos puntas —ni el dashboard la aplicaba ni la
+    pantalla de Variables la listaba, así que el usuario no podía ni verla ni borrarla— y
+    contarla aquí inventaba un descuadre de 645,79 que ningún dashboard tenía. Hoy el
+    dashboard sí la aplica, así que contarla es lo correcto: las dos series miden lo mismo.
     """
     grupo = interpolaciones.create_group(name="Inversiones_Madre", group_type="fixed")
     interpolaciones.create_payment(grupo["id"], 647.0, "2025-12-22", None)
@@ -420,7 +427,7 @@ def test_pagos_actuales_tambien_descarta_las_filas_sin_end_date(interpolaciones)
 
     actuales = neu.pagos_actuales([grupo])
 
-    assert [(p["end"], p["aplica"]) for p in actuales] == [(None, False), ("2026-03-02", True)]
+    assert [(p["end"], p["aplica"]) for p in actuales] == [(None, True), ("2026-03-02", True)]
 
 
 def test_una_fila_que_no_aplica_no_entra_en_la_serie(interpolaciones):
@@ -527,7 +534,12 @@ def test_preview_reporta_lo_que_no_explica_la_siembra(interpolaciones):
     }
 
 
-def test_preview_cuenta_los_pagos_que_el_dashboard_ignora(interpolaciones):
+def test_preview_ya_no_ignora_ningun_pago_por_falta_de_fechas(interpolaciones):
+    """El contador de «ignorados» existía para las filas que el dashboard descartaba.
+
+    Ya no descarta ninguna por falta de fechas, así que debe quedarse en cero. Si vuelve a
+    subir es que algo está descartando filas otra vez, y eso hay que mirarlo.
+    """
     grupo = interpolaciones.create_group(name="Inversiones_Mias", group_type="fixed")
     interpolaciones.create_payment(grupo["id"], 26000.0, None, "2025-01-10")
 
@@ -535,7 +547,7 @@ def test_preview_cuenta_los_pagos_que_el_dashboard_ignora(interpolaciones):
                             [grupo], hoy=date(2025, 3, 1))
 
     assert resultado["resumen"]["pagos_actuales"] == 1
-    assert resultado["resumen"]["pagos_actuales_ignorados"] == 1
+    assert resultado["resumen"]["pagos_actuales_ignorados"] == 0
 
 
 def test_preview_marca_la_custodia(interpolaciones):

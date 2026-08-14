@@ -29,11 +29,14 @@ Por eso aquí solo se compara. Nada de esto toca `pagos.csv`.
 
 ## La semántica tiene que ser la del dashboard, no la del CSV
 
-`VirtualItemsProcessor._apply_fixed_payment` aplica `start <= FECHA < end`, y —esto es lo
-importante— **descarta los pagos sin `start_date`** (`if not start: return`). En los datos
-reales hay tres filas así (los 26.000 de `Mias`, los 10.100 de `Uni`, los −600 de
-`Mis Depositos`): hoy no afectan al dashboard en absoluto. Comparar contra el CSV en vez
-de contra la serie evaluada haría perseguir diferencias que no existen.
+`VirtualItemsProcessor._apply_fixed_payment` aplica `start <= FECHA < end` **con las dos
+puntas opcionales**: sin `start` el pago vale desde siempre y sin `end` vale para siempre.
+`_activo()` replica esa regla exactamente, y tiene que seguir haciéndolo — si las dos se
+separan, esta pantalla mide contra algo que el patrimonio nunca vio.
+
+(Hasta el 2026-08-12 era al revés: un pago sin `start_date` se descartaba y había que
+escribir fechas centinela para decir «hasta siempre». Las centinela que quedan escritas
+siguen valiendo, `_es_centinela()` las trata como un fin ausente.)
 """
 from __future__ import annotations
 
@@ -282,13 +285,11 @@ def pagos_actuales(portafolios: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]
     normal descarta: existen, ocupan lugar y **no hacen nada**. Salen con `aplica=False` y
     no cuentan en la serie.
 
-    **Qué descarta exactamente `InterpolationStorage.get_payments()`**: hace
-    `dropna(subset=['id', 'group_id', 'amount', 'start_date', 'end_date'])`, o sea que le
-    falte *cualquiera* de las dos fechas basta para que la fila desaparezca — no solo
-    `start_date`. Y como el dashboard y la UI de Variables pasan los dos por ahí, una fila
-    así es invisible en las dos puntas: el usuario no la ve para poder borrarla y el
-    patrimonio no la aplica. En los datos reales hay 4 (3 sin inicio y una sin fin, los
-    647 duplicados de `Madre`).
+    **Qué descarta hoy `InterpolationStorage.get_payments()`**: solo las filas sin `id`,
+    sin `group_id` o sin `amount`. Las fechas ya no son obligatorias — un pago fijo sin
+    inicio vale desde siempre y sin fin vale para siempre—, así que una fila a la que le
+    falte una fecha **sí** llega al dashboard y a la UI. Antes bastaba con que le faltara
+    una para desaparecer de los dos sitios a la vez, y hubo 4 así.
     """
     from contabilidad.backend.storage.variables_storage import PAYMENTS_FILE, read_csv
 
@@ -315,9 +316,10 @@ def pagos_actuales(portafolios: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]
             'start': inicio.isoformat() if inicio else None,
             'end': None if (fin is None or _es_centinela(fin)) else fin.isoformat(),
             'nota': _texto(pago.get('note')),
-            # Mismo criterio que el `dropna` de `get_payments()`: sin las dos fechas la
-            # fila no llega ni al dashboard ni a la pantalla de Variables.
-            'aplica': inicio is not None and fin is not None,
+            # Mismo criterio que `get_payments()`: lo único que hace que una fila no
+            # llegue al dashboard es que le falte el monto, y aquí ya está garantizado.
+            # Las fechas vacías son significado, no ausencia de dato.
+            'aplica': True,
         })
     actuales.sort(key=lambda p: (p['start'] or '', p['portafolio']))
     return actuales
@@ -326,8 +328,17 @@ def pagos_actuales(portafolios: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]
 # ── Evaluación ───────────────────────────────────────────────────────────────
 
 def _activo(inicio: Optional[date], fin: Optional[date], momento: date) -> bool:
-    """La ventana del dashboard: `start <= día < end`, y sin `start` el pago no aplica."""
-    if inicio is None or momento < inicio:
+    """La ventana del dashboard: `start <= día < end`, con las dos puntas opcionales.
+
+    Sin `inicio` el pago vale desde siempre y sin `fin` vale para siempre — la misma regla
+    que `VirtualItemsProcessor._apply_fixed_payment`, y **tiene que seguir siendo la
+    misma**: esta función existe para medir exactamente lo que el patrimonio ve.
+
+    Una fecha centinela (año ≥ 2900, o el `2030-01-01` que el usuario también usa) se trata
+    igual que un fin ausente. Son la forma vieja de decir «hasta siempre», de cuando no se
+    podía dejar la celda vacía; siguen funcionando y no hace falta migrarlas.
+    """
+    if inicio is not None and momento < inicio:
         return False
     return fin is None or _es_centinela(fin) or momento < fin
 
@@ -490,6 +501,13 @@ def preview(vistas: Sequence[Dict[str, Any]],
     actuales = pagos_actuales(portafolios)
 
     # Pasada 1 — detectar el saldo inicial de cada portafolio.
+    #
+    # Salvo que ya esté configurado: un saldo escrito por el usuario en `grupos.csv` manda
+    # sobre el deducido. La deducción existe porque hoy no hay dónde ponerlo, no porque sea
+    # mejor —se apoya en `pagos.csv`, que es justo lo que la fase 6 va a retirar—. Ojo con
+    # la distinción: «vacío» pide deducir y «0» es una afirmación del usuario, y las dos
+    # llegan aquí como `saldo_inicial == 0.0`; lo que las separa es
+    # `saldo_inicial_configurado`.
     tanteo = [p.to_dict() for p in generar_pagos(vistas, portafolios)]
     siembras: Dict[str, float] = {}
     arranques: Dict[str, date] = {}
@@ -498,7 +516,10 @@ def preview(vistas: Sequence[Dict[str, Any]],
         del_generado = _por_portafolio(tanteo, portafolio['id'])
         if not del_actual and not del_generado:
             continue
-        siembras[portafolio['id']] = saldo_inicial_sugerido(comparar(del_actual, del_generado, hoy))
+        if portafolio.get('saldo_inicial_configurado'):
+            siembras[portafolio['id']] = round(float(portafolio.get('saldo_inicial') or 0.0), 2)
+        else:
+            siembras[portafolio['id']] = saldo_inicial_sugerido(comparar(del_actual, del_generado, hoy))
         inicio = _primer_inicio(del_actual)
         if inicio is not None:
             arranques[portafolio['id']] = inicio
@@ -524,6 +545,7 @@ def preview(vistas: Sequence[Dict[str, Any]],
             'nombre': portafolio['name'],
             'es_custodia': bool(portafolio.get('es_custodia')),
             'saldo_inicial_sugerido': round(portafolio['saldo_inicial'], 2),
+            'saldo_inicial_configurado': bool(portafolio.get('saldo_inicial_configurado')),
             'pagos_actuales': len(del_actual),
             'pagos_generados': len(del_generado),
             'tramos': _tramos([
