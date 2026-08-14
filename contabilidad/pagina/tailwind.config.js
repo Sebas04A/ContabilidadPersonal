@@ -54,11 +54,18 @@ export default {
         'fade-in': 'fadeIn 0.4s ease-out',
         'slide-up': 'slideUp 0.4s ease-out',
         'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        // Para paneles que aparecen al elegir algo: arranca ya visible, así que si la
+        // animación no llega a correr el contenido sigue estando ahí.
+        'panel-in': 'panelIn 0.32s cubic-bezier(0.16, 1, 0.3, 1)',
       },
       keyframes: {
         fadeIn: {
           '0%': { opacity: '0' },
           '100%': { opacity: '1' },
+        },
+        panelIn: {
+          '0%': { opacity: '0.5', transform: 'translateY(8px)' },
+          '100%': { opacity: '1', transform: 'none' },
         },
         slideUp: {
           '0%': { transform: 'translateY(15px)', opacity: '0' },

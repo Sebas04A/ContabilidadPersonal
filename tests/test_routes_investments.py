@@ -191,6 +191,68 @@ def test_posicion_inexistente_da_404(storage_tmp):
     assert client.get("/api/investments/positions/no-existe").status_code == 404
 
 
+# ── GET /api/investments/portfolios/{id}/analysis ─────────────────────────────
+
+def test_analisis_de_un_portafolio(storage_tmp):
+    """El bolsillo entero: la identidad `total = aportado + ganancia` viaja en la respuesta."""
+    grupo = client.post("/api/payments/groups", json={
+        "name": "Inversiones_Test", "type": "fixed", "es_inversion": True,
+    })
+    assert grupo.status_code == 200, grupo.text
+    portafolio_id = grupo.json()["id"]
+
+    client.post("/api/investments/positions", json={**NUEVA_POSICION, "portafolio_id": portafolio_id})
+    response = client.get(f"/api/investments/portfolios/{portafolio_id}/analysis")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["apto"] is True
+    kpis = data["kpis"]
+    assert kpis["total_hoy"] == pytest.approx(kpis["aportado_neto"] + kpis["ganancia_acumulada"], abs=0.02)
+    assert kpis["ganancia_acumulada"] == pytest.approx(10.0, abs=0.01)
+    assert len(data["posiciones"]) == 1
+
+
+def test_analisis_de_un_portafolio_inexistente_da_404(storage_tmp):
+    assert client.get("/api/investments/portfolios/no-existe/analysis").status_code == 404
+
+
+# ── GET /api/investments/positions/{id}/analysis ──────────────────────────────
+
+def test_analisis_de_una_posicion(storage_tmp):
+    """La curva de crecimiento tiene que aterrizar en el interés real de la posición."""
+    position_id = client.post("/api/investments/positions", json=NUEVA_POSICION).json()["id"]
+    response = client.get(f"/api/investments/positions/{position_id}/analysis")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["apto"] is True
+    assert data["tasa_origen"] == "liquidada"
+    assert data["serie"]["valor"][0] == 1000.0
+    assert data["serie"]["valor"][-1] == pytest.approx(1010.0, abs=0.01)
+    assert data["ganancia"]["interes_neto"] == pytest.approx(10.0, abs=0.01)
+    assert data["escenarios"], "una posición cerrada con tasa siempre tiene escenario"
+
+
+def test_analisis_de_una_posicion_inexistente_da_404(storage_tmp):
+    assert client.get("/api/investments/positions/no-existe/analysis").status_code == 404
+
+
+def test_la_ruta_de_analisis_no_se_come_la_de_leer(storage_tmp):
+    """`/positions/{id}` y `/positions/{id}/analysis` son rutas distintas.
+
+    Se fija porque el orden de declaración en FastAPI decide qué patrón gana, y una de
+    las dos devolvería la respuesta de la otra si alguien las reordena.
+    """
+    position_id = client.post("/api/investments/positions", json=NUEVA_POSICION).json()["id"]
+
+    posicion = client.get(f"/api/investments/positions/{position_id}").json()
+    analisis = client.get(f"/api/investments/positions/{position_id}/analysis").json()
+
+    assert "movimientos" in posicion and "serie" not in posicion
+    assert "serie" in analisis
+
+
 def test_datos_invalidos_dan_400(storage_tmp):
     response = client.post("/api/investments/positions", json={**NUEVA_POSICION, "tipo": "cripto"})
     assert response.status_code == 400

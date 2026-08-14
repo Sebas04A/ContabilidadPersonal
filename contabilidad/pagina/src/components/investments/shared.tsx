@@ -1,4 +1,60 @@
+import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
+import * as echarts from 'echarts';
+
+/** El lenguaje visual de los gráficos de Inversiones, en un solo sitio. */
+export const GRID = { top: 40, right: 60, bottom: 50, left: 70 };
+export const EJE = {
+  axisLine: { lineStyle: { color: '#3f3f46' } },
+  axisLabel: { color: '#a1a1aa', fontSize: 11 },
+};
+export const TOOLTIP = {
+  backgroundColor: 'rgba(9,9,11,0.92)',
+  borderColor: 'rgba(255,255,255,0.1)',
+  textStyle: { color: '#e4e4e7', fontSize: 12 },
+};
+
+/** An echarts canvas that rebuilds its option whenever `option` changes. */
+export function Chart({ option, height = 340, onEvento }: {
+  option: echarts.EChartsOption;
+  height?: number;
+  /** Handlers de echarts por nombre de evento («click», «dblclick»…). */
+  onEvento?: Record<string, (params: any) => void>;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const instance = useRef<echarts.ECharts | null>(null);
+  // En una ref y no en la dependencia del efecto: así cambiar el handler no obliga a
+  // destruir y reconstruir el gráfico entero en cada render.
+  const handlers = useRef(onEvento);
+  handlers.current = onEvento;
+
+  useEffect(() => {
+    if (!ref.current) return;
+    instance.current = echarts.init(ref.current);
+    const nombres = Object.keys(handlers.current ?? {});
+    for (const nombre of nombres) {
+      instance.current.on(nombre, (params: any) => handlers.current?.[nombre]?.(params));
+    }
+    if (nombres.includes('click')) {
+      instance.current.getZr().setCursorStyle('default');
+    }
+    const onResize = () => instance.current?.resize();
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      instance.current?.dispose();
+      instance.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    // `true` replaces the option instead of merging: series that disappear must not
+    // linger from the previous render.
+    instance.current?.setOption(option, true);
+  }, [option]);
+
+  return <div ref={ref} style={{ height }} className="w-full" />;
+}
 
 export const fmt = (n: number | null | undefined, decimales = 2) =>
   n === null || n === undefined
@@ -34,7 +90,7 @@ export function KpiCard({ label, value, hint, tone = 'default', icon }: {
         {label}
       </div>
       <div className={`text-2xl font-bold font-mono tabular-nums ${tones[tone]}`}>{value}</div>
-      {hint && <div className="text-[11px] text-surface-500">{hint}</div>}
+      {hint && <div className="text-[11px] text-surface-400 leading-snug">{hint}</div>}
     </div>
   );
 }
@@ -54,6 +110,42 @@ export function Badge({ children, tone = 'neutral' }: { children: ReactNode; ton
   );
 }
 
+/**
+ * Navegación de segundo nivel, deliberadamente más callada que la de arriba.
+ *
+ * La barra principal usa relleno sólido; ésta marca lo activo con una línea inferior, para
+ * que a simple vista se vea cuál de las dos jerarquías se está tocando.
+ */
+export function SubTabs<T extends string>({ items, value, onChange, label }: {
+  items: { id: T; label: string; icon?: ReactNode }[];
+  value: T;
+  onChange: (id: T) => void;
+  label: string;
+}) {
+  return (
+    <nav aria-label={label} className="flex items-center gap-1 border-b border-white/[0.06] -mx-1 px-1">
+      {items.map(({ id, label: texto, icon }) => {
+        const activo = id === value;
+        return (
+          <button
+            key={id}
+            aria-current={activo ? 'page' : undefined}
+            onClick={() => onChange(id)}
+            className={`relative flex items-center gap-2 px-3 py-2.5 text-xs font-bold transition-colors
+              focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400/70 rounded-t-lg ${
+              activo ? 'text-white' : 'text-surface-400 hover:text-surface-100'
+            }`}
+          >
+            {icon}
+            {texto}
+            {activo && <span className="absolute left-2 right-2 -bottom-px h-0.5 rounded-full bg-primary-500" />}
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
 export function Spinner() {
   return (
     <div className="flex justify-center py-14">
@@ -64,8 +156,8 @@ export function Spinner() {
 
 export function EmptyState({ icon, children }: { icon?: ReactNode; children: ReactNode }) {
   return (
-    <div className="text-center text-surface-500 text-sm py-14 px-6">
-      {icon && <div className="flex justify-center mb-3 opacity-40">{icon}</div>}
+    <div className="text-center text-surface-400 text-sm leading-relaxed py-14 px-6 max-w-[52ch] mx-auto">
+      {icon && <div className="flex justify-center mb-3 text-surface-500">{icon}</div>}
       {children}
     </div>
   );
@@ -73,16 +165,16 @@ export function EmptyState({ icon, children }: { icon?: ReactNode; children: Rea
 
 export function Section({ title, subtitle, children, action }: {
   title: string;
-  subtitle?: string;
+  subtitle?: ReactNode;
   children: ReactNode;
   action?: ReactNode;
 }) {
   return (
     <section className="rounded-2xl bg-surface-900/40 backdrop-blur-xl border border-white/[0.06] overflow-hidden">
-      <header className="px-5 py-3.5 border-b border-white/[0.06] flex items-center justify-between gap-3">
-        <div>
+      <header className="px-5 py-3.5 border-b border-white/[0.06] flex items-start justify-between gap-3">
+        <div className="min-w-0">
           <h2 className="text-sm font-bold text-white">{title}</h2>
-          {subtitle && <p className="text-[11px] text-surface-400 mt-0.5">{subtitle}</p>}
+          {subtitle && <p className="text-[11px] text-surface-400 mt-0.5 leading-snug">{subtitle}</p>}
         </div>
         {action}
       </header>

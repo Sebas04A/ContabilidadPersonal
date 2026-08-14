@@ -8,6 +8,7 @@ from contabilidad.backend.models.investment_models import (
     FlowIn,
     InvestmentsFromAccountsResponse,
     PositionIn,
+    SaldoInicialIn,
     PositionUpdate,
     SplitRequest,
 )
@@ -48,6 +49,42 @@ def get_investment_chart_data():
 def list_portfolios():
     """Grupos que hacen de portafolio de inversión, con su conteo de posiciones."""
     return posiciones_service.list_portfolios()
+
+
+@router.put("/portfolios/{portafolio_id}/saldo-inicial")
+def configurar_saldo_inicial(portafolio_id: str, cuerpo: SaldoInicialIn):
+    """Fija el residual de partida del portafolio, o lo devuelve a la deducción.
+
+    `saldo: null` borra la configuración; `saldo: 0` afirma que arranca vacío. No son lo
+    mismo: el primero pide deducirlo de `pagos.csv` y el segundo lo da por sabido.
+    """
+    try:
+        resultado = posiciones_service.configurar_saldo_inicial(portafolio_id, cuerpo.saldo)
+    except posiciones_service.ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    try:
+        from contabilidad.backend.storage.data_pipeline import get_pipeline
+
+        get_pipeline().invalidate_cache(scope='transformations')
+    except Exception:
+        pass
+
+    return resultado
+
+
+@router.get("/portfolios/{portafolio_id}/analysis")
+def get_portfolio_analysis(portafolio_id: str):
+    """El portafolio entero: cuánta plata hay, cuánta está rindiendo y cuánta ha dejado.
+
+    Es la unidad que el usuario llama «una inversión» —el mismo dinero rodando de
+    certificado en certificado—; `/positions/{id}/analysis` es el detalle al que se baja
+    desde aquí.
+    """
+    analisis = posiciones_service.get_portfolio_analysis(portafolio_id)
+    if analisis is None:
+        raise HTTPException(status_code=404, detail="Portafolio no encontrado")
+    return analisis
 
 
 @router.get("/summary")
@@ -180,12 +217,58 @@ def verificar_corte():
     return corte.verificar()
 
 
+@router.get("/cut/regenerate/preview")
+def previsualizar_regeneracion(portafolio_id: Optional[str] = Query(None)):
+    """Qué cambiaría al poner los pagos generados al día. **No escribe.**"""
+    from contabilidad.backend.services.investments import corte
+    return corte.previsualizar_regeneracion(portafolio_id)
+
+
+@router.post("/cut/regenerate")
+def regenerar_pagos(portafolio_id: Optional[str] = Query(None)):
+    """Reescribe los pagos generados de un portafolio ya cortado desde sus posiciones.
+
+    A diferencia del corte, esto **sí** está expuesto por HTTP: reemplaza en su sitio, no
+    puede duplicar el patrimonio, y es la operación normal cuando entra una inversión
+    nueva. Correrla sin que nada haya cambiado no mueve la serie.
+    """
+    from contabilidad.backend.services.investments import corte
+
+    resultado = corte.regenerar(portafolio_id)
+    if not resultado['ok']:
+        raise HTTPException(status_code=400, detail=resultado['error'])
+
+    try:
+        from contabilidad.backend.storage.data_pipeline import get_pipeline
+
+        get_pipeline().invalidate_cache(scope='transformations')
+    except Exception:
+        pass
+
+    return resultado
+
+
 @router.get("/positions/{position_id}")
 def get_position(position_id: str):
     posicion = posiciones_service.get_position(position_id)
     if posicion is None:
         raise HTTPException(status_code=404, detail="Posición no encontrada")
     return posicion
+
+
+@router.get("/positions/{position_id}/analysis")
+def get_position_analysis(position_id: str):
+    """Una inversión de cerca: su curva de crecimiento, lo que falta y lo que rindió.
+
+    La curva reparte el interés día a día en vez de dejarlo como el escalón del día del
+    cierre. Para una posición cerrada la tasa se despeja del interés real, así que la
+    serie aterriza en el número del banco; para una abierta hace falta la tasa pactada y,
+    si no está, se devuelve `apto: false` con el motivo en vez de una recta inventada.
+    """
+    analisis = posiciones_service.get_analysis(position_id)
+    if analisis is None:
+        raise HTTPException(status_code=404, detail="Posición no encontrada")
+    return analisis
 
 
 @router.put("/positions/{position_id}")

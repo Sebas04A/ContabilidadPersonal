@@ -73,6 +73,11 @@ export interface Position {
   origen: 'detectado' | 'manual';
   plazo_pactado_dias: number | null;
   tasa_pactada: number | null;
+  /** Deducidos del propio interés cuando no se capturaron a mano (actual/360 a vencimiento). */
+  plazo_inferido: number | null;
+  tasa_inferida: number | null;
+  plazo_es_inferido: boolean;
+  inferencia: string | null;
   institucion: string | null;
   moneda: string;
   nota: string;
@@ -103,6 +108,10 @@ export interface Portfolio {
   es_inversion: boolean;
   /** Somebody else's money living in the user's account: tracked, never own net worth. */
   es_custodia: boolean;
+  /** Residual de partida. Vale 0 tanto si se configuró en cero como si no se configuró. */
+  saldo_inicial: number;
+  /** Lo que distingue «configurado en cero» de «sin configurar, dedúcelo». */
+  saldo_inicial_configurado: boolean;
   posiciones: number;
 }
 
@@ -292,6 +301,237 @@ export interface NeutralizationPreview {
   };
 }
 
+/** Serie diaria de una sola posición: cuánto capital había y cuánto interés llevaba corrido. */
+export interface GrowthSeries {
+  fechas: string[];
+  capital: number[];
+  interes: number[];
+  valor: number[];
+}
+
+export interface GrowthProjection extends GrowthSeries {
+  fecha_vencimiento: string;
+  dias_restantes: number;
+  interes_al_vencimiento: number;
+  valor_al_vencimiento: number;
+  falta_por_devengar: number;
+}
+
+export interface PositionGain {
+  /** True si el interés ya se cobró; false si es devengo estimado de una posición viva. */
+  realizado: boolean;
+  capital: number;
+  interes_bruto: number;
+  retencion: number;
+  comisiones: number;
+  interes_neto: number;
+  rendimiento_pct: number | null;
+  /** Último punto de la curva real: valor al cierre, o valor de hoy si sigue abierta. */
+  valor_final: number | null;
+  valor_al_vencimiento: number | null;
+  interes_por_dia: number | null;
+}
+
+/** Supuesto, no dato: renovar capital e interés al mismo plazo y a la misma tasa. */
+export interface ReinvestScenario {
+  anios: number;
+  renovaciones: number;
+  valor: number;
+  ganancia: number;
+}
+
+export interface PositionAnalysis {
+  posicion_id: string;
+  portafolio_id: string | null;
+  tipo: PositionType;
+  estado: 'abierta' | 'cerrada';
+  fecha_apertura: string | null;
+  fecha_cierre: string | null;
+  /** False cuando no hay curva que dibujar; `motivo` dice por qué. */
+  apto: boolean;
+  motivo: string | null;
+  tasa_devengo: number | null;
+  /** `liquidada` se despejó del interés real; `pactada` la capturó el usuario. */
+  tasa_origen: 'liquidada' | 'pactada' | null;
+  plazo_efectivo: number | null;
+  serie: GrowthSeries;
+  proyeccion: GrowthProjection | null;
+  ganancia: PositionGain;
+  escenarios: ReinvestScenario[];
+  movimientos: Movement[];
+  hoy: string;
+}
+
+/**
+ * El portafolio entero: el mismo dinero rodando de certificado en certificado.
+ *
+ * `dentro + suelto + devengado = total`, y por el otro lado
+ * `aportado_neto + ganancia = total`. Las dos descomposiciones cierran todos los días.
+ */
+export interface PortfolioSeries {
+  fechas: string[];
+  /** Plata dentro de un certificado: la que está rindiendo. */
+  dentro: number[];
+  /** Plata del portafolio fuera de todo certificado: existe pero no rinde. */
+  suelto: number[];
+  devengado: number[];
+  total: number[];
+  ganancia: number[];
+  aportado_neto: number[];
+}
+
+export interface PortfolioAnalysisKpis {
+  total_hoy: number;
+  dentro_hoy: number;
+  suelto_hoy: number;
+  aportado_neto: number;
+  ganancia_acumulada: number;
+  interes_cobrado: number;
+  retencion: number;
+  interes_devengado: number;
+  salidas: number;
+  entradas: number;
+  tna_ponderada: number | null;
+  xirr: number | null;
+  capital_dia: number;
+  certificados: number;
+  abiertos: number;
+  proximo_vencimiento: string | null;
+  dias: number;
+  /** Días en que había plata en el portafolio y no estaba dentro de ningún certificado. */
+  dias_con_plata_parada: number;
+}
+
+export interface Streak {
+  desde: string;
+  hasta: string;
+  dias: number;
+}
+
+export interface CertificateSummary {
+  id: string;
+  fecha_apertura: string | null;
+  fecha_cierre: string | null;
+  capital: number;
+  interes: number;
+  dias: number | null;
+  tna: number | null;
+}
+
+/** Lo que la serie diaria sabe y los totales no cuentan. */
+export interface PortfolioStats {
+  dias_totales: number;
+  /** Los tres parten la ventana sin solaparse: suman siempre `dias_totales`. */
+  dias_rindiendo: number;
+  dias_parada: number;
+  dias_vacio: number;
+  pct_rindiendo: number;
+  pct_parada: number;
+  desde: string;
+  hasta: string;
+  ganancia: number;
+  ganancia_por_dia: number;
+  /** Casi siempre mayor que el anterior: solo cuenta los días en que la plata trabajaba. */
+  ganancia_por_dia_rindiendo: number | null;
+  ganancia_por_mes: number;
+  /** Lo que la plata quieta habría dado a la propia tasa histórica del portafolio. */
+  lucro_cesante: number | null;
+  suelto_medio_parado: number;
+  /** Por debajo de esto un saldo suelto es residuo, no una decisión de no reinvertir. */
+  umbral_material: number;
+  racha_parada: Streak[];
+  racha_rindiendo: Streak[];
+  huecos: number;
+  dias_para_reinvertir_medio: number | null;
+  peor_hueco: Streak | null;
+  duracion_media: number | null;
+  capital_medio: number;
+  mejor: CertificateSummary | null;
+  peor: CertificateSummary | null;
+}
+
+export interface RatePoint {
+  id: string;
+  fecha: string;
+  tasa: number;
+  capital: number;
+  portafolio_id: string | null;
+  /** Si el certificado es del portafolio que se está mirando. */
+  propio: boolean;
+}
+
+/**
+ * Hacia dónde van las tasas. Se ajusta sobre **todos** los certificados, no solo los del
+ * portafolio: la tasa la pone el banco y le pasa lo mismo a todo el dinero a la vez.
+ */
+export interface RateTrend {
+  puntos: RatePoint[];
+  propios: number;
+  /** `irregular` = hay pendiente pero la recta no explica los datos (R² bajo). */
+  direccion: 'bajando' | 'subiendo' | 'estable' | 'irregular' | 'insuficiente' | 'sin_datos';
+  /** Puntos porcentuales al año. */
+  pendiente_anual: number | null;
+  r2: number | null;
+  tasa_actual: number;
+  tasa_media: number;
+  tasa_ajustada_hoy: number | null;
+  primera: RatePoint;
+  ultima: RatePoint;
+  /** La recta ajustada, con `futuro: true` a partir de hoy. */
+  proyeccion: { fecha: string; tasa: number; futuro: boolean }[];
+}
+
+export interface ProjectionScenario {
+  clave: 'actual' | 'tendencia' | 'media';
+  nombre: string;
+  tasa_inicial: number;
+  tasa_final: number;
+  /** Dónde deja de sostenerse el supuesto: los valores posteriores son `null`. */
+  hasta_meses: number;
+  valores: (number | null)[];
+  tasas: (number | null)[];
+  hitos: { anios: number; valor: number; ganancia: number }[];
+  ganancia_al_final: number;
+}
+
+export interface EarningsProjection {
+  meses: string[];
+  base: number;
+  escenarios: ProjectionScenario[];
+}
+
+export interface PortfolioPositionRow {
+  id: string;
+  fecha_apertura: string | null;
+  fecha_cierre: string | null;
+  estado: 'abierta' | 'cerrada';
+  capital: number;
+  interes: number;
+  tna: number | null;
+  dias: number | null;
+}
+
+export interface PortfolioAnalysis {
+  portafolio_id: string;
+  nombre: string;
+  es_custodia: boolean;
+  apto: boolean;
+  motivo: string | null;
+  saldo_inicial: number;
+  /** Si es false la curva arranca en cero y el total está incompleto. */
+  saldo_inicial_configurado: boolean;
+  serie: PortfolioSeries;
+  kpis: PortfolioAnalysisKpis;
+  estadisticas: PortfolioStats;
+  /** La misma definición que la pestaña de Resumen: agrupa por año de cierre. */
+  por_anio: YearRow[];
+  tasas: RateTrend;
+  proyeccion_ganancia: EarningsProjection;
+  escenarios: ReinvestScenario[];
+  posiciones: PortfolioPositionRow[];
+  hoy: string;
+}
+
 export interface ApplyDetectionRequest {
   tx_apertura_ids?: string[] | null;
   asignaciones?: Record<string, string>;
@@ -333,6 +573,12 @@ export const investmentsApi = {
     return res.data;
   },
 
+  /** `saldo: null` devuelve el portafolio a la deducción; `0` afirma que arranca vacío. */
+  setSaldoInicial: async (portafolioId: string, saldo: number | null) => {
+    const res = await axios.put(`${API_BASE}/portfolios/${portafolioId}/saldo-inicial`, { saldo });
+    return res.data;
+  },
+
   getSummary: async (): Promise<InvestmentSummary> => {
     const res = await axios.get(`${API_BASE}/summary`);
     return res.data;
@@ -360,6 +606,18 @@ export const investmentsApi = {
     portafolio_id: string; fecha: string; monto: number; direccion: FlowDirection;
   }): Promise<FlowPreview> => {
     const res = await axios.get(`${API_BASE}/flows/preview`, { params });
+    return res.data;
+  },
+
+  /** El portafolio entero: cuánta plata hay, cuánta rinde y cuánta ha dejado. */
+  getPortfolioAnalysis: async (id: string): Promise<PortfolioAnalysis> => {
+    const res = await axios.get(`${API_BASE}/portfolios/${id}/analysis`);
+    return res.data;
+  },
+
+  /** Un certificado de cerca: curva de crecimiento, proyección y cuánto rindió. */
+  getPositionAnalysis: async (id: string): Promise<PositionAnalysis> => {
+    const res = await axios.get(`${API_BASE}/positions/${id}/analysis`);
     return res.data;
   },
 

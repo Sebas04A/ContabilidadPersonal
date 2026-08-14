@@ -58,6 +58,15 @@ class FlowIn(BaseModel):
     tx_id: Optional[str] = None   # la transacción bancaria, si el dinero pasó por la cuenta
 
 
+class SaldoInicialIn(BaseModel):
+    """El residual de partida de un portafolio.
+
+    `None` borra la configuración y devuelve el portafolio a la deducción; `0` afirma que
+    arranca vacío. Son cosas distintas y por eso el campo es opcional en vez de un float.
+    """
+    saldo: Optional[float] = None
+
+
 class PositionIn(BaseModel):
     portafolio_id: Optional[str] = None
     tipo: str = "plazo_fijo"      # plazo_fijo | valuada | ajuste | flujo

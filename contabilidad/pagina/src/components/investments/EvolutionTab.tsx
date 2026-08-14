@@ -1,42 +1,8 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import * as echarts from 'echarts';
 import { investmentsApi, type Position } from '../../services/investments';
-import { EmptyState, Section, Spinner, money } from './shared';
-
-const GRID = { top: 40, right: 60, bottom: 50, left: 70 };
-const EJE = { axisLine: { lineStyle: { color: '#3f3f46' } }, axisLabel: { color: '#a1a1aa', fontSize: 11 } };
-const TOOLTIP = {
-  backgroundColor: 'rgba(9,9,11,0.92)',
-  borderColor: 'rgba(255,255,255,0.1)',
-  textStyle: { color: '#e4e4e7', fontSize: 12 },
-};
-
-/** An echarts canvas that rebuilds its option whenever `option` changes. */
-function Chart({ option, height = 340 }: { option: echarts.EChartsOption; height?: number }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const instance = useRef<echarts.ECharts | null>(null);
-
-  useEffect(() => {
-    if (!ref.current) return;
-    instance.current = echarts.init(ref.current);
-    const onResize = () => instance.current?.resize();
-    window.addEventListener('resize', onResize);
-    return () => {
-      window.removeEventListener('resize', onResize);
-      instance.current?.dispose();
-      instance.current = null;
-    };
-  }, []);
-
-  useEffect(() => {
-    // `true` replaces the option instead of merging: series that disappear must not
-    // linger from the previous render.
-    instance.current?.setOption(option, true);
-  }, [option]);
-
-  return <div ref={ref} style={{ height }} className="w-full" />;
-}
+import { Chart, EJE, EmptyState, GRID, Section, Spinner, TOOLTIP, money } from './shared';
 
 export function EvolutionTab() {
   const { data: timeline, isLoading } = useQuery({
