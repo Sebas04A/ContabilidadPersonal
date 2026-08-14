@@ -1,44 +1,46 @@
-import { useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import ReactECharts from 'echarts-for-react';
-import { PiggyBank, TrendingDown, Check, AlertCircle, X, Plus, Settings2, Layers, Activity, ArrowUpRight, ArrowDownRight, Tag, Info } from 'lucide-react';
-import { Transaction, BudgetConfig } from '../../services/api';
+import { PiggyBank, TrendingDown, Check, AlertCircle, Layers, Activity, ArrowUpRight, ArrowDownRight, Tag, Info } from 'lucide-react';
+import { Transaction } from '../../services/api';
 import { useFunds } from '../../hooks/useTransactions';
 
 interface GeneralBudgetTabProps {
   transactions: Transaction[];
-  labeledFilter: string;
-  totalExpenses: number;
-  totalIncome: number;
+  labeledFilter?: string;
+  totalExpenses?: number;
+  totalIncome?: number;
   labelingStats: { labeled: Transaction[], unlabeled: Transaction[] };
-  budgetConfig: BudgetConfig;
-  isEditing: boolean;
-  saving: boolean;
-  editTags: string[];
-  newTagKey: string;
-  availableTags: string[];
-  selectedPeriod: string;
-  setNewTagKey: (val: string) => void;
-  setIsEditing: (val: boolean) => void;
-  setEditTags: (tags: string[]) => void;
-  handleAddNewTag: () => void;
-  handleRemoveTag: (tag: string) => void;
-  handleSave: () => void;
-  openTagModal: (tag: string) => void;
+  budgetConfig?: any;
+  isEditing?: boolean;
+  saving?: boolean;
+  editTags?: string[];
+  newTagKey?: string;
+  availableTags?: string[];
+  selectedPeriod?: string;
+  periodStart?: string;
+  periodEnd?: string;
+  setNewTagKey?: (val: string) => void;
+  setIsEditing?: (val: boolean) => void;
+  setEditTags?: (tags: string[]) => void;
+  handleAddNewTag?: () => void;
+  handleRemoveTag?: (tag: string) => void;
+  handleSave?: () => void;
+  openTagModal?: (tag: string) => void;
   openLocalModal: (title: string, desc: string, txs: Transaction[]) => void;
   formatCurrency: (val: number) => string;
-  renderProgressBar: (spent: number, budget: number, colorClass?: string) => React.ReactNode;
-  tagExpenses: Record<string, number>;
-  tagBalances: Record<string, number>;
+  renderProgressBar?: (spent: number, budget: number, colorClass?: string) => React.ReactNode;
+  tagExpenses?: Record<string, number>;
+  tagBalances?: Record<string, number>;
 }
 
 export function GeneralBudgetTab({
-  transactions, labeledFilter, totalExpenses, totalIncome, labelingStats, budgetConfig, isEditing, saving,
-  editTags, newTagKey, availableTags, selectedPeriod,
-  setNewTagKey, setIsEditing, setEditTags, handleAddNewTag, handleRemoveTag, handleSave,
-  openTagModal, openLocalModal, formatCurrency, renderProgressBar, tagExpenses, tagBalances
+  transactions, labeledFilter = '', totalExpenses = 0, totalIncome = 0, labelingStats, isEditing = false,
+  periodStart, periodEnd, openLocalModal, formatCurrency, renderProgressBar = () => null
 }: GeneralBudgetTabProps) {
 
-  const { topExpenses, totalNegative, expenseChartOptions, topCategories, categoryChartOptions } = useMemo(() => {
+  const [summaryViewMode, setSummaryViewMode] = useState<'categories' | 'tags' | 'transactions'>('categories');
+
+  const { topExpenses, totalNegative, expenseChartOptions, topCategories, categoryChartOptions, topTags, tagChartOptions } = useMemo(() => {
      const expenses = transactions.filter(t => t.MONTO < 0);
      const totalNegative = expenses.reduce((acc, t) => acc + Math.abs(t.MONTO), 0);
      
@@ -71,6 +73,8 @@ export function GeneralBudgetTab({
      const options = {
          tooltip: {
              trigger: 'item',
+             confine: true,
+             position: (pos: any) => [pos[0] + 15, Math.max(10, pos[1] - 30)],
              formatter: (params: any) => {
                  return `<strong class="text-white">${params.data.name}</strong><br/>Monto: $${params.data.value.toLocaleString('es-CO')}<br/>Transacciones: ${params.data.txs.length}`;
              },
@@ -123,6 +127,8 @@ export function GeneralBudgetTab({
      const catOptions = {
          tooltip: {
              trigger: 'item',
+             confine: true,
+             position: (pos: any) => [pos[0] + 15, Math.max(10, pos[1] - 30)],
              formatter: (params: any) => {
                  return `<strong class="text-white">${params.data.name}</strong><br/>Monto: $${params.data.value.toLocaleString('es-CO')}<br/>Transacciones: ${params.data.txs.length}`;
              },
@@ -152,12 +158,86 @@ export function GeneralBudgetTab({
          ]
      };
 
+     // Tag expenses
+     const groupedTags: Record<string, { value: number, txs: Transaction[] }> = {};
+     expenses.forEach(t => {
+         if (!t.tags || t.tags.trim() === '') {
+             const key = 'Sin Etiqueta';
+             if (!groupedTags[key]) groupedTags[key] = { value: 0, txs: [] };
+             groupedTags[key].value += Math.abs(t.MONTO);
+             groupedTags[key].txs.push(t);
+         } else {
+             const tTags = t.tags.split(',').map(tag => tag.trim()).filter(Boolean);
+             if (tTags.length === 0) {
+                 const key = 'Sin Etiqueta';
+                 if (!groupedTags[key]) groupedTags[key] = { value: 0, txs: [] };
+                 groupedTags[key].value += Math.abs(t.MONTO);
+                 groupedTags[key].txs.push(t);
+             } else {
+                 const propVal = Math.abs(t.MONTO) / tTags.length;
+                 tTags.forEach(tag => {
+                     const key = tag;
+                     if (!groupedTags[key]) groupedTags[key] = { value: 0, txs: [] };
+                     groupedTags[key].value += propVal;
+                     groupedTags[key].txs.push(t);
+                 });
+             }
+         }
+     });
+
+     const sortedTags = Object.keys(groupedTags)
+         .map(key => ({
+            name: key,
+            value: groupedTags[key].value,
+            txs: groupedTags[key].txs
+         }))
+         .sort((a,b) => b.value - a.value);
+
+     const top5Tags = sortedTags.slice(0, 5);
+     const pieTagsData = sortedTags.map(item => ({ value: item.value, name: item.name, txs: item.txs }));
+
+     const tagOptions = {
+         tooltip: {
+             trigger: 'item',
+             confine: true,
+             position: (pos: any) => [pos[0] + 15, Math.max(10, pos[1] - 30)],
+             formatter: (params: any) => {
+                 return `<strong class="text-white">${params.data.name}</strong><br/>Monto: $${params.data.value.toLocaleString('es-CO')}<br/>Transacciones: ${params.data.txs.length}`;
+             },
+             backgroundColor: '#1f2937', borderColor: '#374151', textStyle: { color: '#f3f4f6' }
+         },
+         legend: { show: false },
+         series: [
+             {
+                 name: 'Etiquetas',
+                 type: 'pie',
+                 radius: ['45%', '75%'],
+                 avoidLabelOverlap: true,
+                 itemStyle: {
+                     borderRadius: 8,
+                     borderColor: '#111827',
+                     borderWidth: 2
+                 },
+                 label: {
+                     show: true,
+                     formatter: '{b}\n{d}%',
+                     color: '#9ca3af',
+                     fontSize: 10
+                 },
+                 labelLine: { length: 10, length2: 10, lineStyle: { color: '#4b5563' } },
+                 data: pieTagsData
+             }
+         ]
+     };
+
      return { 
          topExpenses: top5, 
          totalNegative, 
          expenseChartOptions: options,
          topCategories: top5Categories,
-         categoryChartOptions: catOptions
+         categoryChartOptions: catOptions,
+         topTags: top5Tags,
+         tagChartOptions: tagOptions
      };
   }, [transactions]);
 
@@ -260,285 +340,286 @@ export function GeneralBudgetTab({
              </div>
         </div>
 
-        {/* Visual Analysis Grid: Categorías */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-8">
-            {/* Categorías con más Gastos */}
-            <div className="bg-surface-900/60 border border-white/10 rounded-2xl p-6 shadow-xl flex flex-col">
-                <h3 className="text-lg font-bold text-white mb-4 border-b border-white/10 pb-3 flex items-center justify-between">
-                    <span className="flex items-center gap-2"><Layers size={18} className="text-purple-400" /> Categorías con más Gastos</span>
-                </h3>
-                <div className="flex-1 space-y-3">
-                    {topCategories.map((cat, idx) => {
-                        const pct = totalNegative > 0 ? (cat.value / totalNegative) * 100 : 0;
-                        return (
-                            <div 
-                               key={idx} 
-                               className="group relative cursor-pointer bg-surface-950/50 hover:bg-surface-800 border border-transparent hover:border-white/5 p-3 rounded-xl transition-all"
-                               onClick={() => openLocalModal(`Categoría: ${cat.name}`, `Detalle de transacciones agrupadas bajo esta categoría.`, cat.txs.sort((a,b) => new Date(b.FECHA).getTime() - new Date(a.FECHA).getTime()))}
-                            >
-                                <div className="flex justify-between items-end mb-2">
-                                    <span className="font-bold text-sm text-white truncate max-w-[60%] group-hover:text-purple-300 transition-colors uppercase">{cat.name}</span>
-                                    <div className="flex flex-col items-end">
-                                        <span className="font-mono font-bold text-purple-400 text-sm">{formatCurrency(cat.value)}</span>
-                                    </div>
-                                </div>
-                                <div className="w-full h-1.5 bg-surface-800 rounded-full overflow-hidden">
-                                    <div 
-                                        className="h-full rounded-full transition-all duration-1000 bg-purple-500 shadow-[0_0_8px_#a855f7]" 
-                                        style={{ width: `${Math.min(pct, 100)}%` }}
-                                    />
-                                </div>
-                                <div className="flex justify-between items-center mt-1">
-                                   <span className="text-[10px] text-surface-500">{cat.txs.length} transacciones</span>
-                                   <span className="text-xs text-surface-400 font-medium">{pct.toFixed(1)}% del total</span>
-                                </div>
+        {/* Visual Analysis Grid: Categorías / Tags / Transacciones toggle */}
+        <div className="mt-8">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                    {summaryViewMode === 'categories' && <><Layers size={22} className="text-purple-400" /> Análisis por Categorías</>}
+                    {summaryViewMode === 'tags' && <><Tag size={22} className="text-violet-400" /> Análisis por Etiquetas</>}
+                    {summaryViewMode === 'transactions' && <><Activity size={22} className="text-rose-400" /> Análisis por Transacciones / Comercios</>}
+                </h2>
+                <div className="flex items-center gap-1 bg-surface-950 p-1 rounded-xl border border-white/10 shadow-lg flex-wrap sm:flex-nowrap">
+                    <button
+                        onClick={() => setSummaryViewMode('categories')}
+                        className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
+                            summaryViewMode === 'categories'
+                                ? 'bg-primary-600 text-white shadow-md'
+                                : 'text-surface-400 hover:text-white'
+                        }`}
+                    >
+                        <Layers size={14} />
+                        Categorías
+                    </button>
+                    <button
+                        onClick={() => setSummaryViewMode('tags')}
+                        className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
+                            summaryViewMode === 'tags'
+                                ? 'bg-primary-600 text-white shadow-md'
+                                : 'text-surface-400 hover:text-white'
+                        }`}
+                    >
+                        <Tag size={14} />
+                        Etiquetas
+                    </button>
+                    <button
+                        onClick={() => setSummaryViewMode('transactions')}
+                        className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
+                            summaryViewMode === 'transactions'
+                                ? 'bg-primary-600 text-white shadow-md'
+                                : 'text-surface-400 hover:text-white'
+                        }`}
+                    >
+                        <Activity size={14} />
+                        Transacciones
+                    </button>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {summaryViewMode === 'categories' && (
+                    <>
+                        {/* Categorías con más Gastos */}
+                        <div className="bg-surface-900/60 border border-white/10 rounded-2xl p-6 shadow-xl flex flex-col">
+                            <h3 className="text-lg font-bold text-white mb-4 border-b border-white/10 pb-3 flex items-center justify-between">
+                                <span className="flex items-center gap-2"><Layers size={18} className="text-purple-400" /> Categorías con más Gastos</span>
+                            </h3>
+                            <div className="flex-1 space-y-3">
+                                {topCategories.map((cat, idx) => {
+                                    const pct = totalNegative > 0 ? (cat.value / totalNegative) * 100 : 0;
+                                    return (
+                                        <div 
+                                           key={idx} 
+                                           className="group relative cursor-pointer bg-surface-950/50 hover:bg-surface-800 border border-transparent hover:border-white/5 p-3 rounded-xl transition-all"
+                                           onClick={() => openLocalModal(`Categoría: ${cat.name}`, `Detalle de transacciones agrupadas bajo esta categoría.`, cat.txs.sort((a,b) => new Date(b.FECHA).getTime() - new Date(a.FECHA).getTime()))}
+                                        >
+                                            <div className="flex justify-between items-end mb-2">
+                                                <span className="font-bold text-sm text-white truncate max-w-[60%] group-hover:text-purple-300 transition-colors uppercase">{cat.name}</span>
+                                                <div className="flex flex-col items-end">
+                                                    <span className="font-mono font-bold text-purple-400 text-sm">{formatCurrency(cat.value)}</span>
+                                                </div>
+                                            </div>
+                                            <div className="w-full h-1.5 bg-surface-800 rounded-full overflow-hidden">
+                                                <div 
+                                                    className="h-full rounded-full transition-all duration-1000 bg-purple-500 shadow-[0_0_8px_#a855f7]" 
+                                                    style={{ width: `${Math.min(pct, 100)}%` }}
+                                                />
+                                            </div>
+                                            <div className="flex justify-between items-center mt-1">
+                                               <span className="text-[10px] text-surface-500">{cat.txs.length} transacciones</span>
+                                               <span className="text-xs text-surface-400 font-medium">{pct.toFixed(1)}% del total</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                {topCategories.length === 0 && (
+                                    <div className="h-full flex items-center justify-center text-surface-500 italic text-sm py-10">No hay gastos en este periodo.</div>
+                                )}
                             </div>
-                        );
-                    })}
-                    {topCategories.length === 0 && (
-                        <div className="h-full flex items-center justify-center text-surface-500 italic text-sm py-10">No hay gastos en este periodo.</div>
-                    )}
-                </div>
-            </div>
+                        </div>
 
-            {/* Distribucion por Categoría Donut */}
-            <div className="bg-surface-900/60 border border-white/10 rounded-2xl p-6 shadow-xl flex flex-col">
-                <h3 className="text-lg font-bold text-white mb-2 border-b border-white/10 pb-3 flex items-center justify-between">
-                    <span className="flex items-center gap-2"><TrendingDown size={18} className="text-purple-400" /> Distribución de Categorías</span>
-                </h3>
-                <div className="flex-1 w-full min-h-[300px] flex items-center justify-center relative">
-                   {totalNegative > 0 ? (
-                       <>
-                           <div className="absolute inset-0 flex items-center justify-center pointer-events-none flex-col animate-fade-in">
-                               <span className="text-sm font-medium text-surface-400 uppercase tracking-widest mb-1">Total Gastos</span>
-                               <span className="text-2xl font-bold text-rose-400">{formatCurrency(totalNegative)}</span>
-                           </div>
-                           <ReactECharts 
-                               option={categoryChartOptions} 
-                               style={{ height: '100%', width: '100%', minHeight: '320px' }} 
-                               opts={{ renderer: 'svg' }}
-                               onEvents={{
-                                   'click': (params: any) => {
-                                       if (params.data && params.data.txs) {
-                                           openLocalModal(`Categoría: ${params.data.name}`, `Transacciones que componen esta categoría.`, params.data.txs.sort((a: Transaction, b: Transaction) => new Date(b.FECHA).getTime() - new Date(a.FECHA).getTime()));
-                                       }
-                                   }
-                               }}
-                           />
-                       </>
-                   ) : (
-                       <div className="text-center text-surface-500 italic text-sm py-20">Aún no hay suficientes datos para graficar.</div>
-                   )}
-                </div>
-            </div>
-        </div>
-
-        {/* Visual Analysis Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-8">
-            {/* Top 5 Gastos Fuertes */}
-            <div className="bg-surface-900/60 border border-white/10 rounded-2xl p-6 shadow-xl flex flex-col">
-                <h3 className="text-lg font-bold text-white mb-4 border-b border-white/10 pb-3 flex items-center justify-between">
-                    <span className="flex items-center gap-2"><Activity size={18} className="text-rose-400" /> Mayores Gastos Individuales</span>
-                </h3>
-                <div className="flex-1 space-y-3">
-                    {topExpenses.map((expense, idx) => {
-                        const pct = totalNegative > 0 ? (expense.value / totalNegative) * 100 : 0;
-                        return (
-                            <div 
-                               key={idx} 
-                               className="group relative cursor-pointer bg-surface-950/50 hover:bg-surface-800 border border-transparent hover:border-white/5 p-3 rounded-xl transition-all"
-                               onClick={() => openLocalModal(`Gastos de: ${expense.name}`, `Detalle de transacciones agrupadas bajo este nombre.`, expense.txs.sort((a,b) => new Date(b.FECHA).getTime() - new Date(a.FECHA).getTime()))}
-                            >
-                                <div className="flex justify-between items-end mb-2">
-                                    <span className="font-bold text-sm text-white truncate max-w-[60%] group-hover:text-rose-300 transition-colors uppercase">{expense.name}</span>
-                                    <div className="flex flex-col items-end">
-                                        <span className="font-mono font-bold text-rose-400 text-sm">{formatCurrency(expense.value)}</span>
-                                    </div>
-                                </div>
-                                <div className="w-full h-1.5 bg-surface-800 rounded-full overflow-hidden">
-                                    <div 
-                                        className="h-full rounded-full transition-all duration-1000 bg-rose-500 shadow-[0_0_8px_#f43f5e]" 
-                                        style={{ width: `${Math.min(pct, 100)}%` }}
-                                    />
-                                </div>
-                                <div className="flex justify-between items-center mt-1">
-                                   <span className="text-[10px] text-surface-500">{expense.txs.length} transacciones</span>
-                                   <span className="text-xs text-surface-400 font-medium">{pct.toFixed(1)}% del total</span>
-                                </div>
+                        {/* Distribución por Categoría Donut */}
+                        <div className="bg-surface-900/60 border border-white/10 rounded-2xl p-6 shadow-xl flex flex-col">
+                            <h3 className="text-lg font-bold text-white mb-2 border-b border-white/10 pb-3 flex items-center justify-between">
+                                <span className="flex items-center gap-2"><TrendingDown size={18} className="text-purple-400" /> Distribución de Categorías</span>
+                            </h3>
+                            <div className="flex-1 w-full min-h-[300px] flex items-center justify-center relative">
+                               {totalNegative > 0 ? (
+                                   <>
+                                       <div className="absolute inset-0 flex items-center justify-center pointer-events-none flex-col animate-fade-in">
+                                           <span className="text-sm font-medium text-surface-400 uppercase tracking-widest mb-1">Total Gastos</span>
+                                           <span className="text-2xl font-bold text-rose-400">{formatCurrency(totalNegative)}</span>
+                                       </div>
+                                       <ReactECharts 
+                                           option={categoryChartOptions} 
+                                           style={{ height: '100%', width: '100%', minHeight: '320px' }} 
+                                           opts={{ renderer: 'svg' }}
+                                           onEvents={{
+                                               'click': (params: any) => {
+                                                   if (params.data && params.data.txs) {
+                                                       openLocalModal(`Categoría: ${params.data.name}`, `Transacciones que componen esta categoría.`, params.data.txs.sort((a: Transaction, b: Transaction) => new Date(b.FECHA).getTime() - new Date(a.FECHA).getTime()));
+                                                   }
+                                               }
+                                           }}
+                                       />
+                                   </>
+                               ) : (
+                                   <div className="text-center text-surface-500 italic text-sm py-20">Aún no hay suficientes datos para graficar.</div>
+                               )}
                             </div>
-                        );
-                    })}
-                    {topExpenses.length === 0 && (
-                        <div className="h-full flex items-center justify-center text-surface-500 italic text-sm py-10">No hay gastos en este periodo.</div>
-                    )}
-                </div>
+                        </div>
+                    </>
+                )}
+
+                {summaryViewMode === 'tags' && (
+                    <>
+                        {/* Etiquetas con más Gastos */}
+                        <div className="bg-surface-900/60 border border-white/10 rounded-2xl p-6 shadow-xl flex flex-col">
+                            <h3 className="text-lg font-bold text-white mb-4 border-b border-white/10 pb-3 flex items-center justify-between">
+                                <span className="flex items-center gap-2"><Tag size={18} className="text-violet-400" /> Etiquetas con más Gastos</span>
+                            </h3>
+                            <div className="flex-1 space-y-3">
+                                {topTags.map((tag, idx) => {
+                                    const pct = totalNegative > 0 ? (tag.value / totalNegative) * 100 : 0;
+                                    return (
+                                        <div 
+                                           key={idx} 
+                                           className="group relative cursor-pointer bg-surface-950/50 hover:bg-surface-800 border border-transparent hover:border-white/5 p-3 rounded-xl transition-all"
+                                           onClick={() => openLocalModal(`Etiqueta: ${tag.name}`, `Detalle de transacciones agrupadas bajo la etiqueta #${tag.name}.`, tag.txs.sort((a,b) => new Date(b.FECHA).getTime() - new Date(a.FECHA).getTime()))}
+                                        >
+                                            <div className="flex justify-between items-end mb-2">
+                                                <span className="font-bold text-sm text-white truncate max-w-[60%] group-hover:text-violet-300 transition-colors uppercase">#{tag.name}</span>
+                                                <div className="flex flex-col items-end">
+                                                    <span className="font-mono font-bold text-violet-400 text-sm">{formatCurrency(tag.value)}</span>
+                                                </div>
+                                            </div>
+                                            <div className="w-full h-1.5 bg-surface-800 rounded-full overflow-hidden">
+                                                <div 
+                                                    className="h-full rounded-full transition-all duration-1000 bg-violet-500 shadow-[0_0_8px_#8b5cf6]" 
+                                                    style={{ width: `${Math.min(pct, 100)}%` }}
+                                                />
+                                            </div>
+                                            <div className="flex justify-between items-center mt-1">
+                                               <span className="text-[10px] text-surface-500">{tag.txs.length} transacciones</span>
+                                               <span className="text-xs text-surface-400 font-medium">{pct.toFixed(1)}% del total</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                {topTags.length === 0 && (
+                                    <div className="h-full flex items-center justify-center text-surface-500 italic text-sm py-10">No hay gastos en este periodo.</div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Distribución por Etiqueta Donut */}
+                        <div className="bg-surface-900/60 border border-white/10 rounded-2xl p-6 shadow-xl flex flex-col">
+                            <h3 className="text-lg font-bold text-white mb-2 border-b border-white/10 pb-3 flex items-center justify-between">
+                                <span className="flex items-center gap-2"><TrendingDown size={18} className="text-violet-400" /> Distribución de Etiquetas</span>
+                            </h3>
+                            <div className="flex-1 w-full min-h-[300px] flex items-center justify-center relative">
+                               {totalNegative > 0 ? (
+                                   <>
+                                       <div className="absolute inset-0 flex items-center justify-center pointer-events-none flex-col animate-fade-in">
+                                           <span className="text-sm font-medium text-surface-400 uppercase tracking-widest mb-1">Total Gastos</span>
+                                           <span className="text-2xl font-bold text-rose-400">{formatCurrency(totalNegative)}</span>
+                                       </div>
+                                       <ReactECharts 
+                                           option={tagChartOptions} 
+                                           style={{ height: '100%', width: '100%', minHeight: '320px' }} 
+                                           opts={{ renderer: 'svg' }}
+                                           onEvents={{
+                                               'click': (params: any) => {
+                                                   if (params.data && params.data.txs) {
+                                                       openLocalModal(`Etiqueta: ${params.data.name}`, `Transacciones con la etiqueta #${params.data.name}.`, params.data.txs.sort((a: Transaction, b: Transaction) => new Date(b.FECHA).getTime() - new Date(a.FECHA).getTime()));
+                                                   }
+                                               }
+                                           }}
+                                       />
+                                   </>
+                               ) : (
+                                   <div className="text-center text-surface-500 italic text-sm py-20">Aún no hay suficientes datos para graficar.</div>
+                               )}
+                            </div>
+                        </div>
+                    </>
+                )}
+
+                {summaryViewMode === 'transactions' && (
+                    <>
+                        {/* Mayores Gastos Individuales */}
+                        <div className="bg-surface-900/60 border border-white/10 rounded-2xl p-6 shadow-xl flex flex-col">
+                            <h3 className="text-lg font-bold text-white mb-4 border-b border-white/10 pb-3 flex items-center justify-between">
+                                <span className="flex items-center gap-2"><Activity size={18} className="text-rose-400" /> Mayores Gastos Individuales</span>
+                            </h3>
+                            <div className="flex-1 space-y-3">
+                                {topExpenses.map((expense, idx) => {
+                                    const pct = totalNegative > 0 ? (expense.value / totalNegative) * 100 : 0;
+                                    return (
+                                        <div 
+                                           key={idx} 
+                                           className="group relative cursor-pointer bg-surface-950/50 hover:bg-surface-800 border border-transparent hover:border-white/5 p-3 rounded-xl transition-all"
+                                           onClick={() => openLocalModal(`Gastos de: ${expense.name}`, `Detalle de transacciones agrupadas bajo este nombre.`, expense.txs.sort((a,b) => new Date(b.FECHA).getTime() - new Date(a.FECHA).getTime()))}
+                                        >
+                                            <div className="flex justify-between items-end mb-2">
+                                                <span className="font-bold text-sm text-white truncate max-w-[60%] group-hover:text-rose-300 transition-colors uppercase">{expense.name}</span>
+                                                <div className="flex flex-col items-end">
+                                                    <span className="font-mono font-bold text-rose-400 text-sm">{formatCurrency(expense.value)}</span>
+                                                </div>
+                                            </div>
+                                            <div className="w-full h-1.5 bg-surface-800 rounded-full overflow-hidden">
+                                                <div 
+                                                    className="h-full rounded-full transition-all duration-1000 bg-rose-500 shadow-[0_0_8px_#f43f5e]" 
+                                                    style={{ width: `${Math.min(pct, 100)}%` }}
+                                                />
+                                            </div>
+                                            <div className="flex justify-between items-center mt-1">
+                                               <span className="text-[10px] text-surface-500">{expense.txs.length} transacciones</span>
+                                               <span className="text-xs text-surface-400 font-medium">{pct.toFixed(1)}% del total</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                {topExpenses.length === 0 && (
+                                    <div className="h-full flex items-center justify-center text-surface-500 italic text-sm py-10">No hay gastos en este periodo.</div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Distribución Donut de Gastos */}
+                        <div className="bg-surface-900/60 border border-white/10 rounded-2xl p-6 shadow-xl flex flex-col">
+                            <h3 className="text-lg font-bold text-white mb-2 border-b border-white/10 pb-3 flex items-center justify-between">
+                                <span className="flex items-center gap-2"><TrendingDown size={18} className="text-rose-400" /> Distribución de Gastos por Comercio</span>
+                            </h3>
+                            <div className="flex-1 w-full min-h-[300px] flex items-center justify-center relative">
+                               {totalNegative > 0 ? (
+                                   <>
+                                       <div className="absolute inset-0 flex items-center justify-center pointer-events-none flex-col animate-fade-in">
+                                           <span className="text-sm font-medium text-surface-400 uppercase tracking-widest mb-1">Total Gastos</span>
+                                           <span className="text-2xl font-bold text-rose-400">{formatCurrency(totalNegative)}</span>
+                                       </div>
+                                       <ReactECharts 
+                                           option={expenseChartOptions} 
+                                           style={{ height: '100%', width: '100%', minHeight: '320px' }} 
+                                           opts={{ renderer: 'svg' }}
+                                           onEvents={{
+                                               'click': (params: any) => {
+                                                   if (params.data && params.data.txs) {
+                                                       openLocalModal(`Distribución: ${params.data.name}`, `Transacciones que componen esta sección.`, params.data.txs.sort((a: Transaction, b: Transaction) => new Date(b.FECHA).getTime() - new Date(a.FECHA).getTime()));
+                                                   }
+                                               }
+                                           }}
+                                       />
+                                   </>
+                               ) : (
+                                   <div className="text-center text-surface-500 italic text-sm py-20">Aún no hay suficientes datos para graficar.</div>
+                               )}
+                            </div>
+                        </div>
+                    </>
+                )}
             </div>
-
-            {/* Distribucion Donut */}
-            <div className="bg-surface-900/60 border border-white/10 rounded-2xl p-6 shadow-xl flex flex-col">
-                <h3 className="text-lg font-bold text-white mb-2 border-b border-white/10 pb-3 flex items-center justify-between">
-                    <span className="flex items-center gap-2"><TrendingDown size={18} className="text-purple-400" /> Distribución de Gastos</span>
-                </h3>
-                <div className="flex-1 w-full min-h-[300px] flex items-center justify-center relative">
-                   {totalNegative > 0 ? (
-                       <>
-                           <div className="absolute inset-0 flex items-center justify-center pointer-events-none flex-col animate-fade-in">
-                               <span className="text-sm font-medium text-surface-400 uppercase tracking-widest mb-1">Total Gastos</span>
-                               <span className="text-2xl font-bold text-rose-400">{formatCurrency(totalNegative)}</span>
-                           </div>
-                           <ReactECharts 
-                               option={expenseChartOptions} 
-                               style={{ height: '100%', width: '100%', minHeight: '320px' }} 
-                               opts={{ renderer: 'svg' }}
-                               onEvents={{
-                                   'click': (params: any) => {
-                                       if (params.data && params.data.txs) {
-                                           openLocalModal(`Distribución: ${params.data.name}`, `Transacciones que componen esta sección.`, params.data.txs.sort((a: Transaction, b: Transaction) => new Date(b.FECHA).getTime() - new Date(a.FECHA).getTime()));
-                                       }
-                                   }
-                               }}
-                           />
-                       </>
-                   ) : (
-                       <div className="text-center text-surface-500 italic text-sm py-20">Aún no hay suficientes datos para graficar.</div>
-                   )}
-                </div>
-            </div>
         </div>
 
-        {/* Title and Edit Button for Tags */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pt-8">
-             <div className="flex items-center gap-3">
-                 <div className="p-2 bg-primary-500/20 text-primary-400 rounded-xl border border-primary-500/30">
-                     <TrendingDown size={20} />
-                 </div>
-                 <h2 className="text-xl font-bold text-white">Presupuesto por Tags</h2>
-             </div>
-             
-             <div className="flex gap-2">
-                 {isEditing && (
-                     <button 
-                         onClick={() => {
-                             setIsEditing(false);
-                             setEditTags(budgetConfig.tracked_tags || []);
-                         }}
-                         className="px-4 py-2 rounded-xl font-bold transition-all bg-surface-800 border border-white/10 text-white hover:bg-rose-500/20 hover:text-rose-400 hover:border-rose-500/50 flex items-center gap-2 text-sm"
-                     >
-                         <X size={16} /> Cancelar
-                     </button>
-                 )}
-                 <button 
-                     onClick={() => isEditing ? handleSave() : setIsEditing(true)}
-                     disabled={saving}
-                     className={`px-4 py-2 rounded-xl font-bold transition-all shadow-lg flex items-center gap-2 text-sm ${
-                         isEditing 
-                         ? 'bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white' 
-                         : 'bg-surface-800 border border-white/10 hover:border-white/20 text-white hover:bg-surface-700'
-                     }`}
-                 >
-                     {isEditing ? (
-                         <>
-                            {saving ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Check size={16} />}
-                            {saving ? 'Guardando...' : 'Guardar'}
-                         </>
-                     ) : (
-                         <><Settings2 size={16} /> Editar Presupuesto</>
-                     )}
-                 </button>
-             </div>
-        </div>
 
-        {/* Tags Budget Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-             {(isEditing ? editTags : budgetConfig.tracked_tags || []).map((tag) => {
-                 const spent = tagExpenses[tag] || 0;
-                 const amount = tagBalances[tag] || 0;
-                 
-                 return (
-                     <div 
-                         key={tag} 
-                         className="bg-surface-900/60 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-xl group hover:border-white/20 transition-all cursor-pointer"
-                         onClick={() => openLocalModal(`Balance en: ${tag}`, 'Todas las transacciones (ingresos y gastos) para este tag en el periodo actual.', transactions.filter(t => t.tags && t.tags.split(',').map(tg => tg.trim()).includes(tag)).sort((a,b) => new Date(b.FECHA).getTime() - new Date(a.FECHA).getTime()))}
-                     >
-                         <div className="flex justify-between items-start mb-4">
-                             <h3 
-                                 className="text-lg font-bold text-white flex items-center gap-2 transition-colors"
-                             >
-                                 <span className="w-2 h-2 rounded-full bg-primary-500 shadow-[0_0_8px_#8b5cf6]" />
-                                 {tag}
-                             </h3>
-                             {isEditing && (
-                                 <button 
-                                     onClick={(e) => { e.stopPropagation(); handleRemoveTag(tag); }} 
-                                     className="text-surface-500 hover:text-rose-400 transition-colors p-1"
-                                 >
-                                     <X size={16} />
-                                 </button>
-                             )}
-                         </div>
-
-                         <div className="flex justify-between items-baseline mb-2">
-                             <span className={`font-bold text-lg ${spent > amount && amount > 0 ? 'text-rose-400' : 'text-white'}`}>
-                                 {formatCurrency(spent)} <span className="text-xs font-normal text-surface-500">gastado ({selectedPeriod === 'all' ? 'total' : 'periodo'})</span>
-                             </span>
-                             <span 
-                                 className="text-emerald-400 text-sm font-medium cursor-pointer hover:underline transition-all"
-                                 onClick={(e) => { e.stopPropagation(); openTagModal(tag); }}
-                             >
-                                 {formatCurrency(amount)} presupuestado
-                             </span>
-                         </div>
-                         {renderProgressBar(spent, amount)}
-                     </div>
-                 );
-             })}
-
-             {isEditing && (
-                 <div className="bg-surface-900/40 backdrop-blur-xl border border-dashed border-white/20 rounded-2xl p-6 flex flex-col justify-center gap-4">
-                     <p className="text-sm font-bold text-surface-400 uppercase tracking-widest text-center">Nuevo Tag</p>
-                     <div className="flex gap-2">
-                         <div className="relative flex-1">
-                             <select 
-                                 value={newTagKey}
-                                 onChange={(e) => setNewTagKey(e.target.value)}
-                                 className="w-full bg-surface-950 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-primary-500 appearance-none"
-                             >
-                                 <option value="">Selecciona un tag para monitorear...</option>
-                                 {availableTags
-                                     .filter(t => !editTags.includes(t)) // Ocultar los que ya están
-                                     .map(tag => (
-                                     <option key={tag} value={tag}>{tag}</option>
-                                 ))}
-                             </select>
-                         </div>
-                         <button 
-                             onClick={handleAddNewTag}
-                             disabled={!newTagKey}
-                             className="p-2 bg-primary-600 hover:bg-primary-500 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed px-4 flex items-center justify-center"
-                         >
-                             <Plus size={20} />
-                         </button>
-                     </div>
-                 </div>
-             )}
-             
-             {!isEditing && (budgetConfig.tracked_tags || []).length === 0 && (
-                 <div className="col-span-full py-12 text-center border border-dashed border-white/10 rounded-2xl bg-surface-900/20">
-                     <TrendingDown size={32} className="text-surface-600 mx-auto mb-3" />
-                     <p className="text-surface-400 text-lg">No hay tags configurados.</p>
-                     <p className="text-surface-500 text-sm mt-1">Haz clic en "Editar Presupuesto" para comenzar.</p>
-                 </div>
-             )}
-        </div>
 
         {/* Sección de Fondos */}
-        {!isEditing && <FundsSummary formatCurrency={formatCurrency} />}
+        {!isEditing && <FundsSummary formatCurrency={formatCurrency} periodStart={periodStart} periodEnd={periodEnd} />}
     </>
   );
 }
 
-function FundsSummary({ formatCurrency }: { formatCurrency: (val: number) => string }) {
-  const { data: funds, isLoading, error } = useFunds();
+function FundsSummary({ formatCurrency, periodStart, periodEnd }: { formatCurrency: (val: number) => string; periodStart?: string; periodEnd?: string }) {
+  const { data: funds, isLoading, error } = useFunds(periodStart, periodEnd);
 
   const totalFundsBalance = useMemo(() => {
     if (!funds) return 0;

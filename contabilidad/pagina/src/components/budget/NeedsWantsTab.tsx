@@ -127,8 +127,8 @@ export function NeedsWantsTab({ transactions, totalIncome, formatCurrency, rende
                         .filter(t => t.MONTO < 0 && t.prioridad === 'Deseo')
                         .sort((a, b) => a.MONTO - b.MONTO) // ascending (most negative first)
                         .slice(0, 10)
-                        .map(tx => (
-                            <div key={tx.id} className="flex justify-between items-center p-3 py-2 bg-surface-950 hover:bg-surface-800 rounded-xl border border-white/5 transition-colors group">
+                        .map((tx, idx) => (
+                            <div key={`${tx.id}-${idx}`} className="flex justify-between items-center p-3 py-2 bg-surface-950 hover:bg-surface-800 rounded-xl border border-white/5 transition-colors group">
                                 <div className="flex flex-col overflow-hidden">
                                     <span className="font-bold text-white text-sm truncate group-hover:text-primary-300 transition-colors uppercase">{tx.nombre_limpio || tx.DESCRIPCION}</span>
                                     <div className="flex text-[10px] text-surface-500 gap-2 uppercase tracking-widest mt-0.5">

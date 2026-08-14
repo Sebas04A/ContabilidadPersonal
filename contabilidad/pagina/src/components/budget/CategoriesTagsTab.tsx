@@ -36,6 +36,8 @@ export function CategoriesTagsTab({ transactions, CATEGORIES, availableTags, for
         tooltip: {
             trigger: 'axis',
             axisPointer: { type: 'shadow' },
+            confine: true,
+            position: (pos: any) => [pos[0] + 15, Math.max(10, pos[1] - 30)],
             formatter: (params: any) => {
                 const d = params[0].data;
                 return `<strong class="text-white">${d.name}</strong><br/>Monto: $${d.value.toLocaleString('es-CO')}<br/>Transacciones: ${d.count}`;
@@ -89,6 +91,8 @@ export function CategoriesTagsTab({ transactions, CATEGORIES, availableTags, for
         tooltip: {
             trigger: 'axis',
             axisPointer: { type: 'shadow' },
+            confine: true,
+            position: (pos: any) => [pos[0] + 15, Math.max(10, pos[1] - 30)],
             formatter: (params: any) => {
                 const d = params[0].data;
                 return `<strong class="text-white">${d.name}</strong><br/>Monto: $${d.value.toLocaleString('es-CO')}<br/>Transacciones: ${d.count}`;

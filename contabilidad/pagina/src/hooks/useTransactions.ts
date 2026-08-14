@@ -88,17 +88,17 @@ export function useSupabasePayments(debtor?: string) {
 
 // ── Funds (Fondos) ──────────────────────────────────────────────────────────
 
-export function useFunds() {
+export function useFunds(viewStart?: string, viewEnd?: string) {
   return useQuery({
-    queryKey: ['funds'],
-    queryFn: api.getFunds,
+    queryKey: ['funds', viewStart, viewEnd],
+    queryFn: () => api.getFunds(viewStart || undefined, viewEnd || undefined),
   });
 }
 
-export function useFund(id?: string, viewStart?: string) {
+export function useFund(id?: string, viewStart?: string, viewEnd?: string) {
   return useQuery({
-    queryKey: ['fund', id, viewStart],
-    queryFn: () => api.getFund(id!, viewStart || undefined),
+    queryKey: ['fund', id, viewStart, viewEnd],
+    queryFn: () => api.getFund(id!, viewStart || undefined, viewEnd || undefined),
     enabled: !!id,
   });
 }

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Transaction, SupabaseDebt, FundListItem, TransactionDriver, ComponentType } from '../services/api';
 import { useSupabaseDebts, useFunds } from '../hooks/useTransactions';
+import { matchFund } from '../utils/matchFund';
 import {
   Calendar, HandCoins, PiggyBank, TrendingUp, ArrowRight, CheckCircle2, Clock, AlertTriangle,
 } from 'lucide-react';
@@ -103,17 +104,6 @@ function matchDebt(t: Transaction, debts: SupabaseDebt[]): DebtMatch | null {
     if (!best || amountDiff < best.amountDiff) best = { debt: d, amountDiff };
   }
   return best;
-}
-
-/** Fund a transaction belongs to (explicit fondo_id, or its linked tag). */
-function matchFund(t: Transaction, funds: FundListItem[]): FundListItem | null {
-  const txTags = (t.tags || '').split(',').map(x => normalize(x)).filter(Boolean);
-  for (const f of funds) {
-    if (t.fondo_id && t.fondo_id === f.id) return f;
-    const linked = normalize(f.tag_vinculado);
-    if (linked && txTags.includes(linked)) return f;
-  }
-  return null;
 }
 
 // --- component -------------------------------------------------------------

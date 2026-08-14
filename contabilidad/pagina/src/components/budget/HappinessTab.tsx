@@ -1154,8 +1154,8 @@ export function HappinessTab({ transactions, formatCurrency, openLocalModal }: H
                         .filter(t => t.MONTO < 0 && t.felicidad >= 1 && t.felicidad <= 4)
                         .sort((a, b) => a.MONTO - b.MONTO) // ascending (most negative first)
                         .slice(0, 5)
-                        .map(tx => (
-                            <div key={tx.id} className="flex justify-between items-center p-2.5 px-3 bg-surface-950/50 hover:bg-surface-800/50 rounded-xl border border-white/5 transition-all text-xs">
+                        .map((tx, idx) => (
+                            <div key={`${tx.id}-${idx}`} className="flex justify-between items-center p-2.5 px-3 bg-surface-950/50 hover:bg-surface-800/50 rounded-xl border border-white/5 transition-all text-xs">
                                 <div className="flex items-center gap-2 min-w-0">
                                     <span className="px-1.5 py-0.5 bg-rose-500/15 text-rose-400 rounded font-semibold shrink-0">N{tx.felicidad}</span>
                                     <span className="font-semibold text-white truncate uppercase" title={tx.nombre_limpio || tx.DESCRIPCION}>
@@ -1185,8 +1185,8 @@ export function HappinessTab({ transactions, formatCurrency, openLocalModal }: H
                         .filter(t => t.MONTO < 0 && t.felicidad >= 8 && t.felicidad <= 9)
                         .sort((a, b) => a.MONTO - b.MONTO)
                         .slice(0, 5)
-                        .map(tx => (
-                            <div key={tx.id} className="flex justify-between items-center p-2.5 px-3 bg-surface-950/50 hover:bg-surface-800/50 rounded-xl border border-white/5 transition-all text-xs">
+                        .map((tx, idx) => (
+                            <div key={`${tx.id}-${idx}`} className="flex justify-between items-center p-2.5 px-3 bg-surface-950/50 hover:bg-surface-800/50 rounded-xl border border-white/5 transition-all text-xs">
                                 <div className="flex items-center gap-2 min-w-0">
                                     <span className="px-1.5 py-0.5 bg-emerald-500/15 text-emerald-400 rounded font-semibold shrink-0">N{tx.felicidad}</span>
                                     <span className="font-semibold text-white truncate uppercase" title={tx.nombre_limpio || tx.DESCRIPCION}>
