@@ -275,7 +275,10 @@ class DataPipeline:
             else:
                 df = pd.concat(frames, ignore_index=True).sort_values('FECHA')
                 ffill_cols = [c for c in ['SALDO',  'ACUMULADO_TARJETA', 'DEUDA_ACUMULADA'] if c in df.columns]
-                df[ffill_cols] = df[ffill_cols].ffill().fillna(0)
+                df[ffill_cols] = df[ffill_cols].ffill()
+                if 'SALDO' in df.columns:
+                    df['SALDO'] = df['SALDO'].bfill()
+                df[ffill_cols] = df[ffill_cols].fillna(0)
                 
             transforms_to_run = run_only
             if transforms_to_run is None:
@@ -382,7 +385,10 @@ class DataPipeline:
             
             # Forward fill a los balances para llenar vacíos de los días inertes
             ffill_cols = [c for c in ['SALDO', 'TARJETA', 'ACUMULADO_TARJETA', 'DEUDA_ACUMULADA'] if c in df_all.columns]
-            df_all[ffill_cols] = df_all[ffill_cols].ffill().fillna(0)
+            df_all[ffill_cols] = df_all[ffill_cols].ffill()
+            if 'SALDO' in df_all.columns:
+                df_all['SALDO'] = df_all['SALDO'].bfill()
+            df_all[ffill_cols] = df_all[ffill_cols].fillna(0)
             
             # Reponer nulos de sumas diarias a 0
             df_all.fillna(0, inplace=True)
