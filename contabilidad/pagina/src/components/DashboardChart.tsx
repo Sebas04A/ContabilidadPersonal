@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import ReactECharts from 'echarts-for-react';
 import { useDashboardChartData } from '../hooks/useDashboard';
+import { DashboardFilters, FILTROS_VACIOS, hayFiltroActivo } from '../hooks/useDashboardFilters';
 import { Loader2, AlertCircle, MousePointerClick, Activity, TrendingUp, Layers } from 'lucide-react';
 import { ChartAnalysis, Curve } from './ChartAnalysis';
 import type { EChartsOption } from 'echarts';
@@ -8,10 +9,25 @@ import type { EChartsOption } from 'echarts';
 interface DashboardChartProps {
   /** Si el patrimonio suma el capital que está dentro de una posición de inversión. */
   incluirInversiones?: boolean;
+  /** Filtro a nivel transacción. Lo aplica el backend antes de agrupar por día. */
+  filters?: DashboardFilters;
+  /** Devuelve el resumen del filtro que reportó el backend, para la barra de filtros. */
+  onResumenFiltro?: (r: any) => void;
 }
 
-export function DashboardChart({ incluirInversiones = false }: DashboardChartProps) {
-  const { data: chartData, isLoading, isError, error } = useDashboardChartData(incluirInversiones);
+export function DashboardChart({
+  incluirInversiones = false,
+  filters = FILTROS_VACIOS,
+  onResumenFiltro,
+}: DashboardChartProps) {
+  const { data: chartData, isLoading, isError, error } = useDashboardChartData(incluirInversiones, filters);
+  const filtroActivo = hayFiltroActivo(filters);
+
+  // El backend informa en la metadata qué descontó y qué no. Se sube tal cual: la
+  // barra de filtros es la que tiene que decirlo, no el gráfico.
+  useEffect(() => {
+    onResumenFiltro?.((chartData as any)?.metadata?.filtro ?? null);
+  }, [chartData, onResumenFiltro]);
   const [curves, setCurves] = useState<Curve[]>([]);
   const [tempPoint, setTempPoint] = useState<{date: string, value: number} | null>(null);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -423,6 +439,16 @@ export function DashboardChart({ incluirInversiones = false }: DashboardChartPro
             <h3 className="text-xl font-bold text-white flex items-center gap-3">
             <span className="w-2 h-8 bg-gradient-to-b from-blue-500 to-green-500 rounded-full"></span>
             Evolución Financiera
+            {/* Cuáles de estas líneas responden al filtro y cuáles no. Sin esto, un
+                gráfico con filtro puesto se lee como si todo estuviera filtrado. */}
+            {filtroActivo && (
+              <span
+                className="text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-lg bg-amber-400/15 text-amber-300 border border-amber-400/30"
+                title="El filtro descuenta del Saldo Banco y de la Deuda Tarjeta, y con ellos de todo lo que se deriva: Saldo sin Inv., Patrimonio y Variación Neta. Deuda Acumulada, Pagos Fijos e Interpolaciones no salen de transacciones etiquetadas y van sin filtrar."
+              >
+                Filtrado
+              </span>
+            )}
             </h3>
 
             {/* Selection Toggle */}

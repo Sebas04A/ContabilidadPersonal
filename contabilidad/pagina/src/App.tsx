@@ -13,6 +13,8 @@ import { Labeling } from './pages/Labeling';
 import { Verification } from './pages/Verification';
 import { MonthlyBudget } from './pages/MonthlyBudget';
 import { AdvancedAnalytics } from './pages/AdvancedAnalytics';
+import { DashboardFilterBar } from './components/DashboardFilterBar';
+import { useDashboardFilters } from './hooks/useDashboardFilters';
 import { BarChart3, TrendingUp, Landmark } from 'lucide-react';
 
 function App() {
@@ -23,6 +25,13 @@ function App() {
   // custodia. Va aquí arriba porque las dos vistas tienen que pedir lo mismo: el desglose
   // de Variaciones se contrasta contra el total de Evolución.
   const [incluirInversiones, setIncluirInversiones] = useState(false);
+  // Por el mismo motivo que `incluirInversiones`: los filtros son uno solo para las dos
+  // vistas. Si Evolución y Variaciones filtraran distinto, el desglose dejaría de cuadrar
+  // contra el total y la diferencia se iría muda a "sin explicar".
+  const { filters, setFilters, limpiar } = useDashboardFilters();
+  // Lo que el backend reportó del último filtro aplicado, para que la barra pueda decir
+  // qué parte del filtro todavía no tiene efecto.
+  const [resumenFiltro, setResumenFiltro] = useState<any>(null);
 
   return (
     <div className="min-h-screen flex text-gray-100 overflow-hidden font-sans selection:bg-pink-500/30">
@@ -101,12 +110,29 @@ function App() {
                     </button>
                  </div>
 
+                 {/* Filtros — uno solo para las dos vistas */}
+                 <div className="w-full px-1">
+                    <DashboardFilterBar
+                        filters={filters}
+                        onChange={setFilters}
+                        onClear={limpiar}
+                        resumen={resumenFiltro}
+                    />
+                 </div>
+
                  {/* Content Area */}
                  <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-500 px-1">
                     {dashboardView === 'evolution' ? (
-                        <DashboardChart incluirInversiones={incluirInversiones} />
+                        <DashboardChart
+                            incluirInversiones={incluirInversiones}
+                            filters={filters}
+                            onResumenFiltro={setResumenFiltro}
+                        />
                     ) : (
-                        <VariationsChart incluirInversiones={incluirInversiones} />
+                        <VariationsChart
+                            incluirInversiones={incluirInversiones}
+                            filters={filters}
+                        />
                     )}
                  </div>
 

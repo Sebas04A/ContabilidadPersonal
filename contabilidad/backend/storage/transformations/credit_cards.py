@@ -180,27 +180,68 @@ def _merge_consumos_and_calculate_balance(
     return df
 
 
+def get_card_anchor(pipeline=None) -> Tuple[Any, float]:
+    """La fecha desde la que la deuda de tarjeta cuenta, y su saldo de arranque.
+
+    Antes de `start_date` la transformación fuerza TARJETA, ACUMULADO_TARJETA y
+    PAGO_TARJETA a cero: esos consumos ya están dentro de `initial_balance` o son
+    anteriores a que hubiera datos de banca. Quien filtre consumos tiene que
+    respetar ese corte, porque descontar uno de antes movería una deuda que en el
+    gráfico nunca existió.
+
+    Extraído de `transform_credit_cards` para que el filtro del dashboard use el
+    mismo ancla y no una copia que se desincronice. Devuelve (None, 0.0) cuando no
+    hay datos suficientes, que es el caso de `_apply_defaults`.
+    """
+    from contabilidad.backend.services.bank_parser.get_variables import get_credit_card_payments
+    from contabilidad.backend.storage.data_pipeline import get_pipeline
+
+    pipeline = pipeline or get_pipeline()
+    df_banca = pipeline.get_raw_data('cuenta')
+    if df_banca.empty:
+        return None, 0.0
+
+    pagos_tarjeta = get_credit_card_payments(df_banca)
+
+    df_metadata, col_fecha_emision, col_total_pagar, col_fecha_max_pago = _get_credit_card_metadata(pipeline)
+    df_consumos, col_consumo_fecha, _ = _get_credit_card_consumos(pipeline)
+
+    if df_metadata.empty or df_consumos.empty:
+        return None, 0.0
+
+    # `min_banca_date` es el nombre que usa `_calculate_anchor_point`, pero quien se
+    # lo pasa desde `transform_credit_cards` es el df de TARJETA, no el de banca.
+    # Se replica ese valor y no el literal del nombre: si acá se pasara la fecha de
+    # banca, el ancla saldría distinta a la que produjo la serie del gráfico.
+    min_tarjeta_date = df_consumos[col_consumo_fecha].min()
+
+    return _calculate_anchor_point(
+        df_metadata, df_metadata[col_fecha_emision].min(), min_tarjeta_date, pagos_tarjeta,
+        col_fecha_emision, col_total_pagar, col_fecha_max_pago
+    )
+
+
 def transform_credit_cards(df: pd.DataFrame) -> pd.DataFrame:
     try:
         from contabilidad.backend.services.bank_parser.get_variables import get_credit_card_payments
         from contabilidad.backend.storage.data_pipeline import get_pipeline
-        
+
         pipeline = get_pipeline()
-        
+
         pagos_tarjeta = get_credit_card_payments(pipeline.get_raw_data('cuenta'))
         min_banca_date = df["FECHA"].min() if not df.empty else None
-        
+
         df_metadata, col_fecha_emision, col_total_pagar, col_fecha_max_pago = _get_credit_card_metadata(pipeline)
-        
+
         df_consumos, col_consumo_fecha, col_consumo_valor = _get_credit_card_consumos(pipeline)
 
         if df.empty or df_metadata.empty or df_consumos.empty:
             return _apply_defaults(df, pagos_tarjeta, min_banca_date)
 
         min_meta_date = df_metadata[col_fecha_emision].min()
-        
+
         start_date, initial_balance = _calculate_anchor_point(
-            df_metadata, min_meta_date, min_banca_date, pagos_tarjeta, 
+            df_metadata, min_meta_date, min_banca_date, pagos_tarjeta,
             col_fecha_emision, col_total_pagar, col_fecha_max_pago
         )
         df_consumos= df_consumos.sort_values(col_consumo_fecha)

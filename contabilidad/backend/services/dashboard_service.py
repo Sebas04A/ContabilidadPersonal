@@ -1,9 +1,12 @@
 import pandas as pd
 import numpy as np
 from datetime import datetime, date
-from typing import List, Optional, Dict, Any, Protocol
+from typing import List, Optional, Dict, Any, Protocol, TYPE_CHECKING
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+
+if TYPE_CHECKING:
+    from contabilidad.backend.services.dashboard_filters import TxFilter
 
 from contabilidad.backend.logger import get_logger
 from contabilidad.backend.storage.data_pipeline import get_pipeline
@@ -324,13 +327,18 @@ class DashboardService:
         self.virtual_processor = VirtualItemsProcessor(self.config)
         self.metric_processor = MetricProcessor(self.config)
     
-    def get_chart_data(self, incluir_inversiones: Optional[bool] = None) -> DashboardResponse:
+    def get_chart_data(self, incluir_inversiones: Optional[bool] = None,
+                       tx_filter: Optional['TxFilter'] = None) -> DashboardResponse:
         """El patrimonio diario. `incluir_inversiones` suma el capital que está dentro de
         una posición; por defecto **no** lo suma (`DashboardConfig.include_notion`).
 
         El flag es un parámetro de la respuesta y no del pipeline a propósito: las dos
         series se calculan siempre, así el caché no se parte en dos y cada vista cuadra
         internamente por su lado.
+
+        `tx_filter` descuenta del saldo las transacciones que no pasan el filtro. Si
+        viene vacío (o inerte), esta función hace exactamente lo que hacía antes: el
+        camino sin filtro no se toca.
         """
         if incluir_inversiones is None:
             incluir_inversiones = self.config.include_notion
@@ -350,8 +358,215 @@ class DashboardService:
                 metadata={'status': 'no_data'}
             )
 
-        return self._build_response(df_master, incluir_inversiones)
+        filtro_aplicado = None
+        if tx_filter is not None and tx_filter.activo():
+            # Después de los transforms y no antes: `virtual_items` y
+            # `capital_invertido` no miran el saldo (salen de la fecha), así que
+            # se reutilizan cacheados tal cual. Lo único que hay que rehacer es
+            # `MetricProcessor`, que es de donde salen TOTAL y los diffs.
+            df_master, filtro_aplicado = self._descontar_filtrado(df_master, tx_filter)
+            df_master = self.metric_processor.calculate_all(df_master)
+
+        return self._build_response(df_master, incluir_inversiones, filtro_aplicado)
     
+    def _acumulado_diario(self, df_master: pd.DataFrame, por_dia: pd.Series) -> Any:
+        """Un aporte diario convertido en la serie acumulada del eje del dashboard.
+
+        Los días sin nada aportan 0 y el efecto arrastra hacia adelante, que es
+        como se comporta un saldo.
+        """
+        col_fecha = self.config.col_fecha
+        return por_dia.reindex(df_master[col_fecha], fill_value=0.0).cumsum().to_numpy()
+
+    def _descontar_filtrado(self, df_master: pd.DataFrame,
+                            tx_filter: 'TxFilter') -> tuple:
+        """Le quita a las series el aporte de las transacciones que no pasan el filtro.
+
+            SALDO_filtrado(d)   = SALDO_real(d)   − Σ(MONTO banca excluido hasta d)
+            TARJETA_filtrada(d) = TARJETA_real(d) − Σ(consumos excluidos hasta d)
+                                                  + Σ(pagos excluidos hasta d)
+
+        Se resta lo excluido en vez de rearmar las series sumando lo que queda: el
+        dato real queda de ancla y su deriva histórica no contamina la serie
+        filtrada. Con el filtro abierto la resta es cero y la salida es idéntica a
+        la de siempre.
+
+        Por qué la tarjeta también se resta, y no hay que recalcular ciclos: en la
+        transformación, `ACUMULADO_TARJETA` es `initial_balance + cumsum(consumos)`
+        y `PAGO_TARJETA` es el acumulado de pagos (verificado: nunca se resetea),
+        con `TARJETA = ACUMULADO − PAGO`. Los dos términos son acumulados planos,
+        así que quitar un consumo baja la deuda en su monto desde su fecha en
+        adelante. Lo único que hay que respetar es el ancla: los consumos
+        anteriores a `start_date` están dentro de `initial_balance` y la
+        transformación los fuerza a cero, así que descontarlos movería una deuda
+        que en el gráfico nunca existió.
+
+        Y por qué los pagos suben la deuda: un pago de tarjeta es una transacción
+        de BANCA. Si el filtro la excluye, el saldo sube (esa plata no salió) y la
+        deuda tiene que subir igual, o el patrimonio saldría beneficiado por no
+        haber pagado. Con las dos, TOTAL queda neutro, que es lo correcto: pagar la
+        tarjeta mueve plata de un bolsillo a otro, no cambia lo que tenés.
+
+        Deuda de Supabase, pagos fijos, interpolados y capital invertido no nacen
+        de transacciones etiquetadas: ningún filtro los mueve.
+
+        Devuelve (df, resumen) donde `resumen` describe qué se descontó, para que
+        la respuesta pueda decir en qué componentes el filtro tuvo efecto.
+        """
+        from contabilidad.backend.services.transaction_service import load_data
+
+        col_fecha = self.config.col_fecha
+        col_saldo = self.config.col_saldo
+        col_tarjeta = self.config.col_tarjeta
+
+        df_tx = load_data()
+        resumen = {
+            'firma': tx_filter.firma(),
+            'transacciones_totales': int(len(df_tx)),
+            'excluidas_banca': 0,
+            'excluidas_tarjeta': 0,
+            'excluidas_tarjeta_antes_del_ancla': 0,
+            'monto_excluido_banca': 0.0,
+            'consumo_excluido_tarjeta': 0.0,
+            'pagos_tarjeta_excluidos': 0.0,
+            'componentes_filtrados': ['saldo', 'tarjeta'],
+            'componentes_intactos': [
+                'deuda_acumulada', 'pagos_fijos', 'interpolado', 'notion'
+            ],
+        }
+
+        if df_tx.empty or col_saldo not in df_master.columns:
+            return df_master, resumen
+
+        df_master = df_master.copy()
+        df_master[col_fecha] = pd.to_datetime(df_master[col_fecha]).dt.normalize()
+
+        es_banca = df_tx['TIPO'] == 'BANCA'
+        conservadas_banca = tx_filter.aplicar(df_tx[es_banca])
+        excluidas_banca = df_tx[es_banca].drop(index=conservadas_banca.index)
+        excluidas_tarjeta = df_tx[~es_banca].drop(index=tx_filter.aplicar(df_tx[~es_banca]).index)
+        resumen['excluidas_banca'] = int(len(excluidas_banca))
+        resumen['excluidas_tarjeta'] = int(len(excluidas_tarjeta))
+
+        # ── Banca: el saldo pierde lo excluido ───────────────────────────────
+        if not excluidas_banca.empty:
+            banca = excluidas_banca.copy()
+            banca['MONTO'] = pd.to_numeric(banca['MONTO'], errors='coerce').fillna(0.0)
+            banca[col_fecha] = pd.to_datetime(banca['FECHA']).dt.normalize()
+            resumen['monto_excluido_banca'] = float(banca['MONTO'].sum())
+            df_master[col_saldo] -= self._acumulado_diario(
+                df_master, banca.groupby(col_fecha)['MONTO'].sum()
+            )
+
+        # ── Tarjeta: la deuda pierde los consumos y recupera los pagos ───────
+        if col_tarjeta in df_master.columns:
+            ajuste = self._ajuste_tarjeta(
+                df_master, excluidas_tarjeta, excluidas_banca, conservadas_banca, resumen
+            )
+            if ajuste is not None:
+                df_master[col_tarjeta] += ajuste
+                if 'ACUMULADO_TARJETA' in df_master.columns:
+                    # Se mueve con TARJETA para que las dos sigan contando la misma
+                    # historia. PAGO_TARJETA no se toca: en `get_daily_data('all')`
+                    # no entra al ffill y se va a cero en los días sin movimiento,
+                    # así que ya no es una serie diaria sobre la que se pueda restar.
+                    df_master['ACUMULADO_TARJETA'] += ajuste
+
+        logger.info(
+            "Filtro transaccional: banca %d excluidas ($%.2f), tarjeta %d consumos "
+            "($%.2f) y $%.2f en pagos; %d consumos anteriores al ancla se ignoraron",
+            resumen['excluidas_banca'], resumen['monto_excluido_banca'],
+            resumen['excluidas_tarjeta'], resumen['consumo_excluido_tarjeta'],
+            resumen['pagos_tarjeta_excluidos'],
+            resumen['excluidas_tarjeta_antes_del_ancla'],
+        )
+        return df_master, resumen
+
+    def _ajuste_tarjeta(self, df_master: pd.DataFrame, excluidas_tarjeta: pd.DataFrame,
+                        excluidas_banca: pd.DataFrame, conservadas_banca: pd.DataFrame,
+                        resumen: dict):
+        """Cuánto hay que moverle a TARJETA cada día por lo que el filtro excluyó.
+
+        Negativo por los consumos que salen (menos deuda) y positivo por los pagos
+        que salen (esa deuda nunca se canceló). Devuelve None si no hay nada que
+        mover.
+        """
+        from contabilidad.backend.storage.transformations.credit_cards import get_card_anchor
+
+        col_fecha = self.config.col_fecha
+        start_date, _ = get_card_anchor(self.pipeline)
+        if start_date is None:
+            logger.warning("Sin ancla de tarjeta: el filtro no puede tocar la deuda.")
+            return None
+
+        start_date = pd.to_datetime(start_date).normalize()
+        ajuste = None
+
+        # 1. Consumos excluidos. VALOR = −MONTO: en tarjeta el consumo viene
+        #    negativo, igual que un gasto de banca, y la deuda es positiva.
+        if not excluidas_tarjeta.empty:
+            cons = excluidas_tarjeta.copy()
+            cons['MONTO'] = pd.to_numeric(cons['MONTO'], errors='coerce').fillna(0.0)
+            cons[col_fecha] = pd.to_datetime(cons['FECHA']).dt.normalize()
+
+            antes = cons[cons[col_fecha] < start_date]
+            resumen['excluidas_tarjeta_antes_del_ancla'] = int(len(antes))
+            cons = cons[cons[col_fecha] >= start_date]
+
+            if not cons.empty:
+                valor = -cons.groupby(col_fecha)['MONTO'].sum()
+                resumen['consumo_excluido_tarjeta'] = float(valor.sum())
+                ajuste = -self._acumulado_diario(df_master, valor)
+
+        # 2. Pagos de tarjeta que el filtro sacó del lado de banca. Se detectan con
+        #    el mismo `get_credit_card_payments` que arma la serie real, sobre el
+        #    subconjunto excluido, en vez de reimplementar el reconocimiento acá.
+        pagos = self._pagos_tarjeta_excluidos(excluidas_banca, conservadas_banca, start_date)
+        if pagos is not None and not pagos.empty:
+            resumen['pagos_tarjeta_excluidos'] = float(pagos.sum())
+            recupero = self._acumulado_diario(df_master, pagos)
+            ajuste = recupero if ajuste is None else ajuste + recupero
+
+        return ajuste
+
+    def _pagos_tarjeta_excluidos(self, excluidas_banca: pd.DataFrame,
+                                 conservadas_banca: pd.DataFrame, start_date):
+        """Los pagos de tarjeta, por día, que quedaron fuera del filtro."""
+        from contabilidad.backend.services.bank_parser.get_variables import get_credit_card_payments
+
+        if excluidas_banca.empty or 'id' not in excluidas_banca.columns:
+            return None
+
+        raw = self.pipeline.get_raw_data('cuenta')
+        if raw.empty or 'id' not in raw.columns:
+            return None
+
+        # Una transacción partida en splits genera varias filas con el mismo id.
+        # Solo cuenta como pago excluido si NINGÚN pedazo sobrevivió: si medio pago
+        # sigue en el gráfico, la deuda que canceló también sigue. El pago es un
+        # evento entero — o se hizo o no se hizo — así que no se prorratea.
+        ids_excluidos = set(excluidas_banca['id']) - set(conservadas_banca.get('id', []))
+        if not ids_excluidos:
+            return None
+
+        raw_excl = raw[raw['id'].isin(ids_excluidos)]
+        if raw_excl.empty:
+            return None
+
+        pagos = get_credit_card_payments(raw_excl)
+        if not pagos:
+            return None
+
+        filas = [
+            {'FECHA': pd.to_datetime(p.start_date).normalize(), 'MONTO': float(p.amount)}
+            for p in pagos
+            if pd.to_datetime(p.start_date).normalize() >= start_date
+        ]
+        if not filas:
+            return None
+
+        return pd.DataFrame(filas).groupby('FECHA')['MONTO'].sum()
+
     def _fetch_all_sources(self) -> List[pd.DataFrame]:
         dataframes = []
         for source in self.data_sources:
@@ -391,7 +606,10 @@ class DashboardService:
                 df_master[col] = float('nan')
         
         if self.config.forward_fill:
-            df_master[snapshot_cols] = df_master[snapshot_cols].ffill().fillna(self.config.initial_value)
+            df_master[snapshot_cols] = df_master[snapshot_cols].ffill()
+            if self.config.col_saldo in df_master.columns:
+                df_master[self.config.col_saldo] = df_master[self.config.col_saldo].bfill()
+            df_master[snapshot_cols] = df_master[snapshot_cols].fillna(self.config.initial_value)
         else:
             df_master[snapshot_cols] = df_master[snapshot_cols].fillna(self.config.initial_value)
             
@@ -401,7 +619,8 @@ class DashboardService:
         return df_master
     
     def _build_response(self, df_master: pd.DataFrame,
-                        incluir_inversiones: bool = False) -> DashboardResponse:
+                        incluir_inversiones: bool = False,
+                        filtro_aplicado: Optional[dict] = None) -> DashboardResponse:
         # Las dos series vienen calculadas del pipeline; aquí solo se elige cuál se publica.
         col_total = 'TOTAL_CON_INVERSIONES' if incluir_inversiones else 'TOTAL'
         col_diff_total = 'diff_total_con_inversiones' if incluir_inversiones else 'diff_total'
@@ -444,7 +663,11 @@ class DashboardService:
                 'end': df_master[self.config.col_fecha].max().strftime('%Y-%m-%d')
             }
         }
-        
+        # La clave solo aparece cuando hubo filtro: sin él, la metadata tiene que
+        # quedar byte por byte como antes (scripts/snapshot_dashboard.py lo verifica).
+        if filtro_aplicado is not None:
+            metadata['filtro'] = filtro_aplicado
+
         return DashboardResponse(
             data=data_points,
             highlighted_days=self.config.highlighted_days,
@@ -456,8 +679,12 @@ class DashboardService:
 # ============================================================================
 
 class VariationsAnalyzer:
-    def __init__(self):
+    def __init__(self, tx_filter: Optional['TxFilter'] = None):
         self.drivers_by_date: Dict[str, List[TransactionDriver]] = {}
+        # Tiene que ser el MISMO filtro que se le pasó a get_chart_data. Si el
+        # desglose lista transacciones que el total ya no incluye (o al revés),
+        # la diferencia se va callada a `unexplained_difference`.
+        self.tx_filter = tx_filter
 
     def fetch_all_drivers(self):
         self.drivers_by_date = {}
@@ -529,9 +756,18 @@ class VariationsAnalyzer:
     def _process_transactions(self):
         from contabilidad.backend.routes.transactions import load_data
         df_trans = load_data()
-        
+
         if df_trans.empty:
             return
+
+        if self.tx_filter is not None and self.tx_filter.activo():
+            # Banca y tarjeta, porque `_descontar_filtrado` ahora mueve las dos
+            # series. El alcance del filtro tiene que ser el mismo acá y allá: si
+            # el desglose lista un movimiento que el total ya no cuenta (o al
+            # revés), la diferencia se va muda a `unexplained_difference`.
+            df_trans = self.tx_filter.aplicar(df_trans)
+            if df_trans.empty:
+                return
 
         for _, row in df_trans.iterrows():
             dt_str = pd.to_datetime(row['FECHA']).strftime('%Y-%m-%d')

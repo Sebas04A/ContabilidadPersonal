@@ -550,9 +550,15 @@ export const api = {
   },
 
   // Dashboard
-  getDashboardChartData: async (incluirInversiones = false): Promise<DashboardResponse> => {
+  // `filtros` son los query params ya serializados por `filtrosAQuery()`. Van
+  // vacíos cuando no hay filtro puesto, así la petición queda igual a la de
+  // siempre y reutiliza el caché del backend.
+  getDashboardChartData: async (
+    incluirInversiones = false,
+    filtros: Record<string, string> = {},
+  ): Promise<DashboardResponse> => {
     const res = await axios.get(`${API_BASE}/dashboard/chart-data`, {
-      params: { incluir_inversiones: incluirInversiones },
+      params: { incluir_inversiones: incluirInversiones, ...filtros },
     });
     return res.data;
   },
@@ -620,12 +626,15 @@ export const api = {
 
 
   // Variations
-  // Tiene que ir con el mismo flag que getDashboardChartData: el desglose diario se
-  // contrasta contra el mismo total, y si no coinciden el descuadre aparece como
-  // "diferencia sin explicar".
-  getVariationsAnalysis: async (incluirInversiones = false): Promise<DailyVariation[]> => {
+  // Tiene que ir con el mismo flag Y los mismos filtros que getDashboardChartData:
+  // el desglose diario se contrasta contra el mismo total, y si no coinciden el
+  // descuadre aparece como "diferencia sin explicar".
+  getVariationsAnalysis: async (
+    incluirInversiones = false,
+    filtros: Record<string, string> = {},
+  ): Promise<DailyVariation[]> => {
     const res = await axios.get(`${API_BASE}/dashboard/variations`, {
-      params: { incluir_inversiones: incluirInversiones },
+      params: { incluir_inversiones: incluirInversiones, ...filtros },
     });
     return res.data;
   },

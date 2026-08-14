@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import ReactECharts from 'echarts-for-react'
 import { useVariations } from '../hooks/useDashboard'
+import { DashboardFilters, FILTROS_VACIOS, hayFiltroActivo } from '../hooks/useDashboardFilters'
 import { Loader2, AlertCircle, List, BarChart2, Calendar, X, Table2 } from 'lucide-react'
 import type { EChartsOption } from 'echarts'
 import { TransactionDriver, ComponentType, Transaction, api } from '../services/api'
@@ -10,6 +11,8 @@ interface Props {
     className?: string
     /** Si el patrimonio suma el capital que está dentro de una posición de inversión. */
     incluirInversiones?: boolean
+    /** Filtro a nivel transacción. Tiene que ser el mismo que recibe DashboardChart. */
+    filters?: DashboardFilters
 }
 
 // Helper to classify a driver into a specific component type
@@ -35,8 +38,9 @@ interface Props {
 //     return 'bank';
 // };
 
-export function VariationsChart({ className, incluirInversiones = false }: Props) {
-    const { data: variations, isLoading, isError, error } = useVariations(incluirInversiones)
+export function VariationsChart({ className, incluirInversiones = false, filters = FILTROS_VACIOS }: Props) {
+    const { data: variations, isLoading, isError, error } = useVariations(incluirInversiones, filters)
+    const filtroActivo = hayFiltroActivo(filters)
     const isFirstRender = React.useRef(true)
 
     const getDailyDrivers = (dateStr: string): TransactionDriver[] => {
@@ -398,6 +402,14 @@ export function VariationsChart({ className, incluirInversiones = false }: Props
                 <h3 className='text-xl font-bold text-white flex items-center gap-3'>
                     <div className='w-2 h-8 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full shadow-lg shadow-purple-500/20'></div>
                     Variación Patrimonial
+                    {filtroActivo && (
+                        <span
+                            className='text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-lg bg-amber-400/15 text-amber-300 border border-amber-400/30'
+                            title='El filtro se aplicó a las transacciones de banca y de tarjeta: salen del total del día y de la lista de movimientos a la vez, así que el desglose sigue cuadrando. La deuda con personas y los pagos fijos van sin filtrar.'
+                        >
+                            Filtrado
+                        </span>
+                    )}
                 </h3>
                 <button
                     onClick={async () => {
