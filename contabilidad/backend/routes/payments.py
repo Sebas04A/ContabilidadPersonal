@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Query
-from typing import List, Dict, Any
+from typing import Any, Dict, List, Optional
 from contabilidad.backend.models import InterpolationGroup, InterpolatedPayment, InterpolationGroupCreate, InterpolatedPaymentCreate
 from contabilidad.backend.storage.variables_storage import InterpolationStorage
 
@@ -8,8 +8,14 @@ router = APIRouter()
 # --- Groups ---
 
 @router.get("/groups", response_model=List[InterpolationGroup])
-def get_groups(type: str = Query('interpolated')):
-    return InterpolationStorage.get_groups(type_filter=type)
+def get_groups(
+    type: str = Query('interpolated'),
+    origen: Optional[str] = Query(
+        None,
+        description="Filtra por quién manda sobre el grupo: manual, fondo, inversion, generado.",
+    ),
+):
+    return InterpolationStorage.get_groups(type_filter=type, origen=origen)
 
 @router.post("/groups", response_model=InterpolationGroup)
 def create_group(group: InterpolationGroupCreate):
@@ -24,8 +30,39 @@ def update_group(group_id: str, group: InterpolationGroupCreate):
         raise HTTPException(status_code=404, detail="Group not found")
     return updated
 
+#: Qué pantalla manda sobre cada clase de grupo, para poder decirlo en el error.
+DUENO = {
+    'fondo': 'la pestaña de Fondos',
+    'inversion': 'el módulo de Inversiones',
+    'generado': 'la pantalla que lo genera (Fondos o Inversiones)',
+}
+
+
 @router.delete("/groups/{group_id}")
-def delete_group(group_id: str):
+def delete_group(group_id: str, forzar: bool = Query(False)):
+    """Borra un grupo, salvo que lo mande otra pantalla.
+
+    El seguro no es teórico: los tres portafolios de inversión se borraron desde aquí el
+    2026-08-14 y con ellos desapareció el módulo entero de la UI —las posiciones seguían
+    en su CSV, pero nada las agrupaba—. Un grupo que se ve, se puede borrar y no explica
+    para qué sirve es la receta exacta de ese accidente, así que quien no sea `manual`
+    exige `forzar=true` y dice quién es su dueño.
+    """
+    grupo = InterpolationStorage.get_group(group_id)
+    if not grupo:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    origen = grupo.get('origen', 'manual')
+    if origen != 'manual' and not forzar:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"«{grupo['name']}» no es un pago fijo escrito a mano: lo gestiona "
+                f"{DUENO.get(origen, 'otra pantalla')}. Bórralo desde ahí, o repite con "
+                f"forzar=true si sabes lo que haces."
+            ),
+        )
+
     success = InterpolationStorage.delete_group(group_id)
     if not success:
         raise HTTPException(status_code=404, detail="Group not found")
@@ -44,7 +81,16 @@ def create_payment(group_id: str, payment: InterpolatedPaymentCreate):
     group = InterpolationStorage.get_group(group_id)
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
-    
+
+    # Un pago fijo abierto por una punta es legítimo; uno interpolado, no: las dos fechas
+    # son el tramo sobre el que reparte, y sin ellas la fila no haría nada y además
+    # desaparecería de la lista normal.
+    if group['type'] == 'interpolated' and (payment.start_date is None or payment.end_date is None):
+        raise HTTPException(
+            status_code=400,
+            detail="Un pago interpolado necesita fecha de inicio y de fin: son el tramo que reparte.",
+        )
+
     new_payment = InterpolationStorage.create_payment(
         group_id=group_id,
         amount=payment.amount,
@@ -63,6 +109,32 @@ def create_payment(group_id: str, payment: InterpolatedPaymentCreate):
         pass  # No fallar si el pipeline no está disponible
     
     return new_payment
+
+@router.get("/payments/invalidos")
+def get_invalid_payments(group_id: str = Query(None)):
+    """Las filas de `pagos.csv` que el dashboard descarta y la lista normal no muestra.
+
+    Sin este endpoint son invisibles en los dos sitios a la vez: el usuario no puede
+    borrar lo que no puede ver, y la fila se queda en el CSV para siempre.
+    """
+    return InterpolationStorage.get_invalid_payments(group_id)
+
+
+@router.delete("/payments/invalidos/{fila}")
+def delete_invalid_payment(fila: int):
+    """Borra una fila inválida por su número de fila, porque puede no tener id."""
+    if not InterpolationStorage.delete_payment_row(fila):
+        raise HTTPException(status_code=404, detail="Esa fila no existe")
+
+    try:
+        from contabilidad.backend.storage.data_pipeline import get_pipeline
+
+        get_pipeline().invalidate_cache(scope='transformations')
+    except Exception:
+        pass
+
+    return {"status": "success", "message": f"Fila {fila} borrada"}
+
 
 @router.put("/payments/{payment_id}", response_model=InterpolatedPayment)
 def update_payment(payment_id: str, payment: InterpolatedPaymentCreate):

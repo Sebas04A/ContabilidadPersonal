@@ -79,17 +79,47 @@ def test_put_update_group_not_found():
     assert response.status_code == 404
 
 
+def _grupo(origen="manual", nombre="Arreglos"):
+    return {"id": "g001", "name": nombre, "description": "", "type": "fixed", "origen": origen}
+
+
 def test_delete_group_success():
-    with patch("contabilidad.backend.storage.variables_storage.InterpolationStorage.delete_group", return_value=True):
+    with patch("contabilidad.backend.storage.variables_storage.InterpolationStorage.get_group", return_value=_grupo()), \
+         patch("contabilidad.backend.storage.variables_storage.InterpolationStorage.delete_group", return_value=True):
         response = client.delete("/api/payments/groups/g001")
     assert response.status_code == 200
     assert response.json()["status"] == "success"
 
 
 def test_delete_group_not_found():
-    with patch("contabilidad.backend.storage.variables_storage.InterpolationStorage.delete_group", return_value=False):
+    with patch("contabilidad.backend.storage.variables_storage.InterpolationStorage.get_group", return_value=None), \
+         patch("contabilidad.backend.storage.variables_storage.InterpolationStorage.delete_group", return_value=False):
         response = client.delete("/api/payments/groups/nonexistent")
     assert response.status_code == 404
+
+
+def test_no_se_borra_un_grupo_que_manda_otra_pantalla():
+    """El accidente del 2026-08-14: los tres portafolios se borraron desde esta ruta.
+
+    Un grupo con `origen != 'manual'` lo gestiona Fondos o Inversiones, así que la ruta se
+    niega, nombra al dueño y no llega a tocar el storage.
+    """
+    for origen in ("inversion", "fondo", "generado"):
+        with patch("contabilidad.backend.storage.variables_storage.InterpolationStorage.get_group",
+                   return_value=_grupo(origen, "Inversiones_Mias")), \
+             patch("contabilidad.backend.storage.variables_storage.InterpolationStorage.delete_group") as borrar:
+            response = client.delete("/api/payments/groups/g001")
+        assert response.status_code == 409, origen
+        assert "Inversiones_Mias" in response.json()["detail"]
+        borrar.assert_not_called()
+
+
+def test_forzar_borra_un_grupo_de_otra_pantalla():
+    with patch("contabilidad.backend.storage.variables_storage.InterpolationStorage.get_group",
+               return_value=_grupo("inversion")), \
+         patch("contabilidad.backend.storage.variables_storage.InterpolationStorage.delete_group", return_value=True):
+        response = client.delete("/api/payments/groups/g001?forzar=true")
+    assert response.status_code == 200
 
 
 # ── Payments ──────────────────────────────────────────────────────────────────

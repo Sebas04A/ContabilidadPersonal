@@ -216,28 +216,33 @@ class VirtualItemsProcessor:
             amount = float(payment['amount'])
             start = pd.to_datetime(payment['start_date']) if payment.get('start_date') else None
             end = pd.to_datetime(payment['end_date']) if payment.get('end_date') else None
-            
-            if not start:
-                return
-            
+
             if group_type == 'fixed' and self.config.include_fixed_payments:
+                # Un pago fijo abierto por cualquiera de las dos puntas es legítimo: sin
+                # inicio vale desde siempre, sin fin vale para siempre. Antes había que
+                # inventar una fecha centinela para decir eso.
                 self._apply_fixed_payment(df, amount, start, end)
             elif group_type == 'interpolated' and self.config.include_interpolated:
+                # Interpolar sí necesita las dos puntas: son el tramo que se reparte.
+                if start is None or end is None:
+                    return
                 self._apply_interpolated_payment(df, amount, start, end)
-                
+
         except Exception as e:
             logger.error(f"Error applying payment {payment}: {e}")
-    
-    def _apply_fixed_payment(self, df: pd.DataFrame, amount: float, start: pd.Timestamp, end: Optional[pd.Timestamp]) -> None:
-        mask = (df[self.config.col_fecha] >= start)
-        if end:
+
+    def _apply_fixed_payment(self, df: pd.DataFrame, amount: float, start: Optional[pd.Timestamp], end: Optional[pd.Timestamp]) -> None:
+        mask = pd.Series(True, index=df.index)
+        if start is not None:
+            mask &= (df[self.config.col_fecha] >= start)
+        if end is not None:
             mask &= (df[self.config.col_fecha] < end)
         df.loc[mask, self.config.col_pagos_fijos] += amount
-    
+
     def _apply_interpolated_payment(self, df: pd.DataFrame, amount: float, start: pd.Timestamp, end: Optional[pd.Timestamp]) -> None:
         if not end:
             return
-        
+
         total_days = (end - start).days
         if total_days <= 0:
             return

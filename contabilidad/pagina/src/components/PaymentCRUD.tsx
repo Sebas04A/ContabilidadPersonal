@@ -12,6 +12,42 @@ interface PaymentCRUDProps {
   onDataChange?: () => void;
 }
 
+/**
+ * `type` no dice qué es un grupo, dice **cómo se ejecuta**: al patrimonio solo se aplican
+ * `fixed` e `interpolated`, así que un fondo, un portafolio de inversión y una serie que
+ * generó una máquina acaban todos marcados `fixed` y esta pantalla los enseñaba mezclados
+ * con los tres pagos fijos que el usuario sí escribió a mano.
+ *
+ * `origen` los separa. Y se **etiquetan en vez de esconderse**: un grupo invisible que
+ * existe y se puede borrar es exactamente lo que hizo desaparecer los tres portafolios de
+ * inversión el 2026-08-14.
+ */
+const ETIQUETA_ORIGEN: Record<string, string> = {
+  fondo: 'fondo',
+  inversion: 'inversión',
+  generado: 'generado',
+};
+
+const DUENO_ORIGEN: Record<string, string> = {
+  fondo: 'la pestaña de Fondos',
+  inversion: 'el módulo de Inversiones',
+  generado: 'la pantalla que lo genera',
+};
+
+/**
+ * El color viene de **la familia, no del origen**: violeta es Inversiones y esmeralda es
+ * Fondos, los mismos colores con los que se pinta cada módulo en su propia pantalla. Un
+ * grupo generado hereda el color de quien lo generó —atenuado, y sangrado bajo él— así que
+ * de un vistazo se ve de quién es sin leer un solo nombre.
+ */
+type Familia = 'inversion' | 'fondo' | 'manual';
+
+const COLOR_FAMILIA: Record<Familia, { punto: string; chip: string }> = {
+  inversion: { punto: 'bg-primary-400', chip: 'bg-primary-500/10 text-primary-300 border-primary-500/25' },
+  fondo: { punto: 'bg-emerald-400', chip: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/25' },
+  manual: { punto: 'bg-surface-500', chip: 'bg-surface-800/80 text-surface-400 border-white/10' },
+};
+
 const PaymentCRUD: React.FC<PaymentCRUDProps> = ({ groupType = 'interpolated', onDataChange }) => {
   const [groups, setGroups] = useState<InterpolationGroup[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<InterpolationGroup | null>(null);
@@ -31,9 +67,13 @@ const PaymentCRUD: React.FC<PaymentCRUDProps> = ({ groupType = 'interpolated', o
   const [paymentForm, setPaymentForm] = useState({ amount: '', start_date: '', end_date: '', note: '' });
   const [editingId, setEditingId] = useState<string | null>(null);
 
+  // Por defecto, solo lo que el usuario escribió a mano. Los demás siguen alcanzables.
+  const [verGenerados, setVerGenerados] = useState(false);
+
   useEffect(() => {
     fetchGroups();
-  }, [groupType]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupType, verGenerados]);
 
   useEffect(() => {
     if (selectedGroup) {
@@ -45,11 +85,18 @@ const PaymentCRUD: React.FC<PaymentCRUDProps> = ({ groupType = 'interpolated', o
 
   const fetchGroups = async () => {
     try {
-      const data = await getGroups(groupType);
+      const data = await getGroups(groupType, verGenerados ? undefined : 'manual');
+      // Alfabético, y no es cosmética: los grupos generados se llaman «X Pagos», así que
+      // ordenar por nombre es lo que los deja pegados al grupo que los genera. El CSV
+      // viene en orden de inserción, que los separa por toda la lista.
+      data.sort((a, b) => a.name.localeCompare(b.name, 'es'));
       setGroups(data);
-      if (data.length > 0 && !selectedGroup) {
-        setSelectedGroup(data[0]);
-      }
+      // Si el grupo elegido desaparece al cambiar el filtro, hay que soltarlo: si no, el
+      // panel de la derecha sigue enseñando los pagos de algo que ya no está en la lista.
+      setSelectedGroup(previo => {
+        if (previo && data.some(g => g.id === previo.id)) return previo;
+        return data[0] ?? null;
+      });
     } catch (error) {
       console.error('Error fetching groups:', error);
     } finally {
@@ -61,7 +108,10 @@ const PaymentCRUD: React.FC<PaymentCRUDProps> = ({ groupType = 'interpolated', o
     try {
       const data = await getPayments(groupId);
       // Ordenar por fecha de vencimiento (end_date) de forma descendente (más recientes primero)
-      const sortedData = data.sort((a, b) => new Date(b.end_date).getTime() - new Date(a.end_date).getTime());
+      // Un `end_date` vacío significa «para siempre», así que es el más reciente de todos.
+      // Sin esto, `new Date(null)` da NaN y el orden se vuelve indefinido.
+      const alFinal = (f: string | null) => (f ? new Date(f).getTime() : Number.MAX_SAFE_INTEGER);
+      const sortedData = data.sort((a, b) => alFinal(b.end_date) - alFinal(a.end_date));
       setPayments(sortedData);
     } catch (error) {
       console.error('Error fetching payments:', error);
@@ -102,8 +152,8 @@ const PaymentCRUD: React.FC<PaymentCRUDProps> = ({ groupType = 'interpolated', o
     try {
       const paymentData = {
         amount: parseFloat(paymentForm.amount),
-        start_date: paymentForm.start_date,
-        end_date: paymentForm.end_date,
+        start_date: paymentForm.start_date || null,
+        end_date: paymentForm.end_date || null,
         note: paymentForm.note
       };
 
@@ -146,10 +196,11 @@ const PaymentCRUD: React.FC<PaymentCRUDProps> = ({ groupType = 'interpolated', o
 
   const openPaymentModal = (payment?: InterpolatedPayment) => {
     if (payment) {
+      // El formulario usa cadena vacía para «sin fecha»; el `null` es cosa de la API.
       setPaymentForm({
         amount: payment.amount.toString(),
-        start_date: payment.start_date,
-        end_date: payment.end_date,
+        start_date: payment.start_date || '',
+        end_date: payment.end_date || '',
         note: payment.note || ''
       });
       setEditingId(payment.id);
@@ -182,12 +233,42 @@ const PaymentCRUD: React.FC<PaymentCRUDProps> = ({ groupType = 'interpolated', o
             <Plus className="w-4 h-4" />
           </button>
         </div>
+        {isFixed && (
+          <label className="px-4 py-2.5 border-b border-white/[0.06] flex items-center gap-2 cursor-pointer text-[11px] text-surface-400 hover:text-surface-200 transition-colors">
+            <input
+              type="checkbox"
+              checked={verGenerados}
+              onChange={e => setVerGenerados(e.target.checked)}
+              className="accent-primary-500"
+            />
+            Ver los que gestionan otras pantallas
+          </label>
+        )}
         <div className="flex-1 overflow-y-auto p-3 space-y-2">
-          {groups.map(group => (
+          {groups.length === 0 && (
+            <p className="text-[11px] text-surface-500 px-1 py-3 leading-relaxed">
+              No hay ninguno escrito a mano.
+              {isFixed && ' Marca la casilla de arriba para ver los que gestionan Fondos e Inversiones.'}
+            </p>
+          )}
+          {groups.map(group => {
+            const generado = group.origen === 'generado';
+            // Un generado toma la familia de su padre; si el padre no está en la lista
+            // (filtro activo) se queda en la suya, que es la neutra.
+            const padre = generado
+              ? groups.find(g => g.id === group.fondo_origen)
+              : undefined;
+            const familia: Familia = (generado
+              ? (padre?.origen === 'inversion' || padre?.origen === 'fondo' ? padre.origen : 'manual')
+              : (group.origen === 'inversion' || group.origen === 'fondo' ? group.origen : 'manual'));
+            const color = COLOR_FAMILIA[familia];
+            return (
             <div
               key={group.id}
               onClick={() => setSelectedGroup(group)}
               className={`p-3 rounded-lg cursor-pointer transition-all border ${
+                generado ? 'ml-4' : ''
+              } ${
                 selectedGroup?.id === group.id
                   ? 'bg-primary-500/10 border-primary-500/30 shadow-sm'
                   : 'hover:bg-surface-800/70 border-transparent hover:border-white/[0.05]'
@@ -195,16 +276,36 @@ const PaymentCRUD: React.FC<PaymentCRUDProps> = ({ groupType = 'interpolated', o
             >
               <div className="flex justify-between items-start group">
                 <div className="flex-1 min-w-0">
-                  <h3 className={`font-medium text-sm ${selectedGroup?.id === group.id ? 'text-primary-300' : 'text-white'}`}>
+                  <h3 className={`font-medium text-sm flex items-center gap-2 flex-wrap ${selectedGroup?.id === group.id ? 'text-primary-300' : 'text-white'}`}>
+                    <span
+                      className={`w-2 h-2 rounded-sm shrink-0 ${color.punto} ${generado ? 'opacity-40' : ''}`}
+                      aria-hidden="true"
+                    />
                     {group.name}
+                    {group.origen && group.origen !== 'manual' && (
+                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide border ${
+                        generado ? COLOR_FAMILIA.manual.chip : color.chip
+                      }`}>
+                        {ETIQUETA_ORIGEN[group.origen]}
+                      </span>
+                    )}
                   </h3>
                   {group.description && (
                     <p className="text-xs text-surface-500 mt-1 line-clamp-2">
                       {group.description}
                     </p>
                   )}
+                  {group.origen && group.origen !== 'manual' && (
+                    <p className="text-[10px] text-surface-500 mt-1">
+                      Lo gestiona {DUENO_ORIGEN[group.origen]}; aquí es solo de lectura.
+                    </p>
+                  )}
                 </div>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className={`flex gap-1 transition-opacity ${
+                  group.origen && group.origen !== 'manual'
+                    ? 'hidden'
+                    : 'opacity-0 group-hover:opacity-100'
+                }`}>
                   <button
                     onClick={(e) => { e.stopPropagation(); openGroupModal(group); }}
                     className="p-1 hover:bg-white/[0.08] rounded text-surface-400 hover:text-white transition-all"
@@ -220,7 +321,8 @@ const PaymentCRUD: React.FC<PaymentCRUDProps> = ({ groupType = 'interpolated', o
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
           {groups.length === 0 && !loading && (
             <div className="text-center py-10 text-surface-600 text-sm">
               No hay grupos creados
@@ -285,9 +387,13 @@ const PaymentCRUD: React.FC<PaymentCRUDProps> = ({ groupType = 'interpolated', o
                     {/* Right: Dates + Actions */}
                     <div className="flex items-center gap-4 flex-shrink-0">
                       <div className="flex items-center gap-1.5 text-[11px] text-surface-500 font-medium bg-surface-950/30 px-2 py-1 rounded">
-                        <span>{payment.start_date}</span>
+                        <span className={payment.start_date ? '' : 'italic text-surface-600'}>
+                          {payment.start_date || 'desde siempre'}
+                        </span>
                         <ChevronRight className="w-2.5 h-2.5 text-surface-600" />
-                        <span>{payment.end_date}</span>
+                        <span className={payment.end_date ? '' : 'italic text-surface-600'}>
+                          {payment.end_date || 'para siempre'}
+                        </span>
                       </div>
                       
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -408,7 +514,9 @@ const PaymentCRUD: React.FC<PaymentCRUDProps> = ({ groupType = 'interpolated', o
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-surface-300 mb-2">Desde</label>
+                  <label className="block text-sm font-medium text-surface-300 mb-2">
+                    Desde{isFixed && <span className="ml-1 text-surface-500 font-normal">· vacío = siempre</span>}
+                  </label>
                   <input
                     type="date"
                     value={paymentForm.start_date}
@@ -417,7 +525,9 @@ const PaymentCRUD: React.FC<PaymentCRUDProps> = ({ groupType = 'interpolated', o
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-surface-300 mb-2">Hasta</label>
+                  <label className="block text-sm font-medium text-surface-300 mb-2">
+                    Hasta{isFixed && <span className="ml-1 text-surface-500 font-normal">· vacío = siempre</span>}
+                  </label>
                   <input
                     type="date"
                     value={paymentForm.end_date}
@@ -447,7 +557,7 @@ const PaymentCRUD: React.FC<PaymentCRUDProps> = ({ groupType = 'interpolated', o
               <button
                 onClick={handleCreatePayment}
                 className="px-4 py-2 bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white text-sm font-medium rounded-lg transition-all shadow-md shadow-primary-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={!paymentForm.amount || !paymentForm.start_date || !paymentForm.end_date}
+                disabled={!paymentForm.amount || (!isFixed && (!paymentForm.start_date || !paymentForm.end_date))}
               >
                 Guardar
               </button>

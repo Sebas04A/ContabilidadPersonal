@@ -2,24 +2,35 @@ import axios from 'axios'
 
 const API_URL = '/api'
 
+/** Quién manda sobre un grupo. Derivado en el backend; `type` solo dice cómo se ejecuta. */
+export type OrigenGrupo = 'manual' | 'fondo' | 'inversion' | 'generado'
+
 export interface InterpolationGroup {
     id: string
     name: string
     description?: string
     type?: 'interpolated' | 'fixed'
+    origen?: OrigenGrupo
+    /** De qué grupo salió, cuando `origen === 'generado'`. */
+    fondo_origen?: string | null
 }
 
 export interface InterpolatedPayment {
     id: string
     group_id: string
     amount: number
-    start_date: string
-    end_date: string
+    /** Vacío = «desde siempre». Solo los grupos `fixed` lo admiten. */
+    start_date: string | null
+    /** Vacío = «para siempre». Solo los grupos `fixed` lo admiten. */
+    end_date: string | null
     note?: string
 }
 
-export const getGroups = async (type: string = 'interpolated'): Promise<InterpolationGroup[]> => {
-    const response = await axios.get(`${API_URL}/payments/groups`, { params: { type } })
+export const getGroups = async (
+    type: string = 'interpolated',
+    origen?: OrigenGrupo,
+): Promise<InterpolationGroup[]> => {
+    const response = await axios.get(`${API_URL}/payments/groups`, { params: { type, origen } })
     return response.data
 }
 
