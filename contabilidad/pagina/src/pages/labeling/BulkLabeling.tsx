@@ -12,6 +12,7 @@ import {
   TransactionFilters,
   TransactionUpdate,
 } from '../../services/api';
+import { groupSplits } from '../../utils/groupSplits';
 import {
   AlertTriangle,
   Check,
@@ -95,7 +96,9 @@ export function BulkLabeling() {
   // ── Selection ──────────────────────────────────────────────────────────────
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  const transactions = results || [];
+  // Los splits llegan como varias filas con el mismo id: se colapsan en una sola
+  // para no duplicar filas, conteos ni el total seleccionado.
+  const transactions = useMemo(() => groupSplits(results), [results]);
   const selected = useMemo(
     () => transactions.filter((t) => selectedIds.has(t.id)),
     [transactions, selectedIds]
@@ -132,6 +135,9 @@ export function BulkLabeling() {
   // Result of the last applied operation — drives the summary modal.
   const [result, setResult] = useState<BulkUpdateResponse | null>(null);
   const [resultFields, setResultFields] = useState<TransactionUpdate>({});
+  // Ids + campos de la última operación: permiten reintentarla sobrescribiendo
+  // sin obligar al usuario a volver a seleccionar todo.
+  const [lastRequest, setLastRequest] = useState<{ ids: string[]; updates: TransactionUpdate } | null>(null);
   const [undone, setUndone] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -179,9 +185,10 @@ export function BulkLabeling() {
       updates[field] = values[field];
     });
 
+    const ids = selected.map((t) => t.id);
     bulkMutation.mutate(
       {
-        transactionIds: selected.map((t) => t.id),
+        transactionIds: ids,
         updates: updates as TransactionUpdate,
         overwrite,
         tagsMode,
@@ -193,9 +200,33 @@ export function BulkLabeling() {
         onSuccess: (res) => {
           setResult(res);
           setResultFields(updates as TransactionUpdate);
+          setLastRequest({ ids, updates: updates as TransactionUpdate });
           setUndone(false);
           setIsApplyOpen(false);
           clearSelection();
+        },
+        onError: (err: any) => setError(err?.message ?? 'Error desconocido'),
+      }
+    );
+  };
+
+  // Reintento del resumen: mismas transacciones y campos, pero pisando los
+  // valores existentes. Las reglas ya se guardaron en el primer intento.
+  const handleOverwriteRetry = () => {
+    if (!lastRequest) return;
+    bulkMutation.mutate(
+      {
+        transactionIds: lastRequest.ids,
+        updates: lastRequest.updates,
+        overwrite: true,
+        tagsMode,
+        saveAsRule: false,
+      },
+      {
+        onSuccess: (res) => {
+          setResult(res);
+          setUndone(false);
+          setOverwrite(true);
         },
         onError: (err: any) => setError(err?.message ?? 'Error desconocido'),
       }
@@ -524,6 +555,53 @@ export function BulkLabeling() {
             <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-5 space-y-4">
               <p className="text-xs text-gray-500">Activa solo los campos que quieras cambiar.</p>
 
+              {/* Conflictos — va arriba: sin esto la operación es un no-op
+                  silencioso sobre las transacciones que ya tienen valor. */}
+              {conflicts.length > 0 && (
+                <div
+                  className={`rounded-2xl border p-4 space-y-2 ${
+                    overwrite
+                      ? 'border-amber-500/30 bg-amber-500/10'
+                      : 'border-red-500/40 bg-red-500/10'
+                  }`}
+                >
+                  <div
+                    className={`flex items-center gap-2 font-bold text-sm ${
+                      overwrite ? 'text-amber-200' : 'text-red-200'
+                    }`}
+                  >
+                    <AlertTriangle size={16} />
+                    {overwrite ? 'Se sobrescribirán valores' : 'Estas no cambiarán'}
+                  </div>
+                  {conflicts.map((c) => (
+                    <p key={c.field} className="text-xs text-amber-100/80">
+                      <span className="font-bold">{c.count}</span> ya tienen {FIELD_LABELS[c.field]}:{' '}
+                      {c.samples.join(', ')}
+                      {c.samples.length >= 4 ? '…' : ''}
+                    </p>
+                  ))}
+                  <label
+                    className={`flex items-center gap-2 text-xs cursor-pointer pt-1 font-bold ${
+                      overwrite ? 'text-amber-100' : 'text-red-100'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={overwrite}
+                      onChange={(e) => setOverwrite(e.target.checked)}
+                      className="accent-amber-500 w-4 h-4"
+                    />
+                    Sobrescribir estos valores
+                  </label>
+                  {!overwrite && (
+                    <p className="text-[11px] text-red-200/70">
+                      Sin marcar esta casilla solo se rellenan los campos vacíos: las transacciones de
+                      arriba se omitirán y conservarán su valor actual.
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Categoría */}
               <FieldBlock label={FIELD_LABELS.categoria} active={active.has('categoria')} onToggle={() => toggleField('categoria')}>
                 <input
@@ -711,36 +789,6 @@ export function BulkLabeling() {
                 )}
               </div>
 
-              {/* Conflictos */}
-              {conflicts.length > 0 && (
-                <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2">
-                  <div className="flex items-center gap-2 text-amber-200 font-bold text-sm">
-                    <AlertTriangle size={16} />
-                    Valores existentes
-                  </div>
-                  {conflicts.map((c) => (
-                    <p key={c.field} className="text-xs text-amber-100/80">
-                      <span className="font-bold">{c.count}</span> ya tienen {FIELD_LABELS[c.field]}:{' '}
-                      {c.samples.join(', ')}
-                      {c.samples.length >= 4 ? '…' : ''}
-                    </p>
-                  ))}
-                  <label className="flex items-center gap-2 text-xs text-amber-100 cursor-pointer pt-1">
-                    <input
-                      type="checkbox"
-                      checked={overwrite}
-                      onChange={(e) => setOverwrite(e.target.checked)}
-                      className="accent-amber-500 w-4 h-4"
-                    />
-                    Sobrescribir estos valores
-                  </label>
-                  {!overwrite && (
-                    <p className="text-[11px] text-amber-200/60">
-                      Sin marcar, solo se rellenan los campos vacíos.
-                    </p>
-                  )}
-                </div>
-              )}
             </div>
 
             <div className="px-6 py-4 border-t border-white/5 flex items-center justify-between gap-3 shrink-0">
@@ -771,18 +819,24 @@ export function BulkLabeling() {
             <div className="flex items-center gap-3">
               <div
                 className={`p-3 rounded-2xl border border-white/5 ${
-                  undone ? 'bg-amber-500/10' : 'bg-emerald-500/10'
+                  undone || !result.updated ? 'bg-amber-500/10' : 'bg-emerald-500/10'
                 }`}
               >
                 {undone ? (
                   <Undo2 className="text-amber-400" size={20} />
-                ) : (
+                ) : result.updated ? (
                   <Check className="text-emerald-400" size={20} />
+                ) : (
+                  <AlertTriangle className="text-amber-400" size={20} />
                 )}
               </div>
               <div>
                 <h3 className="text-lg font-bold text-white tracking-tight">
-                  {undone ? 'Cambios revertidos' : 'Etiquetado aplicado'}
+                  {undone
+                    ? 'Cambios revertidos'
+                    : result.updated
+                      ? 'Etiquetado aplicado'
+                      : 'No se cambió nada'}
                 </h3>
                 <p className="text-xs text-gray-500">
                   {undone
@@ -835,6 +889,20 @@ export function BulkLabeling() {
                         <span className="font-mono text-xs">×{count}</span>
                       </div>
                     ))}
+                    {!!lastRequest && (
+                      <button
+                        onClick={handleOverwriteRetry}
+                        disabled={bulkMutation.isPending}
+                        className="w-full mt-1 px-4 py-2.5 rounded-xl bg-amber-500/20 text-amber-100 border border-amber-500/40 hover:bg-amber-500 hover:text-white text-sm font-bold transition-colors flex items-center justify-center gap-2 disabled:opacity-40"
+                      >
+                        {bulkMutation.isPending ? (
+                          <Loader2 size={15} className="animate-spin" />
+                        ) : (
+                          <AlertTriangle size={15} />
+                        )}
+                        Aplicar igual, sobrescribiendo
+                      </button>
+                    )}
                   </div>
                 )}
 
