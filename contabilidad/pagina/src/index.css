@@ -71,7 +71,19 @@ body {
   }
 }
 
-/* Custom Scrollbar */
+/* Custom Scrollbar.
+   Firefox no entiende `::-webkit-scrollbar`, así que sin esto pintaba la barra clara del
+   sistema encima de la interfaz oscura. Las dos propiedades se heredan: basta la raíz. */
+:root {
+  scrollbar-width: thin;
+  scrollbar-color: #3f3f46 transparent;
+}
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #3f3f46 transparent;
+}
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
