@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { TransactionTable } from '../../components/TransactionTable';
 import { EditModal } from '../../components/EditModal';
 import { CalendarPopover } from '../../components/CalendarPopover';
 import { SearchModal } from '../../components/SearchModal';
 import { Transaction, TransactionUpdate } from '../../services/api';
+import { groupSplits, sortTransactions } from '../../utils/groupSplits';
+
 import { 
   useDates, 
   useTransactions, 
@@ -49,49 +51,11 @@ export function DailyLabeling() {
     selectedDate ? { startDate: selectedDate, endDate: selectedDate } : undefined
   );
 
-  // Helper to group splits for display
-  const groupSplitsForDisplay = (txs: Transaction[] | undefined): Transaction[] => {
-      if (!txs) return [];
-      
-      const groupedMap = new Map<string, Transaction[]>();
-      
-      txs.forEach(t => {
-          if (!groupedMap.has(t.id)) {
-              groupedMap.set(t.id, []);
-          }
-          groupedMap.get(t.id)!.push(t);
-      });
+  const displayTransactions = useMemo(
+    () => sortTransactions(groupSplits(rawTransactions), 'asc'),
+    [rawTransactions]
+  );
 
-      const result: Transaction[] = [];
-      
-      groupedMap.forEach((parts) => {
-          if (parts.length === 1) {
-              result.push(parts[0]);
-          } else {
-              // Create a "Master" transaction for the split
-              // Sum amounts
-              const totalAmount = parts.reduce((sum, p) => sum + p.MONTO, 0);
-              // Use first part as base, but mark as split parent
-              const base = parts[0];
-              
-              const masterTx: Transaction = {
-                  ...base,
-                  MONTO: totalAmount,
-                  DESCRIPCION: base.DESCRIPCION, // Keep original desc
-                  // Special flag for display, we can use 'isSplitParent' if we add it to type or checking parts len
-                  // We'll attach the parts implicitly or via a new property if we extend the type. 
-                  // For now, let's just assume the table checks if we are passing a "fake" combined one.
-                  // We might need to extend the type in api.ts to support 'subTransactions'
-                  subTransactions: parts
-              };
-              result.push(masterTx);
-          }
-      });
-      
-      return result;
-  };
-
-  const displayTransactions = groupSplitsForDisplay(rawTransactions);
 
 
   // Mutations

@@ -28,3 +28,38 @@ export function groupSplits(txs: Transaction[] | undefined): Transaction[] {
   });
   return result;
 }
+
+/**
+ * Extracts an ISO-like sortable string "YYYY-MM-DD HH:MM" from a transaction.
+ * Prioritizes HORA ('HH:MM') when present; falls back to time in FECHA or '00:00'.
+ */
+export function getEffectiveDateTime(t: Transaction): string {
+  const datePart = (t.FECHA || '').slice(0, 10);
+  let horaPart = t.HORA;
+  if (!horaPart || horaPart.trim() === '') {
+    if (t.FECHA && t.FECHA.length > 11) {
+      horaPart = t.FECHA.slice(11, 16);
+    } else {
+      horaPart = '00:00';
+    }
+  }
+  return `${datePart} ${horaPart}`;
+}
+
+/**
+ * Sorts an array of transactions chronologically by FECHA and HORA.
+ * @param txs Array of transactions
+ * @param order 'asc' (morning to evening) or 'desc' (newest first)
+ */
+export function sortTransactions(txs: Transaction[] | undefined, order: 'asc' | 'desc' = 'desc'): Transaction[] {
+  if (!txs || txs.length === 0) return [];
+  return [...txs].sort((a, b) => {
+    const dtA = getEffectiveDateTime(a);
+    const dtB = getEffectiveDateTime(b);
+    if (dtA !== dtB) {
+      return order === 'asc' ? dtA.localeCompare(dtB) : dtB.localeCompare(dtA);
+    }
+    return a.id.localeCompare(b.id);
+  });
+}
+

@@ -30,6 +30,47 @@ const PERTENECE_BASE = ['---', 'Yo', 'Familia', 'Amigos'];
 const fechaDia = (fecha: string) => (fecha || '').slice(0, 10);
 
 /**
+ * Hora real del movimiento ('HH:MM'), o null si no se conoce.
+ *
+ * FECHA por sí sola NO sirve: para TARJETA el extracto no trae hora y la fila
+ * queda a medianoche. La hora del consumo vive en la columna HORA, que el
+ * backend arma en _attach_horas() a partir de los correos de notificación
+ * (horas_tarjeta.csv) para tarjeta y del propio FECHA para banca.
+ *
+ * Devuelve null en vez de '00:00' cuando no hay hora: preferimos no mostrar
+ * nada antes que inventar una medianoche, igual que TransactionTable.
+ */
+const horaEfectiva = (t: Transaction): string | null => {
+  if (t.HORA && t.HORA.trim() !== '') return t.HORA.trim().slice(0, 5);
+  const desdeFecha = (t.FECHA || '').slice(11, 16);
+  return desdeFecha && desdeFecha !== '00:00' ? desdeFecha : null;
+};
+
+/**
+ * Enlace al visor unificado (proyecto `informacion`) apuntando al momento del gasto.
+ *
+ * El visor lee `from`/`to` (día) y `hf`/`ht` (franja horaria, enteros 0-23) desde
+ * la URL, y su vista Momento coloca el puntero del reloj en el CENTRO de esa
+ * franja. Sin `hf`/`ht` la franja es el día entero y el puntero cae siempre a las
+ * 12:00, que es la razón por la que el botón "no llevaba a la hora correcta".
+ *
+ * Mandando hf = ht = la hora del consumo, el puntero cae en HH:30: la franja
+ * resaltada es la correcta y el desfase máximo es de media hora, que el propio
+ * visor deja ajustar. Si no conocemos la hora seguimos abriendo el día completo.
+ */
+const urlRecordarMomento = (t: Transaction): string => {
+  const dia = fechaDia(t.FECHA);
+  const params = new URLSearchParams({ mode: 'recordar', view: 'momento', from: dia, to: dia });
+  const hora = horaEfectiva(t);
+  if (hora) {
+    const h = String(parseInt(hora.slice(0, 2), 10));
+    params.set('hf', h);
+    params.set('ht', h);
+  }
+  return `http://localhost:5273/?${params.toString()}`;
+};
+
+/**
  * Cómo se registra esta transacción reembolsable en el sistema de deudas:
  *  - `create`    → nace una deuda nueva en Supabase al guardar.
  *  - `associate` → se engancha a una deuda que ya existe.
@@ -660,6 +701,10 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
     ...(formData.pertenece_a ? [formData.pertenece_a] : []),
   ]));
 
+  // Hora real del consumo: la del correo del banco para tarjeta, la del extracto
+  // para banca. Null cuando ninguna la respalda.
+  const hora = horaEfectiva(transaction);
+
   // ── Sección de reembolso ────────────────────────────────────────────────────
   // El borrador vive por parte: sin división solo existe el índice 0.
   const dia = fechaDia(transaction.FECHA);
@@ -813,8 +858,12 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
                  </span>
                   <span className="text-[10px] font-bold uppercase tracking-widest text-surface-500 flex items-center gap-1.5">
                     <span>{new Date(transaction.FECHA).toLocaleDateString()}</span>
-                    <span className="opacity-40">•</span>
-                    <span className="text-primary-400">{new Date(transaction.FECHA).toLocaleTimeString('es-EC', {hour: '2-digit', minute:'2-digit'})}</span>
+                    {hora && (
+                      <>
+                        <span className="opacity-40">•</span>
+                        <span className="text-primary-400">{hora}</span>
+                      </>
+                    )}
                   </span>
               </div>
               <h1 className="text-xl font-bold text-white line-clamp-1 max-w-md tracking-tight">
@@ -827,11 +876,13 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
              {/* Botón Recordar Momento (información) */}
              {transaction.FECHA && (
                <a
-                 href={`http://localhost:5273/?mode=recordar&view=momento&from=${fechaDia(transaction.FECHA)}&to=${fechaDia(transaction.FECHA)}`}
+                 href={urlRecordarMomento(transaction)}
                  target="_blank"
                  rel="noreferrer"
                  className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider border border-purple-500/30 bg-purple-500/10 text-purple-300 hover:bg-purple-500/20 hover:text-white transition-all flex items-center gap-2 shadow-sm"
-                 title="Ver momento y ubicación en el timeline unificado"
+                 title={hora
+                   ? `Ver el momento de las ${hora} en el timeline unificado`
+                   : 'Ver el día en el timeline unificado (esta transacción no tiene hora conocida)'}
                >
                  <Clock size={14} className="text-purple-400" />
                  Recordar Momento

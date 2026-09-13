@@ -33,6 +33,7 @@ from contabilidad.backend.services.transaction_service import (
     save_transaction_split,
     propagate_group_update,
     apply_filters,
+    sort_transactions_by_datetime,
 )
 from contabilidad.backend.utils.json_utils import sanitize_for_json
 
@@ -74,9 +75,17 @@ def get_all_transactions(
         category=category, tag=tag, fondo_id=fondo_id,
     )
 
+    if not df.empty:
+        # Sort by date and time:
+        # - Single-day query (e.g. DailyLabeling): chronological (morning -> evening)
+        # - Multi-day/general queries (e.g. BulkLabeling): descending (newest date and latest hour first)
+        ascending = True if date else False
+        df = sort_transactions_by_datetime(df, ascending=ascending)
+
     df = sanitize_for_json(df)
     df['FECHA'] = df['FECHA'].dt.strftime('%Y-%m-%d %H:%M:%S')
     return df.to_dict(orient='records')
+
 
 
 @router.get("/dates", response_model=List[str])

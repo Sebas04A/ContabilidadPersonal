@@ -237,10 +237,25 @@ def _attach_horas(merged: pd.DataFrame) -> pd.DataFrame:
     return merged
 
 
+def sort_transactions_by_datetime(df: pd.DataFrame, ascending: bool = True) -> pd.DataFrame:
+    """Sort DataFrame by effective datetime (FECHA date + HORA)."""
+    if df.empty or 'FECHA' not in df.columns:
+        return df
+    fecha_date = pd.to_datetime(df['FECHA']).dt.strftime('%Y-%m-%d')
+    hora_val = df['HORA'].fillna('').astype(str) if 'HORA' in df.columns else pd.Series('', index=df.index)
+    hora_fallback = pd.to_datetime(df['FECHA']).dt.strftime('%H:%M')
+    hora_final = hora_val.where(hora_val != '', hora_fallback).replace('', '00:00')
+    sort_dt = pd.to_datetime(fecha_date + ' ' + hora_final, errors='coerce')
+    df_sorted = df.assign(_sort_key=sort_dt).sort_values(
+        by=['_sort_key', 'id'], ascending=[ascending, True]
+    ).drop(columns=['_sort_key'])
+    return df_sorted
+
+
 def load_data() -> pd.DataFrame:
     """
     Return source data LEFT-JOINed with labels on id = source_id, plus the
-    time-of-day enrichment (HORA) when available.
+    time-of-day enrichment (HORA) when available, sorted chronologically.
     Handles split logic (monto_asignado overrides MONTO when present).
     """
     source = load_source_data()
@@ -254,7 +269,7 @@ def load_data() -> pd.DataFrame:
         for col in LABEL_COLUMNS:
             if col not in ('source_id', 'source_type') and col not in merged.columns:
                 merged[col] = None
-        return _attach_horas(merged)
+        return sort_transactions_by_datetime(_attach_horas(merged), ascending=True)
 
     merged = source.merge(
         labels,
@@ -272,7 +287,8 @@ def load_data() -> pd.DataFrame:
         merged['monto_asignado'] = pd.to_numeric(merged['monto_asignado'], errors='coerce')
         merged['MONTO'] = merged['monto_asignado'].fillna(merged['MONTO'])
 
-    return _attach_horas(merged)
+    return sort_transactions_by_datetime(_attach_horas(merged), ascending=True)
+
 
 
 # ── Label mutations ───────────────────────────────────────────────────────────

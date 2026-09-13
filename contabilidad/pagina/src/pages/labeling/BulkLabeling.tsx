@@ -12,7 +12,8 @@ import {
   TransactionFilters,
   TransactionUpdate,
 } from '../../services/api';
-import { groupSplits } from '../../utils/groupSplits';
+import { groupSplits, sortTransactions } from '../../utils/groupSplits';
+
 import {
   AlertTriangle,
   Check,
@@ -98,7 +99,8 @@ export function BulkLabeling() {
 
   // Los splits llegan como varias filas con el mismo id: se colapsan en una sola
   // para no duplicar filas, conteos ni el total seleccionado.
-  const transactions = useMemo(() => groupSplits(results), [results]);
+  const transactions = useMemo(() => sortTransactions(groupSplits(results), 'desc'), [results]);
+
   const selected = useMemo(
     () => transactions.filter((t) => selectedIds.has(t.id)),
     [transactions, selectedIds]

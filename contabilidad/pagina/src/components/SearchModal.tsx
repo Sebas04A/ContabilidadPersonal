@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
-import { Search, X, Tag, Loader2, ArrowRight } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Search, X, Tag, Loader2, ArrowRight, Clock } from 'lucide-react';
 import { useSearchTransactions } from '../hooks/useTransactions';
 import { Transaction } from '../services/api';
+import { sortTransactions } from '../utils/groupSplits';
 
 interface SearchModalProps {
   isOpen: boolean;
@@ -22,6 +23,11 @@ export function SearchModal({ isOpen, onClose, onSelectDate }: SearchModalProps)
   }, [query]);
 
   const { data: results, isLoading } = useSearchTransactions(debouncedQuery);
+
+  const sortedResults = useMemo(() => {
+    return results ? sortTransactions(results, 'desc') : [];
+  }, [results]);
+
 
   if (!isOpen) return null;
 
@@ -80,7 +86,7 @@ export function SearchModal({ isOpen, onClose, onSelectDate }: SearchModalProps)
              </div>
           ) : (
             <div className="space-y-1">
-              {results?.map((tx: Transaction) => (
+              {sortedResults.map((tx: Transaction) => (
                 <button
                   key={tx.id}
                   onClick={() => handleResultClick(tx.FECHA)}
@@ -94,6 +100,12 @@ export function SearchModal({ isOpen, onClose, onSelectDate }: SearchModalProps)
                     <span className="text-lg font-bold text-white leading-none">
                         {new Date(tx.FECHA).getDate()}
                     </span>
+                    {tx.HORA && (
+                      <span className="text-[10px] text-primary-300 font-mono mt-0.5 flex items-center gap-0.5">
+                        <Clock size={9} />
+                        {tx.HORA}
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex-1 min-w-0">
@@ -107,6 +119,7 @@ export function SearchModal({ isOpen, onClose, onSelectDate }: SearchModalProps)
                     </div>
                     
                     <div className="flex items-center gap-3 text-xs text-gray-400">
+
                         {tx.categoria && (
                             <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-500/20">
                                 {tx.categoria}
