@@ -137,7 +137,9 @@
         "RET IVA SERV DIGITAL 100% N/D": "Ret IVA SERV DIGITAL",
         "DLC*UBER EATSNLD S CONSUMO CRI": "Subcripcion Uber",
         "DLC*UBER RIDESSA S CONSUMO CRI": "Uber",
-        "COSTO DE LA TRANSACCION GAD CONSUMO": "PTP - PEAJE CONSEJO PROVINCIAL CONSUMO"
+        "COSTO DE LA TRANSACCION GAD CONSUMO": "PTP - PEAJE CONSEJO PROVINCIAL CONSUMO",
+        "McDonalds - Arcos Dour R CONSUMO BRA": "Mc",
+        "DLC*UBER RIDESRA S CONSUMO CRI": "Uber"
     },
     "entity_data": {
         "Canelazo": {
@@ -698,6 +700,24 @@
         },
         "Derma": {
             "categoria": "Salud",
+            "prioridad": "Necesidad",
+            "es_fijo": false,
+            "nota": ""
+        },
+        "Viaje_RIO": {
+            "categoria": "Viajes",
+            "prioridad": "Deseo",
+            "es_fijo": false,
+            "nota": ""
+        },
+        "Uber_Rio": {
+            "categoria": "Transporte",
+            "prioridad": "---",
+            "es_fijo": false,
+            "nota": ""
+        },
+        "Desayuno": {
+            "categoria": "Alimentación",
             "prioridad": "Necesidad",
             "es_fijo": false,
             "nota": ""

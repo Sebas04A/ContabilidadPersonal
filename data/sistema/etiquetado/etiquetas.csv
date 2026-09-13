@@ -662,3 +662,117 @@ bfc29c9ca7bf0b9f6f8a72e690c95b8c,BANCA,TRANSF. DEUNA A MULTICINES S A MULTICINES
 23b9b7fe02705378936d57172d89ca88,TARJETA,PARKING RECREOCU Q CONSUMO ECU,Transporte,"Parqueadero, Dome",Deseo,False,---,False,,7.0,True,,,,,,
 e31365b8d5f14c2b4c8b322190e274de,BANCA,TRANSF. DIRECTA A TOAPANTA TENORIO ERNESTO LEONIDAS,Deudas,,---,False,Madre,True,Madre,0.0,True,Llanta,,,,,80d557b1-7cd0-4b0c-acb0-4f4ae5477b97
 60506149eb888af307d9e4dcbafda758,BANCA,TRANSF. DEUNA A ROSA ELIZABETH JIMENEZ ARELLANO,Alimentación,Merienda,Necesidad,False,---,False,,7.0,True,,,,,,
+80b1ece640c46d73698b91d70f88fcf7,BANCA,TRANSF. DIRECTA A PAZMIÑO VALLEJO NORMA ISABEL,Deudas,,---,False,Normita,True,Normita,0.0,True,,,,,,30526b58-9b9b-46a4-aa77-d0bcdae9a905
+99178caa884b1e3e643aada7b03755ed,BANCA,TRANSF. DIRECTA A MEDINA AYALA VIOLETA ALEJANDRA,Viajes,"Viaje_RIO, Airbnb_Rio",---,False,---,False,,0.0,True,,,,,,
+191f7380632d7bc32ad6b56a359a0798,TARJETA,AIRALO ECUECU A CONSUMO NLD,Viajes,Viaje_RIO,---,False,---,True,Madre,0.0,True,Esim,,a0d11b7d-65de-40a9-aed1-b55bfc2d5452,,,8d08e27f-5dc7-41bf-b9b5-b1ebaa8dc840
+c4d4a573e09def3e45d670d0c31ea545,TARJETA,AIRALO ECUECU A CONSUMO NLD,Viajes,Viaje_RIO,---,False,---,True,Madre,0.0,True,Esim,,a0d11b7d-65de-40a9-aed1-b55bfc2d5452,,,8d08e27f-5dc7-41bf-b9b5-b1ebaa8dc840
+02e3edd6155f37014d17fc08d4829ed8,TARJETA,LIMA AIRPORT PARTNERS C CONSUMO PER,Viajes,Viaje_RIO,Deseo,False,---,False,,0.0,True,Lima Tasa Interconexion,,,,,
+ee99f8b025888c58d4a7c7307e164280,BANCA,TRANSF. DIRECTA DE VERKADE MONTIEL DOMINIQUE LOURDES,Viajes,"Viaje_RIO, Airbnb_Rio",Deseo,False,---,True,rubia,0.0,True,,,,,,c2930572-f831-4e19-8494-820c2d031702
+1e1665cdcab2c990c8692d58173811d7,BANCA,Certificado De Deposito,Inversion,,---,False,---,False,,0.0,True,,,,,,
+676d32e314370f76b33d6daae302efd3,BANCA,Hermana,Regalo,,Deseo,False,---,False,,0.0,True,Regalo de Viaje,,,,,
+ebd56b6abff4bf46e95f65045d1896ab,TARJETA,GRAN COFFEE*VMT*GRAN C C CONSUMO BRA,Viajes,Viaje_RIO,Necesidad,False,---,False,,0.0,True,Aguas Aeropuerto,,398cadb1-3470-4d2a-a1c7-f192656feb90,,,
+833c597f36935d3d7d8f86e72b56344d,TARJETA,GRAN COFFEE*VMT*GRAN C C CONSUMO BRA,Viajes,Viaje_RIO,Necesidad,False,---,False,,0.0,True,Aguas Aeropuerto,,398cadb1-3470-4d2a-a1c7-f192656feb90,,,
+42da960e7d858169a5446a8746d0c095,TARJETA,GRAN COFFEE*VMT*GRAN C C CONSUMO BRA,Viajes,Viaje_RIO,Necesidad,False,---,False,,0.0,True,Aguas Aeropuerto,,398cadb1-3470-4d2a-a1c7-f192656feb90,,,
+1ba16da028009a1cee3af8e15b4c6135,TARJETA,PURA BRASARJ BRA R CONSUMO BRA,Alimentación,"Almuerzo, Viaje_RIO",Deseo,False,---,False,,0.0,True,,,,,,
+ebc9ab0f952b922bd3e9eb2b56f12acb,BANCA,TRANSF. DIRECTA A VERKADE MONTIEL DOMINIQUE LOURDES,Viajes,"Airbnb_Rio, Viaje_RIO",---,False,---,True,rubia,0.0,True,,82710363-8ef5-47f8-8da9-a91de1cb7fc4,,-392.83,,319046e5-d328-4a64-ad36-40fbab39a9f5
+ebc9ab0f952b922bd3e9eb2b56f12acb,BANCA,TRANSF. DIRECTA A VERKADE MONTIEL DOMINIQUE LOURDES,Viajes,Viaje_RIO,---,False,---,False,,0.0,True,Vacunas,1c65112c-1d62-4e01-b717-9d7c0f64e467,,-104.0,,
+2cc31b5d1f1d9c9eb529d9497a11cf6e,BANCA,TRANSF. DIRECTA DE VERKADE MONTIEL DOMINIQUE LOURDES,Deudas,,---,False,---,True,rubia,0.0,True,,,dea448ad-91df-4616-80a1-f8a8dd355808,,,a0d49e24-15de-4fe1-8cef-0418af539da1
+29696b7a95dc246dc473c9c3fb774a1f,TARJETA,BELAV RIOS BUFFET PIZZ R CONSUMO BRA,Alimentación,"Viaje_RIO, Almuerzo",Necesidad,False,---,False,,0.0,True,,,ee3e0110-b132-4277-8fd8-8dccf516d198,,,
+41d4fb5f346bf8e90cb8d82b55a2ec53,TARJETA,BELAV RIOS BUFFET PIZZ R CONSUMO BRA,Alimentación,"Viaje_RIO, Almuerzo",Necesidad,False,---,False,,0.0,True,,,ee3e0110-b132-4277-8fd8-8dccf516d198,,,
+4757a9ee0cd6466178b5b5060be22227,TARJETA,MP *HLAACESSORIOS R CONSUMO BRA,Regalo,Viaje_RIO,Deseo,False,---,False,,0.0,True,,,,,,
+9936ab8ae010bfe641088112d73878f7,TARJETA,SantiagoRaulTuque R CONSUMO BRA,Regalo,Viaje_RIO,Deseo,False,---,False,,0.0,True,Creo que camiseta,,,,,
+8d6e1553c736708010133edaec657d9d,TARJETA,MAPA RIO BRABRA V CONSUMO BRA,Viajes,Viaje_RIO,Deseo,False,---,False,,0.0,True,,,,,,
+451552f655d7085a2c5f70847b7a9741,TARJETA,METRO RJ BRABRA R CONSUMO BRA,Transporte,Viaje_RIO,Deseo,False,---,False,,0.0,True,,,,,,
+220c1758f81b6cbf0a0c03fd3801eb07,TARJETA,CONFEITARIA COLOMBO LT R CONSUMO BRA,Alimentación,"Desayuno, Viaje_RIO",Deseo,False,---,False,,0.0,True,,,,,,
+20edf7855edddbbc84f84315fe447cbc,TARJETA,TONGDA COMERCIO DE ART R CONSUMO BRA,Regalo,Viaje_RIO,Deseo,False,---,False,,0.0,True,,,,,,
+ea6e4c1ed6a3538ae393f8ef3e22aff7,TARJETA,VIA CURTUME ALRA R CONSUMO BRA,Deudas,,---,False,---,False,,0.0,True,,,dec56ebd-4dd1-4c8e-b9dc-6456ff03a32f,,,
+fca4e700c0ffef8913831c95b05f6d87,BANCA,VIA CURTUME ALRA R CONSUMO BRA,Deudas,,---,False,---,False,,0.0,True,,,dec56ebd-4dd1-4c8e-b9dc-6456ff03a32f,,,
+f39e96c37af15595433630d83907fc2b,TARJETA,DethiediopBRABRA R CONSUMO BRA,Ropa,Viaje_RIO,Deseo,False,---,False,,0.0,True,Gafas,,,,,
+10445d2d78cc591fbdd8b69edecdb146,TARJETA,ALMENDRA B E R LTDA R CONSUMO BRA,Alimentación,"Viaje_RIO, Almuerzo",Necesidad,False,---,False,,0.0,True,,,,,,
+5ea93115aca28e3bd1467145f2ce5836,TARJETA,HNA*OBOTICARIORA R CONSUMO BRA,Aseo,"Viaje_RIO, Perfume",Deseo,False,---,False,,7.0,True,Perfume,,,,,
+b725b2da852a7f4d2b40253b008d8788,TARJETA,ANTHROPIC* CLAUDE SUB S CONSUMO USA,Subscripciones,,---,False,---,False,,0.0,True,,,41243d30-0164-4ef8-9d03-06a6a3cbb0db,,,
+3535f926fc27fd3afd264a8e905a1d7a,TARJETA,ANTHROPIC* CLAUDE SUB S CONSUMO USA,Subscripciones,,---,False,---,False,,0.0,True,,,41243d30-0164-4ef8-9d03-06a6a3cbb0db,,,
+82ca07bda110dbabc3d18f60f6e1b1a5,TARJETA,NUSA CAFE BISTRO LTDA R CONSUMO BRA,Alimentación,"Viaje_RIO, Desayuno",Necesidad,False,---,False,,2.0,True,,,,,,
+a33da4edb36ad8246ef4d5575302f6fb,TARJETA,LEMBRANCAS TURRA R CONSUMO BRA,Regalo,Viaje_RIO,Deseo,False,---,False,,7.0,True,Imanes y demas,,,,,
+508d939392d60ef8941b0f2428d3bb7f,TARJETA,ArthurFabianoLima N CONSUMO BRA,Ropa,Viaje_RIO,Deseo,False,---,False,,0.0,True,Creo que gorras. Compre en la uruguaiana,,,,,
+6b3f340c51a129d35e907450f716a2f8,TARJETA,TendaCiganaJ BRA R CONSUMO BRA,Ropa,Viaje_RIO,Deseo,False,---,False,,0.0,True,Gorra creo,,,,,
+7b0ffefc1440a169801e9a9aad494968,TARJETA,BAR DO LEITE CENTRO R CONSUMO BRA,Alimentación,"Viaje_RIO, Almuerzo",Necesidad,False,---,False,,0.0,True,,,,,,
+7400ac69433a57a777430abc1eedb1b5,TARJETA,ALFA167 BIJOUTERIAS E R CONSUMO BRA,Regalo,Viaje_RIO,Deseo,False,---,False,,0.0,True,"Collares, pulseras del saara",,,,,
+961991bcaea680a89e9e20f67706347e,TARJETA,DL*UberRidesABRA S CONSUMO BRA,Transporte,"Viaje_RIO, Uber_Rio",Necesidad,False,---,False,,0.0,True,,,,,,
+4866e8d35776290a034ebe7da0968cd8,TARJETA,,Viajes,Viaje_RIO,Deseo,False,---,False,,9.0,True,,a2c15736-0488-4433-8724-d0e88acdf231,,-31.29,,
+4866e8d35776290a034ebe7da0968cd8,TARJETA,,Deudas,,---,False,---,True,Ale,0.0,True,,c9fde2a4-b70d-4f9e-81a1-7e4095a06557,,-31.29,,fec5c7e6-9bbb-4acc-a742-d3ab521527a7
+4866e8d35776290a034ebe7da0968cd8,TARJETA,,Deudas,,---,False,---,True,rubia,0.0,True,,944ed96c-eb35-41ea-854a-8589a164c736,,-31.31,,bb016368-0e59-444d-b135-5d2ecfd8b5eb
+742b25e79caf80f034e90f5331d8a80f,TARJETA,TERRACO CORCOVADO R CONSUMO BRA,Deudas,,---,False,---,True,Ale,0.0,True,,,,,,14294470-0388-4ddf-9e04-532e9f68c1cc
+4b869a1a98732f3b1f09747166187414,TARJETA,TERRACO CORCOVADO R CONSUMO BRA,Alimentación,"Viaje_RIO, Desayuno",Necesidad,False,---,False,,0.0,True,,,,,,
+79a3471cec74d4e72bf61ddfba408ae2,TARJETA,DL*UberRidesABRA S CONSUMO BRA,Viajes,"Uber_Rio, Viaje_RIO",Deseo,False,---,False,,0.0,True,,,,,,
+f7717a7bfb68386616e39d4968fb078f,TARJETA,DL*UberRides BRA S CONSUMO BRA,Transporte,"Viaje_RIO, Uber_Rio",Necesidad,False,---,False,,0.0,True,,,,,,
+d0b8db4a0d7e71327b98b97489730f63,TARJETA,MP *CARLINHOSPOINT R CONSUMO BRA,Viajes,Viaje_RIO,Deseo,False,---,False,,0.0,True,Creo que silla o algo de la playa,,,,,
+97f641470de4a01662426da4029e9439,TARJETA,ERREJOTA BROWNIE R CONSUMO BRA,Alimentación,Viaje_RIO,Deseo,False,---,False,,0.0,True,Algo de tomar en pao de azucar,,,,,
+284202fd538d08c3cc3ee9b47506ea0c,BANCA,ZONA SUL FL 40CU R CONSUMO BRA,Alimentación,Viaje_RIO,Deseo,False,---,False,,0.0,True,,,49f76edb-120e-4152-bd44-4510da632d77,,,
+9b4142d8314f2b5605c67643868cd8f0,TARJETA,Foto,Deudas,,---,False,---,True,rubia,0.0,True,,1361f31e-6038-4906-b97f-447116f758e3,,-1.62,,a0d49e24-15de-4fe1-8cef-0418af539da1
+9b4142d8314f2b5605c67643868cd8f0,TARJETA,TRANSF. DIRECTA DE VERKADE MONTIEL DOMINIQUE LOURDES,Deudas,,---,False,---,True,rubia,0.0,True,Fotos,b26df301-6873-4772-8c79-734a26f271bc,,-1.63,,a0d49e24-15de-4fe1-8cef-0418af539da1
+9b4142d8314f2b5605c67643868cd8f0,TARJETA,TRANSF. DIRECTA DE VERKADE MONTIEL DOMINIQUE LOURDES,Deudas,,---,False,---,True,rubia,0.0,True,Foto,a2570488-96dc-4fa4-9fc6-c994bea17422,,-1.6399999999999997,,a0d49e24-15de-4fe1-8cef-0418af539da1
+a52da34a3dd851f7bb20e3dc8d04b023,TARJETA,,Viajes,Viaje_RIO,Deseo,False,---,False,,0.0,True,Repelente y Protector creo,27c83213-b404-45c7-ab2d-743f8d71f847,,-6.22,,
+a52da34a3dd851f7bb20e3dc8d04b023,TARJETA,,---,,---,False,Ale,True,Ale,0.0,True,,09bce4ec-a0a3-4c66-9085-f4ed5dbe24c1,,-6.220000000001,,f273c039-83c4-4e14-b761-a86bba569786
+a52da34a3dd851f7bb20e3dc8d04b023,TARJETA,,---,,---,False,rubia,True,rubia,0.0,True,,7458d992-ed1c-4f2f-bcc8-2ba72aa489e6,,-6.2199999999990006,,8abc21c1-91b9-4a41-9294-302e44e57816
+0d805adae56e27fed4a9081130a4d928,TARJETA,METRO RJ BRABRA R CONSUMO BRA,Transporte,Viaje_RIO,Deseo,False,---,False,,0.0,True,,,,,,
+460405f86225440756c7ca5e4c013b11,TARJETA,BONDINHO PAO DE ACUCAR R CONSUMO BRA,Transporte,Viaje_RIO,Deseo,False,---,False,,0.0,True,"Regreso, bajada del pan de azucar",,,,,
+f83c7ea8b64ea943dbb0c0307e82f25e,TARJETA,Mc,Alimentación,"Almuerzo, Viaje_RIO",---,False,---,False,,0.0,True,,1ee4dc6b-6d72-4ee5-90bb-29e8377b88e3,,-8.78,,
+f83c7ea8b64ea943dbb0c0307e82f25e,TARJETA,,Deudas,,---,False,rubia,True,rubia,0.0,True,,565519a5-174c-4944-9b8f-1afec71163e0,,-5.6000000002,,6c16ad68-0d80-4597-a496-da6f9182345e
+f83c7ea8b64ea943dbb0c0307e82f25e,TARJETA,,Deudas,,---,False,Ale,True,Ale,0.0,True,,0fd9fe01-88d4-44a8-ae5f-701bfa62e69c,,-2.4699999998000024,,271f2cb8-4ef4-4eca-96cc-d5ac19d37c85
+81c5ca8f7e687897f3244c3dfc44aa1e,TARJETA,MP *WELTONDUARTEC R CONSUMO BRA,Viajes,Viaje_RIO,Deseo,False,---,False,,8.0,True,Paddle por la manana,,,,,
+8909d72231659c7e4e36ff1d3b79bc3a,TARJETA,NUSA CAFE BISTRO LTDA R CONSUMO BRA,Alimentación,"Viaje_RIO, Desayuno",Necesidad,False,---,False,,0.0,True,,,,,,
+f7a8894015397577d6aa6c90ce51db22,TARJETA,JeffArtesaoJ BRA R CONSUMO BRA,Regalo,Viaje_RIO,Deseo,False,---,False,,0.0,True,,,,,,
+e51e217764a9774f8f6b24d80a6d831a,TARJETA,BELMONTE IPANEMA R CONSUMO BRA,Alimentación,"Viaje_RIO, Almuerzo",Necesidad,False,---,False,,0.0,True,,,,,,
+643856e0a3658fb369a67aba7e1a6782,TARJETA,Mc,Alimentación,"Viaje_RIO, Almuerzo",Necesidad,False,---,False,,0.0,True,,,,,,
+685db48fa5525e623e39cb1143e32d0f,TARJETA,67011292Rosemberg S CONSUMO BRA,Ropa,Viaje_RIO,Deseo,False,---,False,,8.0,True,camiseta flamengo,,,,,
+04e74ceddd11f12bbe1a8a14c47581fc,TARJETA,THE BEST ACAI COPACABA R CONSUMO BRA,Alimentación,Viaje_RIO,Deseo,False,---,False,,0.0,True,Agua,,,,,
+01a600d6e704968cfa0ec16aa9800d66,TARJETA,ZIGPAY43 BRABRA S CONSUMO BRA,Alimentación,"Viaje_RIO, Almuerzo",Necesidad,False,---,False,,0.0,True,,,,,,
+14b9db7631a2a4a2d7c72c00a7b33dfa,TARJETA,Mc,Deudas,,Necesidad,False,Ale,True,Ale,0.0,True,Sundae,,,,,039c6ffa-117d-4c18-97d7-89a19db080b9
+9533f1f61ce199107a9d4f4ed6bea695,TARJETA,,Alimentación,"Merienda, Viaje_RIO",---,False,---,False,,0.0,True,,7a53c20e-9d13-4e4e-9722-fafde759fd2c,,-7.0,,
+9533f1f61ce199107a9d4f4ed6bea695,TARJETA,,Deudas,,---,False,---,False,,0.0,True,,1298fab5-81f4-475a-81ec-1ff556de9ea2,,-10.14,,
+988de616254a8fc4faa7b39ea635aa8f,TARJETA,Uber UBER *TRIP HELP.U S CONSUMO BRA,Transporte,Viaje_RIO,Necesidad,False,---,False,,0.0,True,,,,,,
+09e82e7b7cd2286029d2f805dde31ba5,TARJETA,Uber,Transporte,Viaje_RIO,Necesidad,False,---,False,,0.0,True,,,,,,
+d090d164e74f71672dd3d0adfd6cae85,TARJETA,Mc,Alimentación,"Viaje_RIO, Desayuno",Necesidad,False,---,False,,0.0,True,,,,,,
+5f413ff77e6af717a4beee93990f5786,TARJETA,JosueRochaDeUECU S CONSUMO BRA,Regalo,Viaje_RIO,Deseo,False,---,False,,0.0,True,Regalo a senor en playa,,,,,
+fd1003aedcb15ec3bd86cd2e74992ba1,TARJETA,BARRACA DO ABELHA R CONSUMO BRA,Viajes,Viaje_RIO,Deseo,False,---,False,,0.0,True,"Pago de Silla y algo mas, capaz una cerveza",,,,,
+cbd6296c71e96c47946c03ade873312f,TARJETA,Mc,Alimentación,"Viaje_RIO, Merienda",Necesidad,False,---,False,,0.0,True,,,,,,
+1adb46a8fe1105edea43c4d051e56656,TARJETA,MP *BDBCIASJOCRI R CONSUMO BRA,Ocio,"Viaje_RIO, Trago",Deseo,False,---,False,,7.0,True,Caipi,,,,,
+c563e39675fca1bbccd3f9a65d40e88c,TARJETA,SandraDoloresBRA R CONSUMO BRA,Ocio,"Viaje_RIO, Trago",Deseo,False,---,False,,8.0,True,Caipi,,,,,
+0c6775c55610ed62570493d15311371a,TARJETA,PADOCA01 BRABRA R CONSUMO BRA,Alimentación,"Viaje_RIO, Desayuno",Necesidad,False,---,False,,0.0,True,,,,,,
+2cf8cd054fcca4deee1d53c985c10251,TARJETA,Mc,Alimentación,"Viaje_RIO, Desayuno",Necesidad,False,---,False,,0.0,True,,,,,,
+b3e3e15c694aa7b81d59b7648f2bdc6b,TARJETA,ASJ SANTA TERESA R CONSUMO BRA,Viajes,Viaje_RIO,Deseo,False,---,False,,0.0,True,Tren Santa Teresa,,,,,
+f94ca41121ec13ab325201ced5835eaa,TARJETA,HAVAIANAS CONCEPT STOR R CONSUMO BRA,Regalo,Viaje_RIO,Deseo,False,---,False,,0.0,True,,,,,,
+e8e709b31a744567227de062035b1ec0,TARJETA,RosemeireCamiloA R CONSUMO BRA,Ocio,"Viaje_RIO, Trago",Deseo,False,---,False,,0.0,True,Caipi en merienda,,,,,
+1afa6fa8c14f7948bdbc77263f6881f4,BANCA,TRANSF. DIRECTA A MEDINA AYALA VIOLETA ALEJANDRA,Regalo,Viaje_RIO,Deseo,False,---,False,,0.0,True,,,,,,
+7365db59d7d3f17bee84d79262d368f3,TARJETA,MP *DEUSILEIAPERE R CONSUMO BRA,Viajes,Viaje_RIO,Deseo,False,---,False,,0.0,True,Silla,,,,,
+d1cce5d6ba7a03a095b7ebccb5d57d93,TARJETA,,Alimentación,"Viaje_RIO, Almuerzo",Necesidad,False,---,False,,0.0,True,,5ebc4f73-0cf9-41e0-ac35-8cc3002c435b,,-15.43,,
+d1cce5d6ba7a03a095b7ebccb5d57d93,TARJETA,,Deudas,,---,False,---,False,,0.0,True,,89a0cdfd-e8d3-40c1-bae8-14e55ec60249,,-6.92,,
+d1cce5d6ba7a03a095b7ebccb5d57d93,TARJETA,,Deudas,,---,False,---,False,,0.0,True,,6e10d106-6649-4670-b75f-5e6423070019,,-15.549999999999995,,
+794b0bdcd8814b22cbe539b9222e1dc0,TARJETA,ZIG* *BARCO TROPICAL A CONSUMO BRA,Viajes,Viaje_RIO,Deseo,False,---,False,,0.0,True,Viaje a Isla Grande,,,,,
+f320aa9dc9cd08093eb8bd4e64241731,TARJETA,LANCHONETE SERVVERDE M CONSUMO BRA,Alimentación,"Viaje_RIO, Desayuno",Necesidad,False,---,False,,0.0,True,,,,,,
+8cf822e91b5dc785e89ba2641b4ddaaf,BANCA,17056306-MASTERCARD BP  -8E-223067000075,Tarjeta,,---,False,---,False,,0.0,True,,,,,,
+e002db9b41d9b7ac61d2ae318b4031cb,TARJETA,Mc,Alimentación,"Viaje_RIO, Desayuno",Necesidad,False,---,False,,0.0,True,,8939cdd8-d932-40f1-8318-6a85f94f426b,,-5.42,,
+e002db9b41d9b7ac61d2ae318b4031cb,TARJETA,Mc,Deudas,Almuerzo,Necesidad,False,---,True,rubia,0.0,True,,f7dd2992-e7ed-4aa7-9483-a5603d39847b,,-5.42,,46ee0757-773f-4a15-8c12-2a7d933334d3
+e002db9b41d9b7ac61d2ae318b4031cb,TARJETA,Mc,Deudas,Almuerzo,Necesidad,False,Ale,True,Ale,0.0,True,,7ef2cbdf-13c4-422e-94d0-e2cea9bf4923,,-7.48,,6e9aca7f-7f0c-4c87-9883-1c342501e157
+8586037f121a224b24a4932af4bd2933,TARJETA,UniquePayService M CONSUMO BRA,Viajes,"Viaje_RIO, Merienda",Deseo,False,---,False,,8.0,True,,0d718f92-6a69-489f-b21e-0e7e2868b26a,,-32.11,,
+8586037f121a224b24a4932af4bd2933,TARJETA,UniquePayService M CONSUMO BRA,Deudas,,---,False,---,True,rubia,0.0,True,,ce4ea717-7289-4c9b-8925-3c75c12bd9e2,,-26.57,,ddc114af-e834-4711-92b5-3e45021b8e9a
+8586037f121a224b24a4932af4bd2933,TARJETA,UniquePayService M CONSUMO BRA,---,,---,False,---,True,Ale,0.0,True,,490135fe-64c5-4803-8009-7db3bbd1afcf,,-35.51,,21c868c5-3b5b-478d-b3b2-db39939f444b
+07b0054e035b7d9bcc83290e5f26678e,TARJETA,JIM.COM* YURI GONCALV A CONSUMO BRA,Viajes,Viaje_RIO,Deseo,False,---,False,,0.0,True,JetSky,9abdf8bf-4b38-4485-9390-989520719cb4,,-15.71,,
+07b0054e035b7d9bcc83290e5f26678e,TARJETA,JIM.COM* YURI GONCALV A CONSUMO BRA,Deudas,,---,False,---,True,rubia,0.0,True,,6034d1ec-d75b-4e8b-a250-f9e6fe862bdf,,-15.72,,98166038-4a64-4ae2-ae1e-0f6e138f56e2
+2db1cab5c1c0a5e49977035ac14ead16,TARJETA,FROGWAY*DIAMOND CONSUL R CONSUMO BRA,Ocio,"Viaje_RIO, Trago",Deseo,False,---,False,,0.0,True,Caipis,c9c9c40d-7657-4ead-bf0c-025725caa710,,-6.54,,
+2db1cab5c1c0a5e49977035ac14ead16,TARJETA,FROGWAY*DIAMOND CONSUL R CONSUMO BRA,Deudas,,---,False,---,True,rubia,0.0,True,,78ec0f37-8c6e-439f-8650-0f72d70d7958,,-6.54,,dd626645-1944-47b9-b883-1cc199ce628c
+2db1cab5c1c0a5e49977035ac14ead16,TARJETA,,Deudas,,---,False,---,True,Ale,0.0,True,,c17187e4-1909-4a7b-bb08-113af978727f,,-6.540000000000001,,76842572-512c-47a1-b307-29442afaca73
+fb786f6ff5c3ca49e8e7d71ac0397da0,TARJETA,MEDI QUITO CC CONDADO Q CONSUMO ECU,Salud,,Necesidad,False,---,True,Madre,0.0,True,Medicamentos farmacia,,,,,2c0b9f51-fe3c-43dc-98c9-a60fa9d585b7
+0348a7f0096a309966504656b65b6c1d,TARJETA,METRORED QUITO EL COND Q CONSUMO ECU,Salud,,---,False,---,True,Madre,0.0,True,Consulta,,,,,7231758e-6a71-4b1c-b5eb-ba4a0e4ae800
+842d3d09f6550d4f85c69efe4089917c,TARJETA,MICROSOFT*PC GAME PASS M CONSUMO USA,Ocio,Videojuegos,Deseo,False,---,False,,0.0,True,,,,,,
+0502398541604ed9773fb6f697442978,BANCA,TRANSF. DIRECTA DE MEDINA AYALA VIOLETA ALEJANDRA,Deudas,,---,False,---,False,,0.0,True,,,,,,
+3ecec3f016ac9d763ec73a298672449c,TARJETA,Zona Sul Supermercado,Viajes,Viaje_RIO,Deseo,False,---,False,,0.0,True,,1bece9fb-2313-42d6-b8e7-56c9be09c5a5,,-15.0,,
+3ecec3f016ac9d763ec73a298672449c,TARJETA,,Deudas,,---,False,---,False,,0.0,True,,2d0d9e98-0369-4991-9f7e-0538ba5a9a35,,-30.05,,
+b4390e411598f1cca1a7f7831a601c44,TARJETA,Zona Sul Supermercado,Alimentación,Viaje_RIO,Deseo,False,---,False,,0.0,True,,7d7c3764-8192-4106-b594-2141c03a88ac,,-10.0,,
+b4390e411598f1cca1a7f7831a601c44,TARJETA,,Deudas,,---,False,---,False,,0.0,True,,3b61b43b-4af3-48fa-b076-16be4578d056,,-10.0,,
+b4390e411598f1cca1a7f7831a601c44,TARJETA,,Deudas,,---,False,---,False,,0.0,True,,714890f3-906d-442a-92b6-72a3e5e2925c,,-10.06,,
+3053b18804a114e3da06a61f034a04d7,TARJETA,MC DONALDSRJ BRA R CONSUMO BRA,Alimentación,Viaje_RIO,Deseo,False,---,False,,0.0,True,,,,,,
+c2874771b74a314d7ca6d7126043bfe2,TARJETA,ZONA SUL FL 40CU R CONSUMO BRA,Alimentación,Viaje_RIO,---,False,---,False,,0.0,True,,00875ef7-ebbf-4ac5-8d05-bf0e90b599ae,,-21.22,,
+c2874771b74a314d7ca6d7126043bfe2,TARJETA,,Deudas,,---,False,---,False,,0.0,True,,c93ddb56-bc8a-43ce-968c-ab8b36a3a0d0,,-15.06,,
+c2874771b74a314d7ca6d7126043bfe2,TARJETA,,Deudas,,---,False,Ale,True,Ale,0.0,True,,0a8f01bf-e781-4c93-9ab6-4c7c362e01e9,,-15.060000000000002,,61ec4cbf-cc2a-495c-bfbb-bbc7941fe67c
