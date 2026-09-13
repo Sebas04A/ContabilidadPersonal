@@ -978,8 +978,94 @@ def obtener_todos_pagos() -> pd.DataFrame:
         
     df['fecha_pago'] = pd.to_datetime(df['fecha_pago'])
     df['monto_total'] = pd.to_numeric(df['monto_total'])
-    
+
     return df.sort_values('fecha_pago', ascending=False)
+
+
+def obtener_pagos_para_analisis(
+    fecha_inicio: Optional[str] = None,
+    fecha_fin: Optional[str] = None,
+    incluir_cruces: bool = False,
+) -> List[dict]:
+    """
+    Pagos con lo que el etiquetado necesita para mostrarlos como a las deudas: quién,
+    en qué dirección, a qué deudas abonó y cuánto quedó de saldo a favor.
+
+    `fecha_inicio`/`fecha_fin` son 'YYYY-MM-DD' inclusivos sobre `fecha_pago`. Los pagos
+    virtuales de un cruce no son dinero que se movió, así que por defecto no salen.
+    """
+    if os.environ.get("MOCK_MODE", "false").lower() == "true":
+        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        ppath = os.path.join(base_dir, "data_mock", "sistema", "deudas", "pagos_deudas.csv")
+        if not os.path.exists(ppath):
+            return []
+        pagos_raw = pd.read_csv(ppath).to_dict(orient='records')
+        nombres = {str(p.get('deudor_id')): p.get('deudor_nombre') for p in pagos_raw}
+        detalles, titulos = [], {}
+    else:
+        q = supabase.table('pagos').select('*')
+        if fecha_inicio:
+            q = q.gte('fecha_pago', fecha_inicio[:10])
+        if fecha_fin:
+            q = q.lte('fecha_pago', fecha_fin[:10])
+        pagos_raw = q.execute().data or []
+        if not pagos_raw:
+            return []
+
+        pago_ids = [p['id'] for p in pagos_raw]
+        deudor_ids = list({p['deudor_id'] for p in pagos_raw if p.get('deudor_id')})
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            f_det = pool.submit(lambda: supabase.table('detalle_pagos').select('*')
+                                .in_('pago_id', pago_ids).execute().data or [])
+            f_deudores = pool.submit(lambda: supabase.table('deudores').select('id, nombre')
+                                     .in_('id', deudor_ids).execute().data or [])
+            detalles, deudores = f_det.result(), f_deudores.result()
+        nombres = {str(d['id']): d.get('nombre') for d in deudores}
+
+        deuda_ids = list({d['deuda_id'] for d in detalles if d.get('deuda_id')})
+        titulos = {}
+        if deuda_ids:
+            deudas = supabase.table('deudas').select('id, titulo').in_('id', deuda_ids).execute().data or []
+            titulos = {str(d['id']): d.get('titulo') or '—' for d in deudas}
+
+    det_by_pago: dict = {}
+    for det in detalles:
+        det_by_pago.setdefault(str(det.get('pago_id')), []).append(det)
+
+    out = []
+    for p in pagos_raw:
+        fecha = _ec_fecha(p.get('fecha_pago'))
+        if fecha_inicio and fecha and fecha < fecha_inicio[:10]:
+            continue
+        if fecha_fin and fecha and fecha > fecha_fin[:10]:
+            continue
+        es_comp = bool(p.get('es_compensacion')) if pd.notna(p.get('es_compensacion')) else False
+        if es_comp and not incluir_cruces:
+            continue
+
+        pid = str(p.get('id'))
+        allocs = det_by_pago.get(pid, [])
+        monto = _ec_num(p.get('monto_total'))
+        asignado = round(sum(_ec_num(a.get('monto_asignado')) for a in allocs), 2)
+        es_mio = p.get('es_mi_pago')
+        out.append({
+            'id': pid,
+            'fecha_pago': fecha,
+            'monto_total': monto,
+            'deudor_id': str(p.get('deudor_id') or ''),
+            'deudor_nombre': nombres.get(str(p.get('deudor_id'))) or 'Desconocido',
+            'es_mi_pago': bool(es_mio) if pd.notna(es_mio) else False,
+            'es_compensacion': es_comp,
+            'cruce_id': str(p['cruce_id']) if p.get('cruce_id') and pd.notna(p.get('cruce_id')) else None,
+            'sobrante': round(monto - asignado, 2),
+            'deudas': [{
+                'deuda_id': str(a.get('deuda_id')),
+                'titulo': titulos.get(str(a.get('deuda_id')), '—'),
+                'monto_asignado': _ec_num(a.get('monto_asignado')),
+            } for a in allocs],
+        })
+
+    return sorted(out, key=lambda x: x['fecha_pago'] or '', reverse=True)
 
 
 

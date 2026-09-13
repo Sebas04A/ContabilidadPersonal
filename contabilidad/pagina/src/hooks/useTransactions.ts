@@ -78,10 +78,10 @@ export function useEstadoCuenta(deudorId?: string) {
 }
 
 // Hook for fetching Supabase payments
-export function useSupabasePayments(debtor?: string) {
+export function useSupabasePayments(filters?: { debtor?: string; startDate?: string; endDate?: string; incluirCruces?: boolean }) {
   return useQuery({
-    queryKey: ['supabase-payments', debtor],
-    queryFn: () => api.getSupabasePayments(debtor),
+    queryKey: ['supabase-payments', filters],
+    queryFn: () => api.getSupabasePayments(filters?.debtor, filters?.startDate, filters?.endDate, filters?.incluirCruces),
   });
 }
 

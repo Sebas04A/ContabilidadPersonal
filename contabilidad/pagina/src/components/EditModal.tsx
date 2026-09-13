@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { Transaction, TransactionUpdate, api, SplitItem, SupabaseDebt, SupabaseDeudor } from '../services/api';
+import { useQueryClient } from '@tanstack/react-query';
+import { Transaction, TransactionUpdate, api, SplitItem, SupabaseDebt, SupabaseDeudor, SupabasePayment, PaymentPreview } from '../services/api';
 import {
   X, Tag, ArrowUpRight, ArrowDownLeft, Check,
   CreditCard, Flame, Heart, Sparkles, User,
   Frown, Meh, DollarSign, StickyNote, Save, AlertCircle,
   Link2, Plus, CheckCircle2, Loader2, Search, Users,
-  HandCoins, Wallet, Unlink, Ban, Scissors, Settings2, Clock
+  HandCoins, Wallet, Unlink, Ban, Scissors, Settings2, Clock, Banknote
 } from 'lucide-react';
 
 interface EditModalProps {
@@ -78,7 +79,14 @@ const urlRecordarMomento = (t: Transaction): string => {
  */
 type DebtLinkMode = 'none' | 'create' | 'associate';
 
+/** Qué es la transacción para el sistema de deudas: nace o salda una cuenta. */
+type DebtKind = 'deuda' | 'pago';
+
+/** Un pago siempre existe en Supabase: o se engancha a uno registrado o se registra. */
+type PagoLinkMode = 'associate' | 'create';
+
 interface DebtDraft {
+  kind: DebtKind;
   mode: DebtLinkMode;
   deudorId: string;
   titulo: string;
@@ -87,16 +95,53 @@ interface DebtDraft {
   esMiDeuda: boolean;
   /** Deuda vinculada (la existente al abrir, o la elegida en modo `associate`). */
   deudaId: string;
+  pagoMode: PagoLinkMode;
+  /** Pago vinculado (el existente al abrir, o el elegido en modo `associate`). */
+  pagoId: string;
+  pagoMonto: number;
+  /** true = pagaste tú; false = te pagaron. */
+  esMiPago: boolean;
+  /** Deudas a las que va el pago nuevo. Vacío = reparto automático. */
+  pagoDeudasIds: string[];
+  /** Idempotencia: el mismo borrador guardado dos veces no registra dos pagos. */
+  idemKey: string;
 }
 
-const nuevoDraft = (titulo: string, monto: number, esMiDeuda: boolean, deudaId = ''): DebtDraft => ({
+const nuevaIdemKey = () =>
+  typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+        const r = (Math.random() * 16) | 0;
+        return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+      });
+
+/**
+ * `esIngreso` sugiere el tipo cuando no hay vínculo: a un ingreso casi siempre lo
+ * explica alguien que te paga, a un gasto una deuda. `yaReembolsable` conserva lo que
+ * ya estaba marcado antes de que existieran los pagos: eso era una deuda.
+ */
+const nuevoDraft = (
+  titulo: string, monto: number, esIngreso: boolean,
+  deudaId = '', pagoId = '', yaReembolsable = false,
+): DebtDraft => ({
+  kind: deudaId ? 'deuda' : pagoId ? 'pago' : (esIngreso && !yaReembolsable ? 'pago' : 'deuda'),
   mode: deudaId ? 'associate' : 'create',
   deudorId: '',
   titulo,
   monto: Math.abs(monto),
-  esMiDeuda,
+  esMiDeuda: esIngreso,
   deudaId,
+  pagoMode: 'associate',
+  pagoId,
+  pagoMonto: Math.abs(monto),
+  esMiPago: !esIngreso,
+  pagoDeudasIds: [],
+  idemKey: nuevaIdemKey(),
 });
+
+/** Lo que una parte deja escrito en sus etiquetas: nunca las dos cosas a la vez. */
+interface VinculoDeudas { deuda_id: string; pago_id: string }
+const SIN_VINCULO: VinculoDeudas = { deuda_id: '', pago_id: '' };
 
 // --- Subcomponents for "Control Console" Look ---
 
@@ -254,6 +299,13 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
   const [showDebtModal, setShowDebtModal] = useState(false);
   const [creatingDebt, setCreatingDebt] = useState(false);
   const [debtError, setDebtError] = useState('');
+  const [nearbyPayments, setNearbyPayments] = useState<SupabasePayment[]>([]);
+  const [loadingPayments, setLoadingPayments] = useState(false);
+  const [paymentSearch, setPaymentSearch] = useState('');
+  /** Reparto del pago nuevo según Postgres; `key` dice para qué parámetros vale. */
+  const [preview, setPreview] = useState<{ key: string; data: PaymentPreview } | null>(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
+  const queryClient = useQueryClient();
 
   // Initialize form and splits when opening
   useEffect(() => {
@@ -277,7 +329,8 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
                 es_reembolsable: t.es_reembolsable,
                 deudor: t.deudor,
                 felicidad: t.felicidad,
-                deuda_id: t.deuda_id || ''
+                deuda_id: t.deuda_id || '',
+                pago_id: t.pago_id || ''
             }));
             setSplits(loadedSplits);
             setSelectedSplitIndex(0);
@@ -285,7 +338,9 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
                 s.nombre_limpio || transaction.DESCRIPCION,
                 s.monto,
                 transaction.MONTO > 0,
-                s.deuda_id || ''
+                s.deuda_id || '',
+                s.pago_id || '',
+                !!s.es_reembolsable
             )));
 
             // Init form with first split
@@ -312,13 +367,16 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
                 tags: transaction.tags || '',
                 nota: transaction.nota || '',
                 nombre_limpio: transaction.nombre_limpio,
-                deuda_id: transaction.deuda_id || ''
+                deuda_id: transaction.deuda_id || '',
+                pago_id: transaction.pago_id || ''
             }]);
             setDebtDrafts([nuevoDraft(
                 transaction.nombre_limpio || transaction.DESCRIPCION,
                 transaction.MONTO,
                 transaction.MONTO > 0,
-                transaction.deuda_id ? String(transaction.deuda_id) : ''
+                transaction.deuda_id ? String(transaction.deuda_id) : '',
+                transaction.pago_id ? String(transaction.pago_id) : '',
+                !!transaction.es_reembolsable
             )]);
 
             // Init Form Data
@@ -346,6 +404,9 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
         setPersonSearch('');
         setDebtSearch('');
         setNearbyDebts([]);
+        setNearbyPayments([]);
+        setPaymentSearch('');
+        setPreview(null);
         setShowDebtModal(false);
     }
   }, [transaction]);
@@ -425,6 +486,20 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
       // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, transaction, formData.es_reembolsable]);
 
+  // Pagos del día del movimiento, sin cruces: los únicos candidatos para asociar.
+  useEffect(() => {
+      if (!isOpen || !transaction || !formData.es_reembolsable || nearbyPayments.length) return;
+      let cancelled = false;
+      const day = fechaDia(transaction.FECHA);
+      setLoadingPayments(true);
+      api.getSupabasePayments(undefined, day, day)
+         .then(pagos => { if (!cancelled) setNearbyPayments(pagos); })
+         .catch(() => { /* silencioso */ })
+         .finally(() => { if (!cancelled) setLoadingPayments(false); });
+      return () => { cancelled = true; };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, transaction, formData.es_reembolsable]);
+
   // Prellenar la persona del borrador: por la deuda ya vinculada o por el nombre guardado.
   useEffect(() => {
       if (!deudores.length || !debtDrafts.length) return;
@@ -435,6 +510,13 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
               const linked = draft.deudaId
                   ? nearbyDebts.find(d => String(d.ID) === draft.deudaId)
                   : undefined;
+              const linkedPago = draft.pagoId
+                  ? nearbyPayments.find(p => String(p.id) === draft.pagoId)
+                  : undefined;
+              if (draft.pagoId && linkedPago) {
+                  changed = true;
+                  return { ...draft, deudorId: String(linkedPago.deudor_id), esMiPago: !!linkedPago.es_mi_pago };
+              }
               const nombre = linked?.DEUDOR_NOMBRE || splits[i]?.deudor || (i === 0 ? transaction?.deudor : '') || '';
               const match = deudores.find(d => d.nombre.toLowerCase() === String(nombre).toLowerCase());
               if (!match) return draft;
@@ -448,10 +530,35 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
           return changed ? next : prev;
       });
       // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deudores, nearbyDebts, debtDrafts.length]);
+  }, [deudores, nearbyDebts, nearbyPayments, debtDrafts.length]);
 
 
   const [selectedSplitIndex, setSelectedSplitIndex] = useState<number>(0);
+
+  // Vista previa del pago nuevo: el reparto lo decide Postgres, aquí solo se muestra.
+  const draftActivo = debtDrafts[isSplitting ? selectedSplitIndex : 0];
+  const previewKey = draftActivo && formData.es_reembolsable && draftActivo.kind === 'pago'
+      && draftActivo.pagoMode === 'create' && draftActivo.deudorId && draftActivo.pagoMonto > 0.009
+      ? JSON.stringify([draftActivo.deudorId, draftActivo.pagoMonto, draftActivo.esMiPago, draftActivo.pagoDeudasIds])
+      : '';
+  useEffect(() => {
+      if (!previewKey || !draftActivo) return;
+      let cancelled = false;
+      const timer = setTimeout(() => {
+          setLoadingPreview(true);
+          api.previewSupabasePayment({
+              deudor_id: draftActivo.deudorId,
+              monto: draftActivo.pagoMonto,
+              es_mi_pago: draftActivo.esMiPago,
+              deudas_ids: draftActivo.pagoDeudasIds,
+          })
+             .then(data => { if (!cancelled) setPreview({ key: previewKey, data }); })
+             .catch(() => { if (!cancelled) setPreview(null); })
+             .finally(() => { if (!cancelled) setLoadingPreview(false); });
+      }, 350);
+      return () => { cancelled = true; clearTimeout(timer); };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previewKey]);
 
   // Sync form data changes back to the selected split in the splits array
   useEffect(() => {
@@ -521,7 +628,7 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
     };
     const newSplits = [...splits, newSplit];
     setSplits(newSplits);
-    setDebtDrafts(prev => [...prev, nuevoDraft('', newSplit.monto, (transaction?.MONTO || 0) > 0)]);
+    setDebtDrafts(prev => [...prev, nuevoDraft('', newSplit.monto, (transaction?.MONTO || 0) > 0, '', '', true)]);
     setSelectedSplitIndex(newSplits.length - 1); // Select the new one
   };
 
@@ -545,6 +652,12 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
   /** Qué le falta a un borrador para poder guardarse. `null` = está listo. */
   const validarDraft = (draft: DebtDraft | undefined): string | null => {
     if (!draft) return null;
+    if (draft.kind === 'pago') {
+      if (draft.pagoMode === 'associate') return draft.pagoId ? null : 'elige el pago al que se asocia';
+      if (!draft.deudorId) return 'elige con quién es el pago';
+      if (!(draft.pagoMonto > 0.009)) return 'el monto del pago debe ser mayor a 0';
+      return null;
+    }
     if (draft.mode === 'none') return null;
     if (draft.mode === 'associate') {
       return draft.deudaId ? null : 'elige la deuda a la que se asocia';
@@ -555,10 +668,23 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
     return null;
   };
 
-  /** Devuelve el `deuda_id` final de una parte, creando la deuda si hace falta. */
-  const resolverDraft = async (draft: DebtDraft | undefined, fallbackTitulo: string): Promise<string> => {
-    if (!draft || draft.mode === 'none') return '';
-    if (draft.mode === 'associate') return draft.deudaId || '';
+  /** Devuelve el vínculo final de una parte, creando la deuda o el pago si hace falta. */
+  const resolverDraft = async (draft: DebtDraft | undefined, fallbackTitulo: string): Promise<VinculoDeudas> => {
+    if (!draft) return SIN_VINCULO;
+    if (draft.kind === 'pago') {
+      if (draft.pagoMode === 'associate') return { deuda_id: '', pago_id: draft.pagoId || '' };
+      const pago = await api.createSupabasePayment({
+        deudor_id: draft.deudorId,
+        monto: Math.abs(draft.pagoMonto),
+        es_mi_pago: draft.esMiPago,
+        fecha_pago: fechaDia(transaction!.FECHA),
+        idem_key: draft.idemKey,
+        deudas_ids: draft.pagoDeudasIds,
+      });
+      return { deuda_id: '', pago_id: String(pago.pago_id) };
+    }
+    if (draft.mode === 'none') return SIN_VINCULO;
+    if (draft.mode === 'associate') return { deuda_id: draft.deudaId || '', pago_id: '' };
     const created = await api.createSupabaseDebt({
       titulo: (draft.titulo || fallbackTitulo || transaction!.DESCRIPCION).trim(),
       monto: Math.abs(draft.monto),
@@ -566,7 +692,38 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
       fecha_gasto: fechaDia(transaction!.FECHA),
       es_mi_deuda: draft.esMiDeuda,
     });
-    return String(created.id);
+    return { deuda_id: String(created.id), pago_id: '' };
+  };
+
+  /** ¿Algún borrador escribe en Supabase? Entonces las vistas de deudas quedan viejas. */
+  const escribeEnSupabase = (drafts: (DebtDraft | undefined)[]) =>
+    drafts.some(d => d && (d.kind === 'pago' ? d.pagoMode === 'create' : d.mode === 'create'));
+
+  const refrescarDeudas = () => {
+    for (const key of ['supabase-payments', 'supabase-debts', 'deudores', 'estado-cuenta']) {
+      queryClient.invalidateQueries({ queryKey: [key] });
+    }
+  };
+
+  /**
+   * Un pago nuevo a deudas elegidas que no alcanza a gastarse deja saldo a favor. Es
+   * legítimo, pero conviene que sea a propósito: la app pide lo mismo antes de guardar.
+   */
+  const confirmarSobrantes = async (drafts: (DebtDraft | undefined)[]): Promise<boolean> => {
+    for (const d of drafts) {
+      if (!d || d.kind !== 'pago' || d.pagoMode !== 'create' || !d.pagoDeudasIds.length) continue;
+      const plan = await api.previewSupabasePayment({
+        deudor_id: d.deudorId, monto: d.pagoMonto, es_mi_pago: d.esMiPago, deudas_ids: d.pagoDeudasIds,
+      });
+      if (plan.sobrante > 0.01) {
+        const persona = deudores.find(x => String(x.id) === d.deudorId)?.nombre || 'la persona';
+        const quien = d.esMiPago ? 'tuyo' : `de ${persona}`;
+        if (!window.confirm(`Las deudas elegidas no alcanzan: quedarán ${money(plan.sobrante)} como saldo a favor ${quien}. ¿Registrar el pago igual?`)) {
+          return false;
+        }
+      }
+    }
+    return true;
   };
 
   const handleSave = async () => {
@@ -594,26 +751,33 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
         }
 
         const multiplier = transaction.MONTO < 0 ? -1 : 1;
+        const activos = splits.map((sp, i) => (sp.es_reembolsable ? debtDrafts[i] : undefined));
         setCreatingDebt(true);
         const processedSplits: SplitItem[] = [];
         try {
+            if (!(await confirmarSobrantes(activos))) {
+                setCreatingDebt(false);
+                return;
+            }
             for (let i = 0; i < splits.length; i++) {
                 const split = splits[i];
-                const deudaId = split.es_reembolsable
+                const vinculo = split.es_reembolsable
                     ? await resolverDraft(debtDrafts[i], split.nombre_limpio || '')
-                    : '';
+                    : SIN_VINCULO;
                 processedSplits.push({
                     ...split,
                     monto: split.monto * multiplier,
                     revisado: true,
-                    deuda_id: deudaId,
+                    ...vinculo,
                 });
             }
         } catch (e) {
             setCreatingDebt(false);
-            setDebtError('No se pudo crear la deuda en Supabase. Revisa la conexión e intenta de nuevo.');
+            if (escribeEnSupabase(activos)) refrescarDeudas();
+            setDebtError('No se pudo registrar en Supabase. Revisa la conexión e intenta de nuevo.');
             return;
         }
+        if (escribeEnSupabase(activos)) refrescarDeudas();
 
         try {
             await api.splitTransaction(transaction.id, processedSplits);
@@ -633,16 +797,23 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
             }
             setCreatingDebt(true);
             try {
-                updates.deuda_id = await resolverDraft(debtDrafts[0], formData.nombre_limpio || '');
+                if (!(await confirmarSobrantes([debtDrafts[0]]))) {
+                    setCreatingDebt(false);
+                    return;
+                }
+                Object.assign(updates, await resolverDraft(debtDrafts[0], formData.nombre_limpio || ''));
             } catch (e) {
-                setDebtError('No se pudo crear la deuda en Supabase. Revisa la conexión e intenta de nuevo.');
+                // Un reintento con la misma idem_key no duplica el pago si sí llegó a crearse.
+                if (escribeEnSupabase([debtDrafts[0]])) refrescarDeudas();
+                setDebtError('No se pudo registrar en Supabase. Revisa la conexión e intenta de nuevo.');
                 setCreatingDebt(false);
                 return; // aborta el guardado
             }
+            if (escribeEnSupabase([debtDrafts[0]])) refrescarDeudas();
             setCreatingDebt(false);
         } else {
-            // Ya no es reembolsable: desvincular cualquier deuda previa
-            updates.deuda_id = '';
+            // Ya no es reembolsable: desvincular cualquier deuda o pago previo
+            Object.assign(updates, SIN_VINCULO);
         }
 
         onSave(transaction.id, updates);
@@ -786,9 +957,67 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
     : undefined;
 
   const draftError = formData.es_reembolsable ? validarDraft(draft) : null;
+  const esPago = draft.kind === 'pago';
+
+  // ── Pagos ──
+  const pagosCandidatos = nearbyPayments
+    .filter(p => !draft.deudorId || String(p.deudor_id) === draft.deudorId)
+    .filter(p => {
+      const q = paymentSearch.trim().toLowerCase();
+      if (!q) return true;
+      return (p.deudor_nombre || '').toLowerCase().includes(q)
+          || p.monto_total.toFixed(2).includes(q)
+          || (p.deudas ?? []).some(d => (d.titulo || '').toLowerCase().includes(q));
+    })
+    .sort((a, b) => Math.abs(a.monto_total - montoParte) - Math.abs(b.monto_total - montoParte));
+
+  const pagoVinculado = draft.pagoId
+    ? nearbyPayments.find(p => String(p.id) === draft.pagoId)
+    : undefined;
+
+  const elegirPago = (p: SupabasePayment) => {
+    actualizarDraft({ pagoId: String(p.id), esMiPago: !!p.es_mi_pago, deudorId: String(p.deudor_id) });
+    if (p.deudor_nombre) setFormData(prev => ({ ...prev, deudor: p.deudor_nombre }));
+  };
+
+  const vistaPrevia = preview && preview.key === previewKey ? preview.data : null;
+  // Deudas que puede abonar el pago: las pendientes del lado de quien paga.
+  const deudasAbonables = (vistaPrevia?.deudas ?? [])
+    .filter(d => d.es_mi_deuda === draft.esMiPago && (d.saldo_real > 0.01 || d.pago_planeado > 0.009));
+
+  const alternarDeudaDelPago = (id: string) => {
+    const ya = draft.pagoDeudasIds.includes(id);
+    actualizarDraft({ pagoDeudasIds: ya ? draft.pagoDeudasIds.filter(x => x !== id) : [...draft.pagoDeudasIds, id] });
+  };
+
+  const detallePago = (p: SupabasePayment) =>
+    (p.deudas ?? []).map(d => d.titulo).join(', ') || 'sin deudas abonadas';
+
+  const direccionPago = (esMio: boolean, nombre: string) => (esMio ? `le pagaste a ${nombre}` : `${nombre} te pagó`);
+
+  /** Cambia entre nada, deuda y pago. Elegir uno abre su detalle: siempre hay algo que decidir. */
+  const elegirTipo = (tipo: 'nada' | DebtKind) => {
+    if (tipo === 'nada') {
+      setFormData(prev => ({ ...prev, es_reembolsable: false }));
+      setShowDebtModal(false);
+      return;
+    }
+    setFormData(prev => ({ ...prev, es_reembolsable: true }));
+    actualizarDraft({ kind: tipo });
+    setShowDebtModal(true);
+  };
+
+  const tipoActual: 'nada' | DebtKind = formData.es_reembolsable ? draft.kind : 'nada';
 
   const resumenDeuda = draftError
     ? `Al guardar falta un paso: ${draftError}.`
+    : esPago
+      ? draft.pagoMode === 'create'
+        ? `Al guardar se registrará un pago de ${money(draft.pagoMonto)}: ${draft.esMiPago ? `le pagas a ${personaElegida?.nombre || '—'}` : `${personaElegida?.nombre || '—'} te paga`}${
+            draft.pagoDeudasIds.length
+              ? `, abonando ${draft.pagoDeudasIds.length} deuda${draft.pagoDeudasIds.length > 1 ? 's' : ''} elegida${draft.pagoDeudasIds.length > 1 ? 's' : ''}.`
+              : ', repartido automáticamente como en la app.'}`
+        : `Se vinculará con el pago de ${pagoVinculado?.deudor_nombre || 'la persona'}${pagoVinculado ? ` (${money(pagoVinculado.monto_total)} · ${detallePago(pagoVinculado)})` : ''}.`
     : draft.mode === 'none'
       ? 'Se marcará como reembolsable, pero no se registrará ninguna deuda.'
       : draft.mode === 'create'
@@ -1267,81 +1496,105 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
                      </div>
                   </div>
 
-                  {/* Reembolsable / Deuda — resumen; el detalle vive en su propio modal */}
+                  {/* Deudas: nada, una deuda o un pago — el detalle vive en su propio modal */}
                   <div className={`
                      rounded-3xl border overflow-hidden transition-colors duration-300
-                     ${formData.es_reembolsable
-                        ? 'border-purple-500/30 bg-purple-500/[0.06]'
-                        : 'border-white/5 bg-surface-800/20 hover:border-white/10'}
+                     ${tipoActual === 'pago'
+                        ? 'border-sky-500/30 bg-sky-500/[0.06]'
+                        : tipoActual === 'deuda'
+                           ? 'border-purple-500/30 bg-purple-500/[0.06]'
+                           : 'border-white/5 bg-surface-800/20 hover:border-white/10'}
                   `}>
-                     <div
-                        className="p-5 flex items-center justify-between gap-3 cursor-pointer select-none"
-                        onClick={() => {
-                           const activar = !formData.es_reembolsable;
-                           setFormData({ ...formData, es_reembolsable: activar });
-                           // Al activarlo se abre el detalle: siempre hay algo que decidir.
-                           setShowDebtModal(activar);
-                        }}
-                     >
+                     <div className="p-5 space-y-3">
                         <div className="flex items-center gap-3 min-w-0">
-                           <div className={`p-2 rounded-lg ${formData.es_reembolsable ? 'bg-purple-500/20 text-purple-300' : 'bg-surface-800 text-surface-500'}`}>
-                              <CreditCard size={20} />
+                           <div className={`p-2 rounded-lg ${
+                              tipoActual === 'pago' ? 'bg-sky-500/20 text-sky-300'
+                                 : tipoActual === 'deuda' ? 'bg-purple-500/20 text-purple-300'
+                                 : 'bg-surface-800 text-surface-500'}`}>
+                              {tipoActual === 'pago' ? <Banknote size={20} /> : <CreditCard size={20} />}
                            </div>
                            <div className="min-w-0">
-                              <div className={`text-sm font-bold ${formData.es_reembolsable ? 'text-purple-200' : 'text-surface-300'}`}>Reembolsable / Deuda</div>
-                              <div className="text-[10px] text-surface-500 truncate">Compartido con otros</div>
+                              <div className={`text-sm font-bold ${
+                                 tipoActual === 'pago' ? 'text-sky-200' : tipoActual === 'deuda' ? 'text-purple-200' : 'text-surface-300'}`}>Deudas</div>
+                              <div className="text-[10px] text-surface-500 truncate">¿Nace una cuenta con alguien, o se salda?</div>
                            </div>
                         </div>
-                        <div className={`w-12 h-7 rounded-full relative transition-colors border shrink-0 ${formData.es_reembolsable ? 'bg-purple-600 border-purple-500/50' : 'bg-surface-900 border-white/5'}`}>
-                           <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform shadow-sm ${formData.es_reembolsable ? 'translate-x-5' : 'translate-x-0'}`} />
+
+                        <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-surface-900 border border-white/5" role="radiogroup" aria-label="Relación con deudas">
+                           {([
+                              { val: 'nada', icon: Ban, label: 'Nada', on: 'bg-surface-700 text-white' },
+                              { val: 'deuda', icon: HandCoins, label: 'Deuda', on: 'bg-purple-600 text-white' },
+                              { val: 'pago', icon: Banknote, label: 'Pago', on: 'bg-sky-600 text-white' },
+                           ] as const).map(opt => (
+                              <button
+                                 type="button"
+                                 key={opt.val}
+                                 role="radio"
+                                 aria-checked={tipoActual === opt.val}
+                                 onClick={() => elegirTipo(opt.val)}
+                                 className={`flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-colors ${
+                                    tipoActual === opt.val ? opt.on : 'text-surface-400 hover:text-white hover:bg-surface-800'
+                                 }`}
+                              >
+                                 <opt.icon size={13} /> {opt.label}
+                              </button>
+                           ))}
                         </div>
                      </div>
 
                      {formData.es_reembolsable && (
                         <div className="px-5 pb-5 space-y-2.5 animate-fade-in">
-                           <div className="h-px bg-purple-500/20 w-full" />
+                           <div className={`h-px w-full ${esPago ? 'bg-sky-500/20' : 'bg-purple-500/20'}`} />
 
                            <button
                               type="button"
                               onClick={() => setShowDebtModal(true)}
-                              className="w-full flex items-center justify-between gap-3 px-3.5 py-3 rounded-xl bg-surface-900 border border-white/5 hover:border-purple-500/40 hover:bg-surface-800 transition-all text-left group/deuda"
+                              className={`w-full flex items-center justify-between gap-3 px-3.5 py-3 rounded-xl bg-surface-900 border border-white/5 hover:bg-surface-800 transition-all text-left group/deuda ${esPago ? 'hover:border-sky-500/40' : 'hover:border-purple-500/40'}`}
                            >
                               <div className="min-w-0">
                                  <div className="flex items-center gap-1.5 mb-1">
                                     <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${
-                                       draft.mode === 'none'
+                                       !esPago && draft.mode === 'none'
                                           ? 'bg-surface-800 text-surface-400 border-white/5'
                                           : draftError
                                              ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
                                              : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
                                     }`}>
-                                       {draft.mode === 'none'
+                                       {!esPago && draft.mode === 'none'
                                           ? <><Ban size={9} /> Sin deuda</>
                                           : draftError
                                              ? <><AlertCircle size={9} /> Falta info</>
-                                             : draft.mode === 'create'
+                                             : (esPago ? draft.pagoMode === 'create' : draft.mode === 'create')
                                                 ? <><Plus size={9} /> Se creará</>
-                                                : <><Link2 size={9} /> Vinculada</>}
+                                                : <><Link2 size={9} /> {esPago ? 'Vinculado' : 'Vinculada'}</>}
                                     </span>
-                                    {draft.mode !== 'none' && !draftError && (
+                                    {(esPago || draft.mode !== 'none') && !draftError && (
                                        <span className="text-[10px] font-mono font-bold text-surface-300">
-                                          {money(draft.mode === 'create' ? draft.monto : (deudaVinculada?.MONTO ?? draft.monto))}
+                                          {esPago
+                                             ? money(draft.pagoMode === 'create' ? draft.pagoMonto : (pagoVinculado?.monto_total ?? 0))
+                                             : money(draft.mode === 'create' ? draft.monto : (deudaVinculada?.MONTO ?? draft.monto))}
                                        </span>
                                     )}
                                  </div>
                                  <div className="text-xs text-surface-400 truncate">
-                                    {draft.mode === 'none'
+                                    {!esPago && draft.mode === 'none'
                                        ? 'No se registrará deuda'
                                        : draftError
                                           ? `Falta: ${draftError}`
-                                          : <>
-                                              <span className="text-surface-200 font-bold">{personaElegida?.nombre || deudaVinculada?.DEUDOR_NOMBRE || '—'}</span>
-                                              {' · '}
-                                              {draft.esMiDeuda ? 'tú lo debes' : 'te lo deben'}
-                                            </>}
+                                          : esPago
+                                             ? <>
+                                                 <span className="text-surface-200 font-bold">{personaElegida?.nombre || pagoVinculado?.deudor_nombre || '—'}</span>
+                                                 {' · '}
+                                                 {draft.esMiPago ? 'le pagaste' : 'te pagó'}
+                                               </>
+                                             : <>
+                                                 <span className="text-surface-200 font-bold">{personaElegida?.nombre || deudaVinculada?.DEUDOR_NOMBRE || '—'}</span>
+                                                 {' · '}
+                                                 {draft.esMiDeuda ? 'tú lo debes' : 'te lo deben'}
+                                               </>}
                                  </div>
                               </div>
-                              <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-surface-500 group-hover/deuda:text-purple-300 transition-colors shrink-0">
+                              <div className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-surface-500 transition-colors shrink-0 ${esPago ? 'group-hover/deuda:text-sky-300' : 'group-hover/deuda:text-purple-300'}`}>
                                  <Settings2 size={14} /> Configurar
                               </div>
                            </button>
@@ -1365,16 +1618,18 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
         {showDebtModal && formData.es_reembolsable && (
           <div className="absolute inset-0 z-40 flex items-center justify-center p-6 animate-fade-in">
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowDebtModal(false)} />
-            <div className="relative w-full max-w-4xl max-h-full flex flex-col bg-surface-950 border border-purple-500/25 rounded-3xl shadow-2xl overflow-hidden">
+            <div className={`relative w-full max-w-4xl max-h-full flex flex-col bg-surface-950 border rounded-3xl shadow-2xl overflow-hidden ${esPago ? 'border-sky-500/25' : 'border-purple-500/25'}`}>
               <header className="flex-none px-6 py-5 border-b border-white/5 bg-surface-900/60 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="p-2.5 rounded-xl bg-purple-500/20 text-purple-200 border border-purple-500/30">
-                    <CreditCard size={20} />
+                  <div className={`p-2.5 rounded-xl border ${esPago ? 'bg-sky-500/20 text-sky-200 border-sky-500/30' : 'bg-purple-500/20 text-purple-200 border-purple-500/30'}`}>
+                    {esPago ? <Banknote size={20} /> : <CreditCard size={20} />}
                   </div>
                   <div className="min-w-0">
-                    <h2 className="text-base font-bold text-white tracking-tight">Reembolso · Deuda</h2>
+                    <h2 className="text-base font-bold text-white tracking-tight">{esPago ? 'Pago de deudas' : 'Reembolso · Deuda'}</h2>
                     <p className="text-[11px] text-surface-500 leading-tight">
-                      Este dinero no es tuyo del todo: queda una cuenta pendiente con alguien.
+                      {esPago
+                        ? 'Este dinero salda una cuenta: alguien te devolvió, o le devolviste tú.'
+                        : 'Este dinero no es tuyo del todo: queda una cuenta pendiente con alguien.'}
                     </p>
                   </div>
                 </div>
@@ -1391,9 +1646,9 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
                 {isSplitting && (
                    <div className="flex items-center gap-2 text-[11px] text-purple-200/80 bg-purple-500/10 border border-purple-500/20 rounded-xl px-3.5 py-2.5">
                       <Scissors size={13} className="shrink-0" />
-                      Estás configurando la deuda de la parte <strong className="text-white mx-1">{selectedSplitIndex + 1}</strong>
+                      Estás configurando {esPago ? 'el pago' : 'la deuda'} de la parte <strong className="text-white mx-1">{selectedSplitIndex + 1}</strong>
                       ({splits[selectedSplitIndex]?.nombre_limpio || 'sin nombre'} · {money(splits[selectedSplitIndex]?.monto || 0)}).
-                      Cada parte lleva su propia deuda.
+                      Cada parte lleva su propio vínculo.
                    </div>
                 )}
 
@@ -1402,7 +1657,7 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
                    {/* ── Paso 1 + 2: con quién y en qué dirección ── */}
                    <div className="space-y-5 bg-surface-900/40 border border-white/5 rounded-2xl p-4">
                       <div className="space-y-2.5">
-                         <StepLabel n={1} title="¿Con quién?" hint="La persona con la que queda la cuenta" />
+                         <StepLabel n={1} title="¿Con quién?" hint={esPago ? 'La persona con la que se salda la cuenta' : 'La persona con la que queda la cuenta'} />
 
                          <div className="relative">
                             <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-surface-500 pointer-events-none" />
@@ -1468,6 +1723,7 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
                          </div>
                       </div>
 
+                      {!esPago ? (
                       <div className="space-y-2.5">
                          <StepLabel n={2} title="¿Quién le debe a quién?" hint="Define el signo de la cuenta" />
                          <div className="grid grid-cols-2 gap-2">
@@ -1500,6 +1756,40 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
                             </div>
                          )}
                       </div>
+                      ) : (
+                      <div className="space-y-2.5">
+                         <StepLabel n={2} title="¿Quién pagó?" hint="La dirección del dinero" />
+                         <div className="grid grid-cols-2 gap-2">
+                            {([
+                               { val: false, icon: HandCoins, title: 'Me pagaron', hint: 'Te devolvieron lo que te debían', on: 'bg-emerald-500/15 border-emerald-500/40 text-emerald-200' },
+                               { val: true, icon: Wallet, title: 'Pagué yo', hint: 'Devolviste lo que debías', on: 'bg-sky-500/15 border-sky-500/40 text-sky-200' },
+                            ] as const).map(opt => {
+                               const active = draft.esMiPago === opt.val;
+                               const bloqueado = draft.pagoMode === 'associate';
+                               return (
+                                  <button
+                                     type="button"
+                                     key={String(opt.val)}
+                                     disabled={bloqueado}
+                                     onClick={() => actualizarDraft({ esMiPago: opt.val, pagoDeudasIds: [] })}
+                                     className={`px-3 py-3 rounded-xl border text-left transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+                                        active ? opt.on : 'bg-surface-900 border-white/5 text-surface-400 hover:border-white/15'
+                                     }`}
+                                  >
+                                     <opt.icon size={16} className="mb-1.5" />
+                                     <div className="text-xs font-bold uppercase tracking-wider">{opt.title}</div>
+                                     <div className="text-[10px] text-surface-500 leading-tight mt-0.5">{opt.hint}</div>
+                                  </button>
+                               );
+                            })}
+                         </div>
+                         {draft.pagoMode === 'associate' && (
+                            <div className="text-[10px] text-surface-500 flex items-center gap-1.5">
+                               <AlertCircle size={11} /> La dirección la manda el pago que elegiste.
+                            </div>
+                         )}
+                      </div>
+                      )}
 
                       <div className="space-y-1.5 pt-1 border-t border-white/5">
                          <label className="text-[10px] uppercase font-bold text-purple-300/70 ml-1 pt-3 block">¿De quién es el gasto?</label>
@@ -1513,6 +1803,8 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
                       </div>
                    </div>
 
+                   {!esPago ? (
+                   <>
                    {/* ── Paso 3: cómo se registra en el sistema de deudas ── */}
                    <div className="space-y-3 bg-surface-900/40 border border-white/5 rounded-2xl p-4">
                       <StepLabel n={3} title="¿Cómo se registra?" hint="Qué pasa en el sistema de deudas al guardar" />
@@ -1680,6 +1972,217 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
                          </div>
                       )}
                    </div>
+                   </>
+                   ) : (
+                   // ── Paso 3 (pago): enganchar uno registrado o registrarlo ──
+                   <div className="space-y-3 bg-surface-900/40 border border-white/5 rounded-2xl p-4">
+                      <StepLabel n={3} title="¿Cómo se registra?" hint="Qué pasa en el sistema de deudas al guardar" />
+
+                      <div className="grid grid-cols-2 gap-2">
+                         {([
+                            { val: 'associate', icon: Link2, label: 'Asociar' },
+                            { val: 'create', icon: Plus, label: 'Registrar nuevo' },
+                         ] as const).map(opt => (
+                            <button
+                               type="button"
+                               key={opt.val}
+                               onClick={() => actualizarDraft({ pagoMode: opt.val })}
+                               className={`flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-xl border text-[11px] font-bold uppercase tracking-wider transition-all ${
+                                  draft.pagoMode === opt.val
+                                     ? 'bg-sky-500/15 border-sky-500/40 text-sky-200'
+                                     : 'bg-surface-900 border-white/5 text-surface-400 hover:text-white hover:border-white/15'
+                               }`}
+                            >
+                               <opt.icon size={13} /> {opt.label}
+                            </button>
+                         ))}
+                      </div>
+
+                      {draft.pagoMode === 'associate' && (
+                         <div className="space-y-2 animate-fade-in">
+                            <div className="relative">
+                               <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-surface-500 pointer-events-none" />
+                               <input
+                                  value={paymentSearch}
+                                  onChange={e => setPaymentSearch(e.target.value)}
+                                  placeholder="Buscar por persona, monto o deuda…"
+                                  className="w-full bg-surface-900 border border-white/5 rounded-xl pl-9 pr-3 py-2.5 text-sm text-surface-50 placeholder:text-surface-600 focus:outline-none focus:border-sky-500/40 transition-colors"
+                               />
+                            </div>
+
+                            <div className="text-[10px] text-surface-500 ml-1">
+                               {loadingPayments
+                                  ? 'Cargando pagos…'
+                                  : `Pagos del ${dia}${draft.deudorId ? ', de la persona elegida' : ''}`}
+                            </div>
+
+                            <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar pr-1">
+                               {pagosCandidatos.map(p => {
+                                  const id = String(p.id);
+                                  const active = draft.pagoId === id;
+                                  return (
+                                     <button
+                                        type="button"
+                                        key={id}
+                                        onClick={() => elegirPago(p)}
+                                        className={`w-full flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border text-left transition-all ${
+                                           active ? 'bg-sky-500/15 border-sky-500/50' : 'bg-surface-900 border-white/5 hover:border-white/15'
+                                        }`}
+                                     >
+                                        <div className="min-w-0">
+                                           <div className="text-sm font-bold text-surface-100 truncate">{direccionPago(!!p.es_mi_pago, p.deudor_nombre)}</div>
+                                           <div className="text-[10px] text-surface-500 flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                                              <span className="truncate max-w-[16rem]">{detallePago(p)}</span>
+                                              {(p.sobrante ?? 0) > 0.01 && <span className="text-sky-300">saldo a favor {money(p.sobrante ?? 0)}</span>}
+                                              {Math.abs(p.monto_total - montoParte) < 0.01 && (
+                                                 <span className="text-sky-300">mismo monto</span>
+                                              )}
+                                           </div>
+                                        </div>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                           <span className="font-mono font-bold text-white text-sm">{money(p.monto_total)}</span>
+                                           {active && <CheckCircle2 size={16} className="text-sky-300" />}
+                                        </div>
+                                     </button>
+                                  );
+                               })}
+
+                               {!loadingPayments && pagosCandidatos.length === 0 && (
+                                  <div className="text-xs text-surface-500 bg-surface-900/50 border border-dashed border-white/10 rounded-xl px-4 py-4 text-center">
+                                     No hay pagos del {dia} que coincidan.
+                                     <button
+                                        type="button"
+                                        onClick={() => actualizarDraft({ pagoMode: 'create' })}
+                                        className="block mx-auto mt-2 text-sky-300 font-bold hover:text-sky-200"
+                                     >
+                                        Registrar uno nuevo →
+                                     </button>
+                                  </div>
+                               )}
+                            </div>
+
+                            {draft.pagoId && (
+                               <button
+                                  type="button"
+                                  onClick={() => actualizarDraft({ pagoId: '' })}
+                                  className="inline-flex items-center gap-1.5 text-[11px] font-bold text-surface-400 hover:text-rose-300 transition-colors"
+                               >
+                                  <Unlink size={12} /> Quitar el vínculo
+                               </button>
+                            )}
+                         </div>
+                      )}
+
+                      {draft.pagoMode === 'create' && (
+                         <div className="space-y-3 animate-fade-in">
+                            <div className="space-y-1.5">
+                               <div className="flex items-center justify-between ml-1">
+                                  <label className="text-[10px] uppercase font-bold text-sky-300/70">Monto del pago</label>
+                                  <button
+                                     type="button"
+                                     onClick={() => actualizarDraft({ pagoMonto: montoParte })}
+                                     className="px-2 py-0.5 rounded-md bg-surface-800 border border-white/5 text-[10px] font-bold text-surface-400 hover:text-white hover:border-white/20 transition-colors"
+                                  >
+                                     Todo
+                                  </button>
+                               </div>
+                               <div className="relative">
+                                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-surface-500">$</span>
+                                  <input
+                                     type="number"
+                                     step="0.01"
+                                     min="0"
+                                     value={draft.pagoMonto}
+                                     onChange={e => actualizarDraft({ pagoMonto: parseFloat(e.target.value) || 0 })}
+                                     className="w-full bg-surface-900 border border-white/5 rounded-xl pl-8 pr-4 py-3.5 text-surface-50 font-mono font-bold focus:outline-none focus:border-sky-500/50 focus:bg-surface-800 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] transition-all"
+                                  />
+                               </div>
+                               <div className="text-[10px] text-surface-500 ml-1">
+                                  De {money(montoParte)} {isSplitting ? 'de esta parte' : 'de la transacción'} · fecha del pago: {dia}
+                               </div>
+                            </div>
+
+                            <div className="space-y-1.5">
+                               <label className="text-[10px] uppercase font-bold text-sky-300/70 ml-1 block">¿A qué deudas va? <span className="normal-case font-medium text-surface-500">(opcional)</span></label>
+                               {!draft.deudorId ? (
+                                  <div className="text-xs text-surface-500 bg-surface-900/50 border border-dashed border-white/10 rounded-xl px-4 py-3">
+                                     Elige primero con quién es el pago.
+                                  </div>
+                               ) : loadingPreview && !vistaPrevia ? (
+                                  <div className="text-xs text-surface-500 flex items-center gap-2 px-1 py-2"><Loader2 size={13} className="animate-spin" /> Calculando el reparto…</div>
+                               ) : deudasAbonables.length === 0 ? (
+                                  <div className="text-xs text-surface-500 bg-surface-900/50 border border-dashed border-white/10 rounded-xl px-4 py-3">
+                                     {draft.esMiPago ? 'No le debes nada pendiente.' : 'No te debe nada pendiente.'} Todo el pago quedará como saldo a favor.
+                                  </div>
+                               ) : (
+                                  <div className="space-y-1.5 max-h-56 overflow-y-auto custom-scrollbar pr-1">
+                                     {deudasAbonables.map(d => {
+                                        const elegida = draft.pagoDeudasIds.includes(d.deuda_id);
+                                        return (
+                                           <button
+                                              type="button"
+                                              key={d.deuda_id}
+                                              role="checkbox"
+                                              aria-checked={elegida}
+                                              onClick={() => alternarDeudaDelPago(d.deuda_id)}
+                                              className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-xl border text-left transition-all ${
+                                                 elegida ? 'bg-sky-500/15 border-sky-500/40' : 'bg-surface-900 border-white/5 hover:border-white/15'
+                                              }`}
+                                           >
+                                              <div className="flex items-center gap-2.5 min-w-0">
+                                                 <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${elegida ? 'bg-sky-500 border-sky-400' : 'border-white/20'}`}>
+                                                    {elegida && <Check size={11} className="text-white stroke-[3]" />}
+                                                 </div>
+                                                 <div className="min-w-0">
+                                                    <div className="text-xs font-bold text-surface-100 truncate">{d.titulo}</div>
+                                                    <div className="text-[10px] text-surface-500">{(d.fecha_gasto || '').slice(0, 10)} · falta {money(d.saldo_real)}</div>
+                                                 </div>
+                                              </div>
+                                              {elegida && d.pago_planeado > 0.009 && (
+                                                 <span className="font-mono text-xs font-bold text-sky-300 shrink-0">+{money(d.pago_planeado)}</span>
+                                              )}
+                                           </button>
+                                        );
+                                     })}
+                                  </div>
+                               )}
+                            </div>
+
+                            {draft.deudorId && vistaPrevia && (
+                               <div className={`text-[11px] rounded-xl px-3 py-2.5 border leading-relaxed ${
+                                  draft.pagoDeudasIds.length && vistaPrevia.sobrante > 0.01
+                                     ? 'bg-amber-500/10 border-amber-500/20 text-amber-200'
+                                     : 'bg-surface-900/60 border-white/5 text-surface-300'
+                               }`}>
+                                  {draft.pagoDeudasIds.length ? (
+                                     <>
+                                        Va {money(vistaPrevia.asignado)} a las deudas elegidas
+                                        {vistaPrevia.sobrante > 0.01
+                                           ? <> y quedan <strong>{money(vistaPrevia.sobrante)}</strong> como saldo a favor.</>
+                                           : '.'}
+                                        {vistaPrevia.cruce_monto > 0.01 && <> Después se aplica el cruce disponible.</>}
+                                     </>
+                                  ) : (
+                                     <>
+                                        Reparto automático, como en la app: {vistaPrevia.cruce_monto > 0.01
+                                           ? <>primero se cruzan {money(vistaPrevia.cruce_monto)} entre las dos cuentas, </>
+                                           : null}
+                                        luego el pago va a las deudas más antiguas y lo que sobre queda como saldo a favor.
+                                     </>
+                                  )}
+                               </div>
+                            )}
+
+                            {draft.pagoId && (
+                               <div className="text-[11px] text-amber-300/90 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2 flex items-start gap-2">
+                                  <AlertCircle size={13} className="mt-0.5 shrink-0" />
+                                  Esta transacción ya estaba vinculada a un pago. Al guardar se registrará otro y el anterior quedará suelto.
+                               </div>
+                            )}
+                         </div>
+                      )}
+                   </div>
+                   )}
                 </div>
 
                 {/* Resumen de lo que pasará al guardar */}
@@ -1702,7 +2205,7 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
               <footer className="flex-none px-6 py-4 border-t border-white/5 bg-surface-900/60 flex justify-end">
                 <button
                   onClick={() => setShowDebtModal(false)}
-                  className="px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-wider text-white bg-purple-600 hover:bg-purple-500 transition-colors border border-white/10 flex items-center gap-2"
+                  className={`px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-wider text-white transition-colors border border-white/10 flex items-center gap-2 ${esPago ? 'bg-sky-600 hover:bg-sky-500' : 'bg-purple-600 hover:bg-purple-500'}`}
                 >
                   <Check size={16} className="stroke-[3]" /> Listo
                 </button>

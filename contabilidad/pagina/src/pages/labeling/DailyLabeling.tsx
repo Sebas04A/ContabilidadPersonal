@@ -16,7 +16,8 @@ import {
   useSyncData,
   useGroupTransactions,     // Added
   useUngroupTransaction,    // Added
-  useSupabaseDebts          // Added
+  useSupabaseDebts,         // Added
+  useSupabasePayments
 } from '../../hooks/useTransactions';
 import { 
   AlertCircle, 
@@ -29,7 +30,8 @@ import {
   Search,
   Link2,
   X,
-  CreditCard
+  CreditCard,
+  HandCoins
 } from 'lucide-react';
 
 export function DailyLabeling() {
@@ -50,6 +52,17 @@ export function DailyLabeling() {
   const { data: dailyDebts, isLoading: debtsLoading } = useSupabaseDebts(
     selectedDate ? { startDate: selectedDate, endDate: selectedDate } : undefined
   );
+
+  const { data: dailyPayments } = useSupabasePayments(
+    selectedDate ? { startDate: selectedDate, endDate: selectedDate } : undefined
+  );
+
+  // Qué transacción del día quedó atada a cada pago (por `pago_id`).
+  const txPorPago = useMemo(() => {
+    const m = new Map<string, Transaction>();
+    for (const t of rawTransactions ?? []) if (t.pago_id) m.set(String(t.pago_id), t);
+    return m;
+  }, [rawTransactions]);
 
   const displayTransactions = useMemo(
     () => sortTransactions(groupSplits(rawTransactions), 'asc'),
@@ -462,6 +475,97 @@ export function DailyLabeling() {
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Pagos del día: el dinero que saldó deudas, en las dos direcciones */}
+          {dailyPayments && dailyPayments.length > 0 && (
+            <div className="glass-card flex flex-col relative overflow-hidden group/pago animate-fade-in mt-8 mb-8">
+              <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none group-hover/pago:bg-emerald-500/10 transition-colors duration-1000"></div>
+
+              <div className="px-8 py-6 border-b border-white/5 flex items-center justify-between bg-white/[0.01] relative z-10">
+                <div className="flex items-center gap-4">
+                  <div className="p-2.5 rounded-xl bg-gradient-to-br from-emerald-500/20 to-sky-500/20 border border-white/5">
+                    <HandCoins className="text-emerald-400" size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-white tracking-tight">Pagos del Día</h3>
+                    <p className="text-xs text-gray-400 font-medium tracking-wide">
+                      Abonos y cobros registrados en la app de deudas
+                    </p>
+                  </div>
+                </div>
+                <div className="text-sm font-medium px-4 py-1.5 rounded-full bg-white/5 text-gray-400 border border-white/5">
+                  <span className="text-white font-bold">{dailyPayments.length}</span> pagos
+                </div>
+              </div>
+
+              <div className="p-8 relative z-10">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {dailyPayments.map((pago) => {
+                    const vinculada = txPorPago.get(String(pago.id));
+                    const sobrante = pago.sobrante ?? 0;
+                    return (
+                      <div
+                        key={pago.id}
+                        className={`p-5 rounded-2xl border flex flex-col justify-between transition-all ${
+                          pago.es_mi_pago
+                            ? 'bg-sky-500/5 border-sky-500/20 hover:border-sky-500/40 hover:bg-sky-500/10'
+                            : 'bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/40 hover:bg-emerald-500/10'
+                        }`}
+                      >
+                        <div className="flex justify-between items-start mb-4 gap-3">
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-bold text-white truncate text-base leading-tight mb-1">
+                              {pago.es_mi_pago ? `Le pagaste a ${pago.deudor_nombre}` : `${pago.deudor_nombre} te pagó`}
+                            </h4>
+                            <div className="text-[10px] uppercase font-bold tracking-wider text-purple-300 bg-purple-500/10 px-2 py-0.5 rounded-md border border-purple-500/20 inline-block truncate max-w-full">
+                              {pago.deudor_nombre}
+                            </div>
+                          </div>
+                          <div className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider shrink-0 border flex items-center gap-1 ${
+                            vinculada
+                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                              : 'bg-surface-800 text-gray-400 border-white/10'
+                          }`}>
+                            {vinculada ? <><Link2 size={10} /> Vinculado</> : 'Sin transacción'}
+                          </div>
+                        </div>
+
+                        {(pago.deudas?.length ?? 0) > 0 && (
+                          <ul className="mb-4 space-y-1">
+                            {pago.deudas!.map(d => (
+                              <li key={d.deuda_id} className="flex justify-between gap-3 text-xs">
+                                <span className="text-gray-300 truncate">{d.titulo}</span>
+                                <span className="font-mono text-gray-400 shrink-0">${d.monto_asignado.toFixed(2)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+
+                        <div className="mt-auto flex justify-between items-end gap-3">
+                          <div>
+                            <div className="text-[9px] text-gray-500 uppercase font-bold tracking-wider mb-0.5">Monto</div>
+                            <div className="text-2xl font-mono font-bold tracking-tighter text-white">
+                              ${pago.monto_total.toFixed(2)}
+                            </div>
+                          </div>
+                          <div className="text-[10px] font-medium text-gray-400 text-right min-w-0">
+                            {sobrante > 0.01 && (
+                              <div>Saldo a favor <span className="text-sky-300 font-bold font-mono">${sobrante.toFixed(2)}</span></div>
+                            )}
+                            {vinculada && (
+                              <div className="truncate max-w-[12rem]" title={vinculada.DESCRIPCION}>
+                                {vinculada.nombre_limpio || vinculada.DESCRIPCION}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>

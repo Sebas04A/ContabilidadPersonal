@@ -171,6 +171,51 @@ def marcar_deuda_como_pagada(deuda_id: str, fecha_pago: Optional[datetime] = Non
     return {"pago_id": pago_id, "monto": saldo}
 
 
+def registrar_pago(
+    deudor_id: str,
+    monto: float,
+    es_mi_pago: bool,
+    fecha: str,
+    idem_key: Optional[str] = None,
+    deudas_ids: Optional[List[str]] = None,
+) -> Dict:
+    """
+    Registra un pago con el RPC , la única escritura de pagos.
+
+    No se reparte aquí: Postgres cruza, asigna y deja el sobrante como saldo a favor con
+    la misma regla que usa la app.  hace que reintentar no duplique el pago.
+    Sin  el reparto es automático (cruce primero, luego FIFO); con ellas el
+    pago va primero a esas deudas y el cruce después.
+    """
+    params = {
+        'p_deudor_id': deudor_id,
+        'p_monto': round(float(monto), 2),
+        'p_es_mi_pago': bool(es_mi_pago),
+        'p_fecha': fecha[:10],
+        'p_idem_key': idem_key,
+        'p_deudas_ids': deudas_ids or None,
+    }
+    return supabase.rpc('registrar_pago', params).execute().data
+
+
+def previsualizar_pago(
+    deudor_id: str,
+    monto: float,
+    es_mi_pago: bool,
+    deudas_ids: Optional[List[str]] = None,
+) -> Dict:
+    """
+    Cómo quedaría repartido un pago sin escribir nada:  con el pago
+    planeado. Con deudas elegidas es exactamente el reparto que hará .
+    """
+    p_pago = {'monto': round(float(monto), 2), 'es_mi_pago': bool(es_mi_pago)}
+    if deudas_ids:
+        p_pago['deudas_ids'] = deudas_ids
+    return supabase.rpc('estado_cuenta', {
+        'p_deudor_id': deudor_id, 'p_pov': 'owner', 'p_pago': p_pago,
+    }).execute().data
+
+
 def eliminar_deuda(deuda_id: str) -> bool:
     response = supabase.table('deudas').delete().eq('id', deuda_id).execute()
     return True

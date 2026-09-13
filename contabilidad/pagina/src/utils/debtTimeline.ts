@@ -1,11 +1,14 @@
-import type { Transaction, SupabaseDebt } from '../services/api';
+import type { Transaction, SupabaseDebt, SupabasePayment } from '../services/api';
 
 export type Side = 'local' | 'supabase';
+/** Una deuda nace una cuenta; un pago la salda. Solo se emparejan items del mismo tipo. */
+export type ItemKind = 'deuda' | 'pago';
 export type Granularity = 'month' | 'week';
 
 export interface DebtItem {
   key: string; // unique DOM/React key
   side: Side;
+  kind: ItemKind;
   date: Date;
   title: string;
   amount: number;
@@ -13,11 +16,13 @@ export interface DebtItem {
   paid: boolean;
   paidDate?: string | null;
   matchId?: number; // set by detectMatches when paired heuristically with the other side
-  linked?: boolean; // true when explicitly (manually) linked via deuda_id
+  linked?: boolean; // true when explicitly (manually) linked via deuda_id / pago_id
   linkId?: number;  // shared id between the two sides of a manual link
   groupCount?: number; // >1 when this card represents a collapsed group of transactions
   isSplitPart?: boolean; // true when this row is one part of a split transaction
-  raw: Transaction | SupabaseDebt;
+  /** Solo pagos de Supabase: true = pagaste tú. */
+  esMiPago?: boolean;
+  raw: Transaction | SupabaseDebt | SupabasePayment;
 }
 
 export interface PeriodBand {
@@ -25,8 +30,8 @@ export interface PeriodBand {
   label: string; // human label, e.g. "Julio 2026"
   left: DebtItem[];
   right: DebtItem[];
-  leftTotal: number; // sum of all local amounts
-  rightTotal: number; // sum of pending supabase amounts (mirrors "por cobrar")
+  leftTotal: number; // sum of local debt amounts (payments are not debts)
+  rightTotal: number; // sum of pending supabase debt amounts (mirrors "por cobrar")
 }
 
 export interface Reconciliation {
@@ -36,7 +41,12 @@ export interface Reconciliation {
   countOnlyLocal: number;
   countOnlySupabase: number;
   countMatched: number;
-  countLinked: number; // pares vinculados manualmente (deuda_id)
+  countLinked: number; // pares vinculados manualmente (deuda_id / pago_id)
+  /** Pagos: lo que entró/salió en las transacciones locales vs lo registrado en la app. */
+  pagosLocal: number;
+  pagosSupabase: number;
+  pagosDiff: number;
+  countPagos: number;
 }
 
 const MESES = [
@@ -82,9 +92,20 @@ function isRealGroupId(id: string | null | undefined): id is string {
  *    muestran por separado. Como `split_group_id` puede venir vacío, la key se
  *    desambigua con el índice para evitar colisiones de React.
  */
+/**
+ * Tipo de una transacción local: lo manda el vínculo; sin vínculo, el signo. Un ingreso
+ * reembolsable casi siempre es alguien que te devuelve, un gasto una deuda que nace.
+ */
+export function localKind(tx: Transaction, amount: number): ItemKind {
+  if (tx.pago_id) return 'pago';
+  if (tx.deuda_id) return 'deuda';
+  return amount > 0 ? 'pago' : 'deuda';
+}
+
 export function toDebtItems(
   transactions: Transaction[] | undefined,
   debts: SupabaseDebt[] | undefined,
+  payments?: SupabasePayment[],
 ): DebtItem[] {
   const items: DebtItem[] = [];
   const rows = transactions ?? [];
@@ -110,6 +131,7 @@ export function toDebtItems(
     items.push({
       key: `local:group:${gid}`,
       side: 'local',
+      kind: localKind(base, total),
       date: parseDate(latest.FECHA),
       title: base.nombre_limpio || base.DESCRIPCION,
       amount: total,
@@ -129,6 +151,7 @@ export function toDebtItems(
     items.push({
       key: `local:${tx.id}:${idx}`,
       side: 'local',
+      kind: localKind(tx, tx.MONTO),
       date: parseDate(tx.FECHA),
       title: tx.nombre_limpio || tx.DESCRIPCION,
       amount: tx.MONTO,
@@ -143,6 +166,7 @@ export function toDebtItems(
     items.push({
       key: `supabase:${d.ID}`,
       side: 'supabase',
+      kind: 'deuda',
       date: parseDate(d.FECHA),
       title: d.DESCRIPCION,
       amount: d.MONTO,
@@ -150,6 +174,22 @@ export function toDebtItems(
       paid: !!d.PAGADA,
       paidDate: d.FECHA_PAGO,
       raw: d,
+    });
+  }
+
+  for (const p of payments ?? []) {
+    if (p.es_compensacion) continue; // un cruce no es dinero que se movió
+    items.push({
+      key: `supabase:pago:${p.id}`,
+      side: 'supabase',
+      kind: 'pago',
+      date: parseDate(p.fecha_pago),
+      title: p.es_mi_pago ? `Le pagaste a ${p.deudor_nombre}` : `${p.deudor_nombre} te pagó`,
+      amount: p.monto_total,
+      debtor: p.deudor_nombre || '',
+      paid: false,
+      esMiPago: !!p.es_mi_pago,
+      raw: p,
     });
   }
 
@@ -206,10 +246,10 @@ export function groupByPeriod(items: DebtItem[], granularity: Granularity): Peri
     }
     if (item.side === 'local') {
       band.left.push(item);
-      band.leftTotal += item.amount;
+      if (item.kind === 'deuda') band.leftTotal += item.amount;
     } else {
       band.right.push(item);
-      if (!item.paid) band.rightTotal += item.amount;
+      if (item.kind === 'deuda' && !item.paid) band.rightTotal += item.amount;
     }
   }
 
@@ -252,14 +292,17 @@ function dayKey(d: Date): string {
 export function detectLinks(items: DebtItem[]): void {
   const supaById = new Map<string, DebtItem>();
   for (const it of items) {
-    if (it.side === 'supabase') supaById.set(String((it.raw as SupabaseDebt).ID), it);
+    if (it.side !== 'supabase') continue;
+    const id = it.kind === 'pago' ? `pago:${(it.raw as SupabasePayment).id}` : `deuda:${(it.raw as SupabaseDebt).ID}`;
+    supaById.set(id, it);
   }
   let nextLinkId = 1;
   for (const it of items) {
     if (it.side !== 'local') continue;
-    const deudaId = (it.raw as Transaction).deuda_id;
-    if (!deudaId) continue;
-    const supa = supaById.get(String(deudaId));
+    const tx = it.raw as Transaction;
+    const ref = tx.pago_id ? `pago:${tx.pago_id}` : tx.deuda_id ? `deuda:${tx.deuda_id}` : '';
+    if (!ref) continue;
+    const supa = supaById.get(ref);
     if (!supa) continue;
     if (!supa.linked) {
       supa.linked = true;
@@ -279,6 +322,7 @@ export function detectMatches(items: DebtItem[]): void {
   const candidates: { l: DebtItem; r: DebtItem; amountDiff: number }[] = [];
   for (const l of locals) {
     for (const r of supas) {
+      if (l.kind !== r.kind) continue;
       if (dayKey(l.date) !== dayKey(r.date)) continue;
       // Los gastos locales se guardan en negativo y las deudas de Supabase en positivo,
       // así que comparamos por valor absoluto.
@@ -310,8 +354,22 @@ export function reconcile(items: DebtItem[]): Reconciliation {
   let countOnlySupabase = 0;
   let countMatched = 0; // pares heurísticos
   let countLinked = 0;  // pares vinculados manualmente
+  let pagosLocal = 0;
+  let pagosSupabase = 0;
+  let countPagos = 0;
 
   for (const it of items) {
+    if (it.kind === 'pago') {
+      // Pagos: con signo de caja, + lo que entró y − lo que salió.
+      if (it.side === 'local') pagosLocal += it.amount;
+      else { pagosSupabase += it.esMiPago ? -it.amount : it.amount; countPagos++; }
+      if (it.side === 'local') {
+        if (it.linked) countLinked++;
+        else if (it.matchId === undefined) countOnlyLocal++;
+        else countMatched++;
+      } else if (!it.linked && it.matchId === undefined) countOnlySupabase++;
+      continue;
+    }
     if (it.side === 'local') {
       totalLocal += it.amount;
       if (it.linked) countLinked++;
@@ -331,6 +389,10 @@ export function reconcile(items: DebtItem[]): Reconciliation {
     countOnlySupabase,
     countMatched, // cuenta los items locales emparejados = número de pares
     countLinked,
+    pagosLocal,
+    pagosSupabase,
+    pagosDiff: pagosLocal - pagosSupabase,
+    countPagos,
   };
 }
 
@@ -339,8 +401,9 @@ export function buildTimeline(
   transactions: Transaction[] | undefined,
   debts: SupabaseDebt[] | undefined,
   granularity: Granularity,
+  payments?: SupabasePayment[],
 ): { bands: PeriodBand[]; reconciliation: Reconciliation; items: DebtItem[] } {
-  const items = toDebtItems(transactions, debts);
+  const items = toDebtItems(transactions, debts, payments);
   const bands = groupByPeriod(items, granularity);
   detectLinks(items);
   detectMatches(items);

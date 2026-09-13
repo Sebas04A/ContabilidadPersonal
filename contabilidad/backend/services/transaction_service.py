@@ -51,6 +51,7 @@ LABEL_COLUMNS = [
     'monto_asignado', # For split transactions
     'fondo_id',       # Fund (interpolaciones group) this transaction belongs to
     'deuda_id',       # Linked Supabase debt id (when refundable + associated/created)
+    'pago_id',        # Linked Supabase debt payment id (excluyente con deuda_id)
 ]
 
 

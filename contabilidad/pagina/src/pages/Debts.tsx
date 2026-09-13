@@ -1,11 +1,11 @@
 import { useMemo, useState, useEffect } from 'react';
-import { Search, Filter, Wallet, Calendar, BarChart3, User, ArrowRight, Check, CheckCircle2, Clock, Link2, Link as LinkIcon, Unlink, MousePointerClick, Scale, Layers, Scissors, X } from 'lucide-react';
-import { useRefundableTransactions, useSupabaseDebts, useUpdateTransaction, useTags } from '../hooks/useTransactions';
+import { Search, Filter, Wallet, Calendar, BarChart3, User, ArrowRight, Check, CheckCircle2, Clock, Link2, Link as LinkIcon, Unlink, MousePointerClick, Scale, Layers, Scissors, X, Banknote } from 'lucide-react';
+import { useRefundableTransactions, useSupabaseDebts, useSupabasePayments, useUpdateTransaction, useTags } from '../hooks/useTransactions';
 import { DebtsChart } from '../components/DebtsChart';
 import { EditModal } from '../components/EditModal';
 import { AccountStatementModal } from '../components/AccountStatementModal';
-import type { Transaction, SupabaseDebt, TransactionUpdate } from '../services/api';
-import { buildTimeline, type DebtItem, type Granularity } from '../utils/debtTimeline';
+import type { Transaction, SupabaseDebt, SupabasePayment, TransactionUpdate } from '../services/api';
+import { buildTimeline, localKind, type DebtItem, type Granularity, type ItemKind } from '../utils/debtTimeline';
 
 const fmt = (n: number) =>
   n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -18,10 +18,11 @@ export function Debts() {
   const [granularity, setGranularity] = useState<Granularity>('month');
   const [onlyMatches, setOnlyMatches] = useState(false);
   const [hoveredMatch, setHoveredMatch] = useState<number | null>(null);
+  const [showPayments, setShowPayments] = useState(true);
 
   // Vinculación manual: selección de un lado local y uno de Supabase
   const [selLocal, setSelLocal] = useState<{ key: string; txId: string } | null>(null);
-  const [selSupa, setSelSupa] = useState<{ key: string; debtId: string } | null>(null);
+  const [selSupa, setSelSupa] = useState<{ key: string; debtId: string; kind: ItemKind } | null>(null);
   const updateTx = useUpdateTransaction();
 
   // Modal de etiquetado (clic normal en una transacción local)
@@ -42,6 +43,13 @@ export function Debts() {
     debtor: filters.debtor,
   });
 
+  // Right Side Data (Supabase Payments)
+  const { data: supabasePayments, isLoading: isLoadingPayments } = useSupabasePayments({
+    startDate: filters.startDate,
+    endDate: filters.endDate,
+    debtor: filters.debtor,
+  });
+
   const handleDateChange = (type: 'start' | 'end', value: string) => {
     setFilters(prev => ({ ...prev, [type === 'start' ? 'startDate' : 'endDate']: value || undefined }));
   };
@@ -56,22 +64,32 @@ export function Debts() {
       debtor.toLowerCase().includes(q);
 
     const tx = transactions?.filter(t =>
-      matchesSearch(t.nombre_limpio || '', t.DESCRIPCION, t.deudor || ''),
+      matchesSearch(t.nombre_limpio || '', t.DESCRIPCION, t.deudor || '') &&
+      (showPayments || localKind(t, t.MONTO) === 'deuda'),
     );
     const debts = supabaseDebts?.filter(d =>
       matchesSearch(d.DESCRIPCION, d.DESCRIPCION, d.DEUDOR_NOMBRE || ''),
     );
+    const payments = showPayments
+      ? supabasePayments?.filter(p =>
+          matchesSearch(p.deudor_nombre || '', (p.deudas ?? []).map(d => d.titulo).join(' '), p.deudor_nombre || ''),
+        )
+      : undefined;
 
-    return buildTimeline(tx, debts, granularity);
-  }, [transactions, supabaseDebts, searchTerm, granularity]);
+    return buildTimeline(tx, debts, granularity, payments);
+  }, [transactions, supabaseDebts, supabasePayments, searchTerm, granularity, showPayments]);
 
-  const isLoading = isLoadingLeft || isLoadingRight;
+  const isLoading = isLoadingLeft || isLoadingRight || (showPayments && isLoadingPayments);
 
-  // Cuando hay un local y un Supabase seleccionados → vincular (guardar deuda_id)
+  // Cuando hay un local y un Supabase seleccionados → vincular (guardar deuda_id o pago_id;
+  // una transacción nunca queda atada a las dos cosas)
   useEffect(() => {
     if (selLocal && selSupa && !updateTx.isPending) {
+      const updates = selSupa.kind === 'pago'
+        ? { pago_id: selSupa.debtId, deuda_id: '' }
+        : { deuda_id: selSupa.debtId, pago_id: '' };
       updateTx.mutate(
-        { id: selLocal.txId, updates: { deuda_id: selSupa.debtId } },
+        { id: selLocal.txId, updates },
         { onSettled: () => { setSelLocal(null); setSelSupa(null); } },
       );
     }
@@ -84,8 +102,10 @@ export function Debts() {
       const txId = (item.raw as Transaction).id;
       setSelLocal(prev => (prev?.key === item.key ? null : { key: item.key, txId }));
     } else {
-      const debtId = String((item.raw as SupabaseDebt).ID);
-      setSelSupa(prev => (prev?.key === item.key ? null : { key: item.key, debtId }));
+      const debtId = item.kind === 'pago'
+        ? String((item.raw as SupabasePayment).id)
+        : String((item.raw as SupabaseDebt).ID);
+      setSelSupa(prev => (prev?.key === item.key ? null : { key: item.key, debtId, kind: item.kind }));
     }
   };
 
@@ -101,7 +121,7 @@ export function Debts() {
       : items.find(i => i.side === 'local' && i.linkId === item.linkId);
     if (!localPart) return;
     const txId = (localPart.raw as Transaction).id;
-    updateTx.mutate({ id: txId, updates: { deuda_id: '' } });
+    updateTx.mutate({ id: txId, updates: { deuda_id: '', pago_id: '' } });
   };
 
   const clearSelection = () => { setSelLocal(null); setSelSupa(null); };
@@ -156,6 +176,21 @@ export function Debts() {
                   </button>
                 ))}
               </div>
+
+              {/* Pagos toggle */}
+              <button
+                onClick={() => setShowPayments(v => !v)}
+                aria-pressed={showPayments}
+                className={`px-3.5 py-2.5 rounded-xl border transition-all shadow-lg active:scale-95 flex items-center gap-2 text-sm font-semibold ${
+                  showPayments
+                    ? 'bg-sky-500/15 border-sky-500/40 text-sky-300'
+                    : 'bg-surface-900 border-white/10 text-surface-300 hover:text-white hover:border-sky-500/30'
+                }`}
+                title="Mostrar los pagos de la app y los cobros etiquetados"
+              >
+                <Banknote size={18} />
+                <span>Pagos</span>
+              </button>
 
               {/* Solo coincidencias toggle */}
               <button
@@ -235,7 +270,7 @@ export function Debts() {
 
           {/* Reconciliation bar */}
           <div className="w-full grid grid-cols-2 md:grid-cols-4 gap-3">
-            <ReconTile label="Total Local" value={`$${fmt(reconciliation.totalLocal)}`} tone="indigo" />
+            <ReconTile label="Total Local" value={`$${fmt(reconciliation.totalLocal)}`} tone="indigo" sub="deudas" />
             <ReconTile label="Total Supabase" value={`$${fmt(reconciliation.totalSupabase)}`} tone="emerald" sub="por cobrar" />
             <ReconTile
               label="Diferencia"
@@ -257,6 +292,20 @@ export function Debts() {
             </div>
           </div>
 
+          {showPayments && reconciliation.countPagos > 0 && (
+            <div className="w-full grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <ReconTile label="Pagos locales" value={`${reconciliation.pagosLocal >= 0 ? '+' : '−'}$${fmt(Math.abs(reconciliation.pagosLocal))}`} tone="sky" sub="entró − salió en las transacciones" icon={<Banknote size={14} />} />
+              <ReconTile label="Pagos Supabase" value={`${reconciliation.pagosSupabase >= 0 ? '+' : '−'}$${fmt(Math.abs(reconciliation.pagosSupabase))}`} tone="sky" sub={`${reconciliation.countPagos} pagos · te pagaron − pagaste`} />
+              <ReconTile
+                label="Diferencia pagos"
+                value={`${reconciliation.pagosDiff >= 0 ? '+' : '−'}$${fmt(Math.abs(reconciliation.pagosDiff))}`}
+                tone={Math.abs(reconciliation.pagosDiff) < 0.01 ? 'emerald' : 'amber'}
+                sub="efectivo o sin etiquetar"
+                icon={<Scale size={14} />}
+              />
+            </div>
+          )}
+
           {/* Selection helper / linking bar */}
           <div className={`flex items-center gap-3 rounded-xl border px-4 py-2.5 text-sm transition-all ${
             selecting
@@ -269,14 +318,14 @@ export function Debts() {
             ) : selecting ? (
               <>
                 <span className="font-medium">
-                  {selLocal ? 'Transacción local marcada' : 'Deuda de Supabase marcada'} — marca el check de {selLocal ? 'una deuda de Supabase' : 'una transacción local'} para vincular.
+                  {selLocal ? 'Transacción local marcada' : selSupa?.kind === 'pago' ? 'Pago de Supabase marcado' : 'Deuda de Supabase marcada'} — marca el check de {selLocal ? 'una deuda o un pago de Supabase' : 'una transacción local'} para vincular.
                 </span>
                 <button onClick={clearSelection} className="ml-auto flex items-center gap-1 text-xs font-semibold text-surface-400 hover:text-white transition-colors">
                   <X size={13} /> Cancelar
                 </button>
               </>
             ) : (
-              <span>Marca el <span className="text-indigo-300 font-medium">check</span> de una transacción local y una deuda de Supabase para vincularlas. El clic normal abre el <span className="text-emerald-300 font-medium">etiquetado</span>.</span>
+              <span>Marca el <span className="text-indigo-300 font-medium">check</span> de una transacción local y una deuda o un pago de Supabase para vincularlas. El clic normal abre el <span className="text-emerald-300 font-medium">etiquetado</span>.</span>
             )}
           </div>
         </div>
@@ -288,12 +337,12 @@ export function Debts() {
             <div className="flex items-center gap-2 px-4 py-3 border-b border-white/5">
               <div className="p-1.5 bg-indigo-500/10 rounded-lg text-indigo-400"><ArrowRight size={14} /></div>
               <span className="text-xs font-bold text-white uppercase tracking-wide">Pendientes Locales</span>
-              <span className="text-[10px] text-surface-500">reembolsos etiquetados</span>
+              <span className="text-[10px] text-surface-500">reembolsos{showPayments ? ' y cobros' : ''} etiquetados</span>
             </div>
             <div className="flex items-center gap-2 px-4 py-3 border-b border-white/5 border-l border-white/5">
               <div className="p-1.5 bg-emerald-500/10 rounded-lg text-emerald-400"><CheckCircle2 size={14} /></div>
               <span className="text-xs font-bold text-white uppercase tracking-wide">Histórico Supabase</span>
-              <span className="text-[10px] text-surface-500">app de deudas</span>
+              <span className="text-[10px] text-surface-500">deudas{showPayments ? ' y pagos' : ''} de la app</span>
             </div>
           </div>
 
@@ -391,11 +440,12 @@ export function Debts() {
 function ReconTile({ label, value, tone, sub, icon }: {
   label: string;
   value: string;
-  tone: 'indigo' | 'emerald' | 'amber';
+  tone: 'indigo' | 'emerald' | 'amber' | 'sky';
   sub?: string;
   icon?: React.ReactNode;
 }) {
   const toneMap = {
+    sky: 'text-sky-400',
     indigo: 'text-indigo-400',
     emerald: 'text-emerald-400',
     amber: 'text-amber-400',
@@ -432,7 +482,8 @@ function DebtCard({ item, hoveredMatch, onHover, selected, onToggleSelect, onOpe
   const isLocal = item.side === 'local';
   const matched = item.matchId !== undefined;
   const linked = !!item.linked;
-  const paidDebt = item.side === 'supabase' && item.paid;
+  const isPago = item.kind === 'pago';
+  const paidDebt = item.side === 'supabase' && !isPago && item.paid;
   const isHighlighted = matched && item.matchId === hoveredMatch;
   const clickableBody = isLocal && !linked; // solo las locales abren el modal de etiquetado
 
@@ -446,9 +497,11 @@ function DebtCard({ item, hoveredMatch, onHover, selected, onToggleSelect, onOpe
           ? 'border-amber-500/40 bg-amber-500/[0.04] hover:bg-amber-500/[0.07]'
           : paidDebt
             ? 'bg-surface-900/20 border-white/5 opacity-60 hover:opacity-100'
-            : isLocal
-              ? 'bg-surface-900/40 border-white/5 hover:border-indigo-500/30 hover:bg-surface-800/60'
-              : 'bg-surface-900/40 border-white/5 hover:border-emerald-500/30 hover:bg-surface-800/60';
+            : isPago
+              ? 'bg-sky-500/[0.04] border-sky-500/15 hover:border-sky-500/35 hover:bg-surface-800/60'
+              : isLocal
+                ? 'bg-surface-900/40 border-white/5 hover:border-indigo-500/30 hover:bg-surface-800/60'
+                : 'bg-surface-900/40 border-white/5 hover:border-emerald-500/30 hover:bg-surface-800/60';
 
   return (
     <div
@@ -505,6 +558,11 @@ function DebtCard({ item, hoveredMatch, onHover, selected, onToggleSelect, onOpe
                 <Layers size={9} /> {item.groupCount} agrup.
               </span>
             )}
+            {isPago && (
+              <span className="flex items-center gap-1 shrink-0 text-[9px] font-bold text-sky-300 bg-sky-500/10 border border-sky-500/20 px-1.5 py-0.5 rounded-md uppercase tracking-wide">
+                <Banknote size={9} /> pago
+              </span>
+            )}
             {item.isSplitPart && (
               <span
                 className="flex items-center gap-1 shrink-0 text-[9px] font-bold text-cyan-300 bg-cyan-500/10 border border-cyan-500/20 px-1.5 py-0.5 rounded-md uppercase tracking-wide"
@@ -528,6 +586,11 @@ function DebtCard({ item, hoveredMatch, onHover, selected, onToggleSelect, onOpe
               <Calendar size={11} />
               {item.date.toLocaleDateString()}
             </span>
+            {isPago && !isLocal && (item.raw as SupabasePayment).deudas?.length ? (
+              <span className="truncate max-w-[14rem]" title={(item.raw as SupabasePayment).deudas!.map(d => d.titulo).join(', ')}>
+                abonó: {(item.raw as SupabasePayment).deudas!.map(d => d.titulo).join(', ')}
+              </span>
+            ) : null}
             {paidDebt && item.paidDate && (
               <span className="flex items-center gap-1 text-emerald-400/80">
                 <Clock size={11} />
@@ -540,7 +603,13 @@ function DebtCard({ item, hoveredMatch, onHover, selected, onToggleSelect, onOpe
           <div className={`text-base font-mono font-bold ${paidDebt ? 'text-surface-500' : 'text-white'}`}>
             ${item.amount.toFixed(2)}
           </div>
-          {item.side === 'supabase' ? (
+          {isPago ? (
+            <span className="text-[10px] font-bold text-sky-300 bg-sky-500/10 px-1.5 py-0.5 rounded mt-1 inline-block">
+              {isLocal
+                ? (item.amount >= 0 ? 'COBRO' : 'PAGO')
+                : item.esMiPago ? 'ENTREGADO' : 'RECIBIDO'}
+            </span>
+          ) : item.side === 'supabase' ? (
             <div className={`text-[10px] font-bold px-1.5 py-0.5 rounded inline-flex items-center gap-1 mt-1 ${
               item.paid ? 'text-emerald-400 bg-emerald-500/10' : 'text-rose-400 bg-rose-500/10'
             }`}>

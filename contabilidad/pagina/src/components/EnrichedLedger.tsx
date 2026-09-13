@@ -1,9 +1,9 @@
 import { useMemo } from 'react';
-import { Transaction, SupabaseDebt, FundListItem, TransactionDriver, ComponentType } from '../services/api';
-import { useSupabaseDebts, useFunds } from '../hooks/useTransactions';
+import { Transaction, SupabaseDebt, SupabasePayment, FundListItem, TransactionDriver, ComponentType } from '../services/api';
+import { useSupabaseDebts, useSupabasePayments, useFunds } from '../hooks/useTransactions';
 import { matchFund } from '../utils/matchFund';
 import {
-  Calendar, HandCoins, PiggyBank, TrendingUp, ArrowRight, CheckCircle2, Clock, AlertTriangle,
+  Calendar, HandCoins, PiggyBank, TrendingUp, ArrowRight, CheckCircle2, Clock, AlertTriangle, Banknote,
 } from 'lucide-react';
 
 /**
@@ -36,7 +36,7 @@ function splitPagoDesc(desc: string): { main: string; group: string } {
   return m ? { main: m[1], group: m[2] } : { main: desc, group: '' };
 }
 
-type NetInfo = { kind: 'dup' | 'net' | 'debt' | 'inv' | 'raw'; value: number };
+type NetInfo = { kind: 'dup' | 'net' | 'debt' | 'pago' | 'inv' | 'raw'; value: number };
 
 /** Renders a row's contribution to the total (fund/debt/investment net / raw / already-counted). */
 function AporteValue({ nb, fundName, size = 'sm', showTag = true }: {
@@ -52,7 +52,8 @@ function AporteValue({ nb, fundName, size = 'sm', showTag = true }: {
   const isFundNet = nb.kind === 'net';
   const isDebt = nb.kind === 'debt';
   const isInv = nb.kind === 'inv';
-  const emphasized = isFundNet || isDebt || isInv;
+  const isPago = nb.kind === 'pago';
+  const emphasized = isFundNet || isDebt || isInv || isPago;
   const valueCls = size === 'lg'
     ? 'text-lg font-bold'
     : emphasized ? 'text-base font-bold' : 'text-xs font-medium opacity-70';
@@ -60,11 +61,13 @@ function AporteValue({ nb, fundName, size = 'sm', showTag = true }: {
     <span className="inline-flex items-center justify-end gap-1.5">
       {showTag && isFundNet && <span className="text-[8px] font-bold uppercase tracking-wide px-1 py-0.5 rounded bg-emerald-500/10 text-emerald-300/80 border border-emerald-500/20">neto</span>}
       {showTag && isDebt && <span className="text-[8px] font-bold uppercase tracking-wide px-1 py-0.5 rounded bg-rose-500/10 text-rose-300/80 border border-rose-500/20">deuda</span>}
+      {showTag && isPago && <span className="text-[8px] font-bold uppercase tracking-wide px-1 py-0.5 rounded bg-sky-500/10 text-sky-300/80 border border-sky-500/20">pago</span>}
       {showTag && isInv && <span className="text-[8px] font-bold uppercase tracking-wide px-1 py-0.5 rounded bg-amber-500/10 text-amber-300/80 border border-amber-500/20">inv.</span>}
       <span
         className={`font-mono tabular-nums ${valueCls} ${nb.value >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}
         title={isFundNet ? `Fondo ${fundName}: ingreso del día − pagos fijos generados`
           : isDebt ? 'Deuda: gasto de la transacción + monto en Supabase (como ingreso)'
+          : isPago ? 'Pago: monto de la transacción − pago en Supabase (el pago baja la deuda acumulada)'
           : isInv ? 'Inversión: transacciones del día − pagos fijos de inversión'
           : 'Transacción no-fondo: aporta su monto al total'}
       >
@@ -91,9 +94,15 @@ interface DebtMatch {
   amountDiff: number;
 }
 
-/** Best Supabase debt matching a transaction: SAME day and amount within 10%. */
+/** Best Supabase debt for a transaction: the one it is explicitly linked to (`deuda_id`),
+ *  or, for an unlinked reimbursable row, SAME day and amount within 10%. */
 function matchDebt(t: Transaction, debts: SupabaseDebt[]): DebtMatch | null {
   const amt = Math.abs(t.MONTO);
+  if (t.deuda_id) {
+    const linked = debts.find(d => String(d.ID) === String(t.deuda_id));
+    if (linked) return { debt: linked, amountDiff: Math.abs(amt - linked.MONTO) };
+  }
+  if (!t.es_reembolsable) return null;
   if (amt <= 0) return null;
   const txDay = dayOf(t.FECHA);
   let best: DebtMatch | null = null;
@@ -147,24 +156,35 @@ function investmentPayments(drivers: TransactionDriver[]): number {
 export default function EnrichedLedger({ transactions, dayDrivers, variant = 'full', date }: Props) {
   const { data: debts, isLoading: debtsLoading } = useSupabaseDebts();
   const { data: funds, isLoading: fundsLoading } = useFunds();
+  // Cruces included: the dashboard subtracts every payment, virtual ones too, and the
+  // day's total has to follow the same rule to add up to the series.
+  const { data: payments, isLoading: paymentsLoading } = useSupabasePayments({ incluirCruces: true });
 
   const rows = useMemo(() => {
     const debtList = debts ?? [];
     const fundList = funds ?? [];
+    const paymentById = new Map((payments ?? []).map(p => [String(p.id), p]));
     // Card payments (categoría "Tarjeta") are internal bank→card transfers: excluded.
-    return transactions.filter(t => !isCardPayment(t)).map(t => ({
-      t,
-      // Only transactions flagged as reimbursable are treated as debt-related; the
-      // amount+date match then finds WHICH Supabase debt they correspond to. Matching
-      // every transaction would produce false positives on coincidental amounts.
-      debt: t.es_reembolsable ? matchDebt(t, debtList) : null,
-      fund: matchFund(t, fundList),
-      isInvestment: hasInvestmentMark(t),
-    }));
-  }, [transactions, debts, funds]);
+    return transactions.filter(t => !isCardPayment(t)).map(t => {
+      // A payment is only ever an explicit link: guessing it by amount would catch any
+      // transfer that happens to match.
+      const pago = t.pago_id ? paymentById.get(String(t.pago_id)) ?? null : null;
+      return {
+        t,
+        pago,
+        // An explicit `deuda_id` wins; otherwise only transactions flagged as reimbursable
+        // are matched by amount+date. Matching every transaction would produce false
+        // positives on coincidental amounts.
+        debt: pago ? null : matchDebt(t, debtList),
+        fund: matchFund(t, fundList),
+        isInvestment: hasInvestmentMark(t),
+      };
+    });
+  }, [transactions, debts, payments, funds]);
 
   const counts = useMemo(() => ({
     debts: rows.filter(r => r.debt).length,
+    payments: rows.filter(r => r.pago).length,
     funds: rows.filter(r => r.fund).length,
     investments: rows.filter(r => r.isInvestment).length,
   }), [rows]);
@@ -201,7 +221,7 @@ export default function EnrichedLedger({ transactions, dayDrivers, variant = 'fu
     let has = false;
     let sum = 0;
     for (const r of rows) {
-      if (r.isInvestment && !r.fund && !r.debt) { sum += r.t.MONTO; has = true; }
+      if (r.isInvestment && !r.fund && !r.debt && !r.pago) { sum += r.t.MONTO; has = true; }
     }
     if (!has) return null;
     return sum + investmentPayments(dayDrivers ?? []); // payments are negative
@@ -211,16 +231,25 @@ export default function EnrichedLedger({ transactions, dayDrivers, variant = 'fu
   //  - fund row  -> the fund net, only on its FIRST row ('net'); repeats are 'dup' (0).
   //  - debt row  -> the transaction (expense) PLUS the matched Supabase debt as income
   //                 (a loan given nets to ~0). The debt income is added once per debt.
+  //  - payment row -> the transaction MINUS the linked payment (a friend paying back
+  //                 nets to ~0). Counted once per payment.
   //  - other row -> its own amount ('raw').
   const netByRow = useMemo(() => {
     const seenFunds = new Set<string>();
     const seenDebts = new Set<string>();
+    const seenPagos = new Set<string>();
     let seenInv = false;
     return rows.map(r => {
       if (r.fund) {
         if (seenFunds.has(r.fund.id)) return { kind: 'dup' as const, value: 0 };
         seenFunds.add(r.fund.id);
         return { kind: 'net' as const, value: fundDayNet.get(r.fund.id) ?? 0 };
+      }
+      if (r.pago) {
+        const id = String(r.pago.id);
+        const pagoOut = seenPagos.has(id) ? 0 : r.pago.monto_total;
+        seenPagos.add(id);
+        return { kind: 'pago' as const, value: r.t.MONTO - pagoOut };
       }
       if (r.debt) {
         const id = String(r.debt.debt.ID);
@@ -266,24 +295,38 @@ export default function EnrichedLedger({ transactions, dayDrivers, variant = 'fu
 
   const unmatchedDebtTotal = useMemo(() => unmatchedDebts.reduce((s, d) => s + d.MONTO, 0), [unmatchedDebts]);
 
+  // Payments of the day no transaction is linked to (cash, or a cruce): a warning, and
+  // still counted, subtracting their amount like the dashboard does.
+  const unmatchedPayments = useMemo(() => {
+    if (!dayDate) return [];
+    const linked = new Set(rows.filter(r => r.pago).map(r => String(r.pago!.id)));
+    return (payments ?? []).filter(p => dayOf(p.fecha_pago) === dayDate && !linked.has(String(p.id)));
+  }, [payments, rows, dayDate]);
+
+  const unmatchedPaymentTotal = useMemo(
+    () => unmatchedPayments.reduce((s, p) => s - p.monto_total, 0),
+    [unmatchedPayments],
+  );
+  const hasExtras = otherPagos.length > 0 || unmatchedDebts.length > 0 || unmatchedPayments.length > 0;
+
   // Global total = every row's contribution (funds/investments netted once, debts netted
   // against Supabase, rest at face value) PLUS other fixed-payments and unmatched debts.
   const globalTotal = useMemo(
-    () => netByRow.reduce((s, nb) => s + nb.value, 0) + otherPagosTotal + unmatchedDebtTotal,
-    [netByRow, otherPagosTotal, unmatchedDebtTotal],
+    () => netByRow.reduce((s, nb) => s + nb.value, 0) + otherPagosTotal + unmatchedDebtTotal + unmatchedPaymentTotal,
+    [netByRow, otherPagosTotal, unmatchedDebtTotal, unmatchedPaymentTotal],
   );
 
-  const loading = debtsLoading || fundsLoading;
+  const loading = debtsLoading || fundsLoading || paymentsLoading;
 
   // --- Compact variant: narrow stacked list for the detail panel (~400px) ----------
   if (variant === 'compact') {
     return (
       <div className="space-y-2.5">
         {loading && <div className="text-center text-surface-400 text-xs py-6">Cargando…</div>}
-        {!loading && rows.length === 0 && otherPagos.length === 0 && unmatchedDebts.length === 0 && <div className="text-center text-surface-500 text-xs py-6">Sin transacciones.</div>}
+        {!loading && rows.length === 0 && !hasExtras && <div className="text-center text-surface-500 text-xs py-6">Sin transacciones.</div>}
 
         <div className="space-y-1.5">
-          {rows.map(({ t, debt, fund, isInvestment }, i) => (
+          {rows.map(({ t, debt, pago, fund, isInvestment }, i) => (
             <div key={t.id} className="rounded-lg bg-white/[0.02] border border-white/5 px-2.5 py-2">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-medium text-white truncate">{t.nombre_limpio || t.DESCRIPCION}</span>
@@ -293,9 +336,10 @@ export default function EnrichedLedger({ transactions, dayDrivers, variant = 'fu
                 <div className="flex flex-wrap items-center gap-1 min-w-0">
                   {fund && <MiniChip className="bg-emerald-500/10 text-emerald-300 border-emerald-500/20"><PiggyBank size={10} />{fund.name}</MiniChip>}
                   {debt && <MiniChip className="bg-rose-500/10 text-rose-300 border-rose-500/20"><HandCoins size={10} />Deuda: {debt.debt.DEUDOR_NOMBRE}</MiniChip>}
+                  {pago && <MiniChip className="bg-sky-500/10 text-sky-300 border-sky-500/20"><Banknote size={10} />Pago: {pago.deudor_nombre}</MiniChip>}
                   {isInvestment && <MiniChip className="bg-amber-500/10 text-amber-300 border-amber-500/20"><TrendingUp size={10} />Inv.</MiniChip>}
-                  {t.es_reembolsable && !debt && <MiniChip className="bg-rose-500/10 text-rose-300/80 border-rose-500/20">Reemb.</MiniChip>}
-                  {!fund && !debt && !isInvestment && !t.es_reembolsable && <span className="text-surface-600 text-[10px]">·</span>}
+                  {t.es_reembolsable && !debt && !pago && <MiniChip className="bg-rose-500/10 text-rose-300/80 border-rose-500/20">Reemb.</MiniChip>}
+                  {!fund && !debt && !pago && !isInvestment && !t.es_reembolsable && <span className="text-surface-600 text-[10px]">·</span>}
                 </div>
                 <div className="shrink-0"><AporteValue nb={netByRow[i]} fundName={fund?.name} size="lg" showTag={false} /></div>
               </div>
@@ -328,9 +372,21 @@ export default function EnrichedLedger({ transactions, dayDrivers, variant = 'fu
               </div>
             </div>
           ))}
+
+          {unmatchedPayments.map(p => (
+            <div key={`up-${p.id}`} className="rounded-lg bg-amber-500/[0.06] border border-amber-500/20 px-2.5 py-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium text-white truncate">{pagoTitulo(p)}</span>
+                <span className="font-mono text-lg font-bold tabular-nums shrink-0 text-rose-400">{fmtSigned(-p.monto_total)}</span>
+              </div>
+              <div className="mt-1.5">
+                <MiniChip className="bg-amber-500/10 text-amber-300 border-amber-500/25"><AlertTriangle size={10} />{p.es_compensacion ? 'Cruce' : 'Pago sin transacción'} · {p.deudor_nombre}</MiniChip>
+              </div>
+            </div>
+          ))}
         </div>
 
-        {!loading && (rows.length > 0 || otherPagos.length > 0 || unmatchedDebts.length > 0) && (
+        {!loading && (rows.length > 0 || hasExtras) && (
           <div className="border-t border-white/10 pt-2.5 space-y-1.5">
             {fundDayNet.size > 0 && (
               <div className="flex items-center justify-between text-[11px]">
@@ -354,6 +410,7 @@ export default function EnrichedLedger({ transactions, dayDrivers, variant = 'fu
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <LegendChip icon={<HandCoins size={13} />} count={counts.debts} label="Deudas" className="bg-rose-500/10 text-rose-300 border-rose-500/20" />
+          <LegendChip icon={<Banknote size={13} />} count={counts.payments} label="Pagos" className="bg-sky-500/10 text-sky-300 border-sky-500/20" />
           <LegendChip icon={<PiggyBank size={13} />} count={counts.funds} label="Fondos" className="bg-emerald-500/10 text-emerald-300 border-emerald-500/20" />
           <LegendChip icon={<TrendingUp size={13} />} count={counts.investments} label="Inversiones" className="bg-amber-500/10 text-amber-300 border-amber-500/20" />
         </div>
@@ -367,7 +424,7 @@ export default function EnrichedLedger({ transactions, dayDrivers, variant = 'fu
         )}
       </div>
       <p className="text-[11px] text-surface-500 leading-relaxed">
-        Deudas emparejadas el <strong className="text-surface-400">mismo día</strong> con monto ±<strong className="text-surface-400">10%</strong>. El neto de cada fondo y deuda se cuenta <strong className="text-surface-400">una sola vez</strong> en el total.
+        Deudas emparejadas el <strong className="text-surface-400">mismo día</strong> con monto ±<strong className="text-surface-400">10%</strong>. Los pagos solo se enlazan por <strong className="text-surface-400">vínculo explícito</strong> y restan su monto, como en el dashboard. El neto de cada fondo, deuda y pago se cuenta <strong className="text-surface-400">una sola vez</strong> en el total.
       </p>
 
       <div className="bg-surface-900/40 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden shadow-2xl">
@@ -383,7 +440,7 @@ export default function EnrichedLedger({ transactions, dayDrivers, variant = 'fu
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {rows.map(({ t, debt, fund, isInvestment }, i) => (
+              {rows.map(({ t, debt, pago, fund, isInvestment }, i) => (
                 <tr key={t.id} className="odd:bg-white/[0.015] hover:bg-white/[0.04] transition-colors align-top">
                   {/* Date / Source */}
                   <td className="px-5 py-4 text-surface-400 text-xs whitespace-nowrap">
@@ -423,6 +480,7 @@ export default function EnrichedLedger({ transactions, dayDrivers, variant = 'fu
                   <td className="px-6 py-4">
                     <div className="flex flex-col gap-2">
                       {debt && <DebtContext tx={t} debt={debt.debt} />}
+                      {pago && <PaymentContext tx={t} pago={pago} />}
                       {fund && (
                         <div className="flex items-center gap-2 text-xs">
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 font-semibold">
@@ -435,12 +493,12 @@ export default function EnrichedLedger({ transactions, dayDrivers, variant = 'fu
                           <TrendingUp size={12} /> Inversión
                         </span>
                       )}
-                      {t.es_reembolsable && !debt && (
+                      {t.es_reembolsable && !debt && !pago && (
                         <span className="inline-flex w-fit items-center gap-1 px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-300 border border-rose-500/20 font-semibold text-xs">
                           <HandCoins size={12} /> Reembolsable (sin deuda emparejada)
                         </span>
                       )}
-                      {!debt && !fund && !isInvestment && !t.es_reembolsable && (
+                      {!debt && !pago && !fund && !isInvestment && !t.es_reembolsable && (
                         <span className="text-surface-600 text-xs italic">—</span>
                       )}
                     </div>
@@ -525,6 +583,42 @@ export default function EnrichedLedger({ transactions, dayDrivers, variant = 'fu
                   </td>
                 </tr>
               ))}
+
+              {/* Supabase payments of the day with NO linked transaction (warning) */}
+              {unmatchedPayments.map(p => (
+                <tr key={`up-${p.id}`} className="bg-amber-500/[0.04] hover:bg-amber-500/[0.07] transition-colors align-top">
+                  <td className="px-5 py-4 text-surface-400 text-xs whitespace-nowrap">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-surface-200 font-medium flex items-center gap-1.5">
+                        <Calendar size={12} className="text-surface-500" />
+                        {dayOf(p.fecha_pago)}
+                      </span>
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded w-fit uppercase tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/25">
+                        Supabase
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex flex-col gap-0.5 min-w-0">
+                      <span className="text-sm font-semibold text-white truncate max-w-md">{pagoTitulo(p)}</span>
+                      <span className="text-[11px] text-surface-500 truncate max-w-md">{pagoDetalle(p)}</span>
+                    </div>
+                  </td>
+                  <td className="px-5 py-4 text-right text-sm font-mono font-bold tabular-nums whitespace-nowrap text-rose-400">
+                    {fmtSigned(-p.monto_total)}
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="inline-flex w-fit items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-300 border border-amber-500/25 font-semibold text-xs">
+                      <AlertTriangle size={12} /> {p.es_compensacion ? 'Cruce (pago virtual)' : 'Pago sin transacción vinculada'}
+                    </span>
+                  </td>
+                  <td className="px-5 py-4 text-right whitespace-nowrap border-l border-white/5 bg-white/[0.02]">
+                    <span className="font-mono tabular-nums text-base font-bold text-rose-400" title="Pago de Supabase sin transacción: resta su monto, como en el dashboard">
+                      {fmtSigned(-p.monto_total)}
+                    </span>
+                  </td>
+                </tr>
+              ))}
               {loading && (
                 <tr>
                   <td colSpan={5} className="px-6 py-10 text-center text-surface-400 text-sm">
@@ -532,7 +626,7 @@ export default function EnrichedLedger({ transactions, dayDrivers, variant = 'fu
                   </td>
                 </tr>
               )}
-              {!loading && rows.length === 0 && otherPagos.length === 0 && unmatchedDebts.length === 0 && (
+              {!loading && rows.length === 0 && !hasExtras && (
                 <tr>
                   <td colSpan={5} className="px-6 py-16 text-center text-surface-500 text-sm">
                     No hay transacciones con los filtros actuales.
@@ -540,7 +634,7 @@ export default function EnrichedLedger({ transactions, dayDrivers, variant = 'fu
                 </tr>
               )}
             </tbody>
-            {!loading && (rows.length > 0 || otherPagos.length > 0 || unmatchedDebts.length > 0) && (
+            {!loading && (rows.length > 0 || hasExtras) && (
               <tfoot className="border-t-2 border-white/10 bg-surface-950/60">
                 {fundDayNet.size > 0 && (
                   <tr>
@@ -599,6 +693,42 @@ function DebtContext({ tx, debt }: { tx: Transaction; debt: SupabaseDebt }) {
           <span className="inline-flex items-center gap-1 text-amber-400"><Clock size={12} /> Pendiente</span>
         )}
       </div>
+    </div>
+  );
+}
+
+/** "Juan te pagó" / "Le pagaste a Ana". */
+function pagoTitulo(p: SupabasePayment): string {
+  return p.es_mi_pago ? `Le pagaste a ${p.deudor_nombre}` : `${p.deudor_nombre} te pagó`;
+}
+
+/** The debts a payment settled, e.g. "Cena $12.00 · Taxi $8.00". */
+function pagoDetalle(p: SupabasePayment): string {
+  const deudas = (p.deudas ?? []).map(d => `${d.titulo} $${d.monto_asignado.toFixed(2)}`).join(' · ');
+  return deudas || 'Sin deudas abonadas';
+}
+
+/** Shows the linked payment next to the transaction: what it settled and the net. */
+function PaymentContext({ tx, pago }: { tx: Transaction; pago: SupabasePayment }) {
+  const net = Math.abs(tx.MONTO) - pago.monto_total;
+  const sobrante = pago.sobrante ?? 0;
+  return (
+    <div className="flex flex-col gap-1 text-xs bg-sky-500/[0.04] border border-sky-500/15 rounded-lg px-2.5 py-2 w-fit max-w-md">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-sky-500/10 text-sky-300 border border-sky-500/20 font-semibold">
+          <Banknote size={12} /> {pagoTitulo(pago)}
+        </span>
+      </div>
+      <div className="flex items-center gap-3 font-mono text-surface-300">
+        <span title="Monto de la transacción">tx ${Math.abs(tx.MONTO).toFixed(2)}</span>
+        <ArrowRight size={11} className="text-surface-600" />
+        <span title="Monto del pago">pago ${pago.monto_total.toFixed(2)}</span>
+        <span className={`${Math.abs(net) < 0.01 ? 'text-emerald-400' : 'text-amber-400'}`} title="Diferencia entre ambos">
+          neto {net >= 0 ? '+' : '−'}${Math.abs(net).toFixed(2)}
+        </span>
+      </div>
+      <div className="text-surface-400 truncate" title={pagoDetalle(pago)}>{pagoDetalle(pago)}</div>
+      {sobrante > 0.01 && <div className="text-sky-300">Saldo a favor ${sobrante.toFixed(2)}</div>}
     </div>
   );
 }

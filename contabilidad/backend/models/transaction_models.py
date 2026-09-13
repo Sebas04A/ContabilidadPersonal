@@ -22,6 +22,7 @@ class TransactionOut(BaseModel):
     group_id: Optional[str] = None   # NEW
     fondo_id: Optional[str] = None   # Fund this transaction belongs to
     deuda_id: Optional[str] = None   # Linked Supabase debt id
+    pago_id: Optional[str] = None    # Linked Supabase debt payment id
 
 class TransactionUpdate(BaseModel):
     nombre_limpio: Optional[str] = None
@@ -39,6 +40,7 @@ class TransactionUpdate(BaseModel):
     monto_asignado: Optional[float] = None # For splits
     fondo_id: Optional[str] = None   # Assign/unassign a fund (empty string to clear)
     deuda_id: Optional[str] = None   # Link/unlink a Supabase debt (empty string to clear)
+    pago_id: Optional[str] = None    # Link/unlink a Supabase debt payment (empty string to clear)
 
 class SplitItem(BaseModel):
     monto: float
@@ -54,6 +56,7 @@ class SplitItem(BaseModel):
     deudor: Optional[str] = None
     felicidad: Optional[int] = None
     deuda_id: Optional[str] = None   # Supabase debt linked to this part
+    pago_id: Optional[str] = None    # Supabase debt payment linked to this part
 
 class SplitRequest(BaseModel):
     splits: List[SplitItem]

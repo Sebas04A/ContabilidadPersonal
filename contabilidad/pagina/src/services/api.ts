@@ -30,6 +30,8 @@ export interface Transaction {
   group_id?: string;
   fondo_id?: string;
   deuda_id?: string;
+  /** Pago de deudas de Supabase al que corresponde esta transacción. */
+  pago_id?: string;
 }
 
 export interface HourlyBucket {
@@ -72,6 +74,7 @@ export interface TransactionUpdate {
   nota?: string;
   fondo_id?: string;
   deuda_id?: string;
+  pago_id?: string;
 }
 
 export interface TransactionFilters {
@@ -195,6 +198,14 @@ export interface SupabasePayment {
   monto_total: number;
   deudor_id: string;
   deudor_nombre: string;
+  /** true = pagaste tú; false = te pagaron. */
+  es_mi_pago?: boolean;
+  /** Pago virtual de un cruce: no es dinero que se movió. */
+  es_compensacion?: boolean;
+  cruce_id?: string | null;
+  /** Lo que no se asignó a ninguna deuda: saldo a favor de quien pagó. */
+  sobrante?: number;
+  deudas?: { deuda_id: string; titulo: string; monto_asignado: number }[];
 }
 
 export interface SupabaseDeudor {
@@ -212,6 +223,38 @@ export interface CreateDebtRequest {
   fecha_gasto: string; // YYYY-MM-DD
   /** false = te deben (pagaste tú); true = tú debes (pagaron por ti). */
   es_mi_deuda?: boolean;
+}
+
+export interface CreatePaymentRequest {
+  deudor_id: string;
+  monto: number;
+  /** false = te pagaron; true = pagaste tú. */
+  es_mi_pago: boolean;
+  fecha_pago: string; // YYYY-MM-DD
+  /** Clave del borrador: reintentar el guardado no duplica el pago. */
+  idem_key?: string;
+  /** Vacío = reparto automático (cruce primero, luego las más antiguas). */
+  deudas_ids?: string[];
+}
+
+export interface CreatePaymentResponse {
+  pago_id: string;
+  sobrante: number;
+  repetido: boolean;
+}
+
+export interface PaymentPreview {
+  asignado: number;
+  sobrante: number;
+  cruce_monto: number;
+  deudas: {
+    deuda_id: string;
+    titulo: string;
+    fecha_gasto: string;
+    es_mi_deuda: boolean;
+    saldo_real: number;
+    pago_planeado: number;
+  }[];
 }
 
 export interface EstadoCuentaDeuda {
@@ -516,10 +559,23 @@ export const api = {
     return res.data;
   },
 
-  getSupabasePayments: async (debtor?: string): Promise<SupabasePayment[]> => {
+  getSupabasePayments: async (debtor?: string, startDate?: string, endDate?: string, incluirCruces?: boolean): Promise<SupabasePayment[]> => {
     const params = new URLSearchParams();
     if (debtor) params.append('deudor', debtor);
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+    if (incluirCruces) params.append('incluir_cruces', 'true');
     const res = await axios.get(`${API_BASE}/supabase-debts/payments?${params}`);
+    return res.data;
+  },
+
+  createSupabasePayment: async (req: CreatePaymentRequest): Promise<CreatePaymentResponse> => {
+    const res = await axios.post(`${API_BASE}/supabase-debts/payments`, req);
+    return res.data;
+  },
+
+  previewSupabasePayment: async (req: Omit<CreatePaymentRequest, 'fecha_pago' | 'idem_key'>): Promise<PaymentPreview> => {
+    const res = await axios.post(`${API_BASE}/supabase-debts/payments/preview`, req);
     return res.data;
   },
 
@@ -876,6 +932,7 @@ export interface SplitItem {
     felicidad?: number;
     revisado?: boolean;
     deuda_id?: string;
+    pago_id?: string;
 }
 
 export enum ComponentType {
