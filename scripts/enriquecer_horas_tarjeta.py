@@ -91,6 +91,17 @@ IVA_MAX = 0.15
 # liquida 14.95). Deliberadamente estrecho.
 REDONDEO_MAX = 0.05
 
+# R4: Excepción acotada temporalmente para consumos en el exterior (2026-08-20 a 2026-09-09).
+# Al pagar en moneda extranjera (ej. Reales BRL en Brasil), el correo de notificación
+# usa el tipo de cambio spot inmediato pero el estado de cuenta liquida días después
+# con la tasa de liquidación final, produciendo una variación del ~0.45% (hasta 1.5% o $0.35).
+FECHA_INICIO_EXCEPCION_EXTERIOR = "2026-08-20"
+FECHA_FIN_EXCEPCION_EXTERIOR = "2026-09-09"
+SIM_MIN_EXTERIOR_FX = 0.45
+PCT_MAX_EXTERIOR_FX = 1.5
+DELTA_MAX_EXTERIOR_FX = 0.35
+
+
 # Apuntes que por naturaleza nunca generan un correo de consumo. Excluirlos no
 # solo ahorra trabajo: evita que un cargo derivado coincida por monto con un
 # consumo ajeno y reciba una hora que no le corresponde.
@@ -129,6 +140,14 @@ def _normalizar_texto(s: str) -> str:
 
 def _similitud(a: str, b: str) -> float:
     return SequenceMatcher(None, _normalizar_texto(a), _normalizar_texto(b)).ratio()
+
+
+def _limpiar_sufijo_exterior(desc: str) -> str:
+    """Limpia sufijos de procesamiento bancario internacional (ej. ' R CONSUMO BRA', ' S CONSUMO BRA')."""
+    s = re.sub(r"\s+[A-Z]\s+CONSUMO\s+[A-Z]{3}$", "", str(desc), flags=re.IGNORECASE)
+    s = re.sub(r"\s+CONSUMO\s+[A-Z]{3}$", "", s, flags=re.IGNORECASE)
+    return s
+
 
 
 def _parsear_monto(texto: str) -> float | None:
@@ -247,27 +266,43 @@ def generar_candidatos(
     global, para que el resultado no dependa del orden de las filas.
     """
     candidatos = []
+    fecha_min_excep = pd.Timestamp(FECHA_INICIO_EXCEPCION_EXTERIOR)
+    fecha_max_excep = pd.Timestamp(FECHA_FIN_EXCEPCION_EXTERIOR)
+
     for _, tx in df_tx.iterrows():
         dias = (df_correos["fecha"] - tx["FECHA"]).dt.days
         en_ventana = df_correos[
             (dias >= -VENTANA_DIAS_ANTES) & (dias <= VENTANA_DIAS_DESPUES)
         ]
-        for _, correo in en_ventana.iterrows():
-            # El correo notifica el total cobrado; el estado puede liquidar menos.
-            delta = correo["monto"] - tx["MONTO"]
-            sim = _similitud(tx["DESCRIPCION"], correo["establecimiento"])
+        desc_limpia = _limpiar_sufijo_exterior(tx["DESCRIPCION"])
 
-            if abs(delta) < TOLERANCIA_CENTAVOS:
-                regla, sim_min, prioridad = "R1_monto_exacto", SIM_MIN_MONTO_EXACTO, 3
+        for _, correo in en_ventana.iterrows():
+            # El correo notifica el total cobrado; el estado puede liquidar menos o variar por FX.
+            delta = correo["monto"] - tx["MONTO"]
+            abs_delta = abs(delta)
+            pct_diff = (abs_delta / tx["MONTO"]) * 100 if tx["MONTO"] > 0 else 0
+
+            sim_orig = _similitud(tx["DESCRIPCION"], correo["establecimiento"])
+            sim_clean = _similitud(desc_limpia, correo["establecimiento"])
+            sim = max(sim_orig, sim_clean)
+
+            if abs_delta < TOLERANCIA_CENTAVOS:
+                regla, sim_min, prioridad = "R1_monto_exacto", SIM_MIN_MONTO_EXACTO, 4
             elif delta > 0 and _delta_tarifa_valido(delta, tx["FECHA"], df_completo):
-                regla, sim_min, prioridad = "R2_tarifa_gasolinera", SIM_MIN_TARIFA, 2
+                regla, sim_min, prioridad = "R2_tarifa_gasolinera", SIM_MIN_TARIFA, 3
             elif 0 < delta <= REDONDEO_MAX + TOLERANCIA_CENTAVOS:
-                regla, sim_min, prioridad = "R3_redondeo", SIM_MIN_REDONDEO, 1
+                regla, sim_min, prioridad = "R3_redondeo", SIM_MIN_REDONDEO, 2
+            elif (
+                fecha_min_excep <= tx["FECHA"] <= fecha_max_excep
+                and (pct_diff <= PCT_MAX_EXTERIOR_FX or abs_delta <= DELTA_MAX_EXTERIOR_FX)
+            ):
+                regla, sim_min, prioridad = "R4_exterior_fx_viaje", SIM_MIN_EXTERIOR_FX, 1
             else:
                 continue
 
             if sim < sim_min:
                 continue
+
 
             candidatos.append(
                 {
