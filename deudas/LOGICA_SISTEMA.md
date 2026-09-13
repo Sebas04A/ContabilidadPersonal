@@ -65,8 +65,42 @@ Si tienes un Deudor al que le debes dinero (`esMiDeuda = true`), pero él tambi�
 2. Suma el total de "Sus Deudas".
 3. Calcula el solapamiento: `Mínimo de ambos totales`.
 4. Crea pagos **virtuales** (`esCompensacion = true`) en ambas direcciones por ese monto mínimo.
-5. Asigna esos pagos a través de detalles hasta agotar ese monto.
+5. Asigna esos pagos a través de detalles hasta agotar ese monto, de la deuda más antigua a la más reciente (FIFO en cada lado).
 *El resultado es que las deudas opuestas se "matan" entre sí automáticamente.*
+
+### 3.2.1. Con deudas elegidas a mano, el pago va antes que el cruce
+El FIFO del cruce se lleva por delante las deudas más viejas, y eso choca con querer pagar
+una deuda concreta: si el cruce se aplica primero, ya se comió parte de ella, así que
+pagabas de más, o pagabas una que se iba a anular sola mientras otra quedaba viva.
+
+Por eso, cuando el pago lleva **deudas elegidas** (`p_deudas_ids` en `registrar_pago`), el
+orden se invierte:
+
+1. **El pago se reparte solo entre las elegidas** del lado de quien paga, de la más
+   antigua a la más reciente, hasta lo que de verdad les falta (neto del saldo a favor ya
+   entregado). Una deuda del otro lado no recibe nada.
+2. **Lo que sobre es saldo a favor** de quien pagó, y como todo saldo a favor abona sus
+   otras deudas pendientes. La app pide confirmación antes de registrarlo.
+3. **El cruce se calcula después**, sobre lo que quedó, en **FIFO puro**: la más antigua
+   primero, aunque sea una elegida que el pago no alcanzó a completar.
+
+> Tú debes Cena $40 (vieja) y Gasolina $30; él te debe $15.
+> - Sin pago, el cruce tapa $15 de Cena.
+> - Eliges Cena y pagas $30: Cena queda en $10, el cruce tapa esos $10 y los $5 que
+>   sobran van a Gasolina. **Cena saldada, Gasolina en $25.**
+> - Eliges Cena y pagas $10: Cena queda en $30 y el cruce igual le pone sus $15 (queda en $15).
+> - Eliges Cena y pagas $50: $40 a Cena, $10 de saldo a favor que abona Gasolina, y el
+>   cruce de $15 cae en Gasolina.
+
+Sin deudas elegidas (modo automático) todo sigue como siempre: cruce primero y el pago
+FIFO sobre el lado de quien paga.
+
+La vista previa sale de la misma función: `estado_cuenta(p_deudor_id, p_pov, p_pago)` con
+`p_pago = {monto, es_mi_pago, deudas_ids}` devuelve el estado tal como quedaría (con
+`pago_planeado` por deuda y el `sobrante`), sin escribir nada, y `registrar_pago` escribe
+los detalles leyendo ese mismo cálculo. La edge `get_estado_cuenta` lo expone con `pago`.
+Verificación: `scripts/probar_pago_manual.py` (escenarios) y el fixture de paridad de la
+app (`scripts/generar_casos_plan_pago.py`).
 
 ### 3.3. Sincronización en la App (`SyncService`)
 Cada objeto (`Deuda`, `Pago`, etc.) tiene una bandera `synced`.
@@ -83,6 +117,14 @@ La UI se diseñó buscando un sentimiento Premium (`AppTheme`: colores Neón, fo
 ### Pantalla Saldar Cuentas (Caja de Pago)
 Maneja una distribución matemática avanzada en tiempo real:
 - **Prioridad Visual:** Arriba aparecen siempre las deudas activas que están exigiéndote un pago.
+- **Selección manual:** solo se marcan deudas del lado de quien paga (incluidas las que hoy
+  tapa el cruce entero). Al marcar o escribir el monto, la tarjeta se recalcula **al
+  instante** con `PlanPago` (Dart, espejo de la función SQL según §3.2.1) y enseguida se
+  confirma con `get_estado_cuenta` + `pago`; si difieren, gana el servidor. El botón de
+  confirmar se bloquea hasta que llega esa confirmación, así lo que se ve es lo que
+  `registrar_pago` escribe. Si el pago supera lo que necesitan las elegidas, un diálogo
+  pide confirmar el sobrante como saldo a favor. El orden de las tarjetas se congela en la
+  primera carga para que las casillas no salten bajo el dedo.
 - **Opacidad:** Tras realizar la matemática temporal en Dart, si la app advierte que la deuda se va a aniquilar por un "Cruce" (compensada), manda esa tarjeta al fondo de la lista, reduce su opacidad al 40% y la tacha para que el usuario entienda que *"El sistema la eliminó sola, no te preocupes por ella"*.
 - **Desglose de Pago:** La tarjeta muestra transparentemente el "Saldo Original", luego descuenta lo que se va de "Cruce Automático", e indica finalmente si requirió "Dinero de tu pago" para saldarse.
 
