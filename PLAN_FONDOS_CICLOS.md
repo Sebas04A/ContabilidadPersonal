@@ -131,19 +131,35 @@ es expresable: un ciclo al que no le asignas nada se comporta como tal.
 
 ## 4. Fases
 
-### Fase 1 — El corte por ciclo *(la que arregla el problema)*
+### Fase 1 — El corte por ciclo *(la que arregla el problema)* — **hecha**
 
-- [ ] `CICLO_COLUMNS` + `CicloStorage` en `contabilidad/backend/storage/ciclos_storage.py`,
+- [x] `CICLO_COLUMNS` + `CicloStorage` en `contabilidad/backend/storage/ciclos_storage.py`,
       reutilizando `read_csv` / `save_csv` / `_id_unico` / `_indices_de` de
       `variables_storage.py`.
-- [ ] `ciclo` y `dia_corte_default` en `GROUP_COLUMNS`, `_normalize_group`, `create_group`.
-- [ ] Generador `generar_ciclos(group_id)`: crea las filas que falten, contiguas, nunca
-      toca las que ya existen.
-- [ ] `fund_service`: repartir los movimientos por ciclo y devolverlos en el detalle del
-      fondo, con `credito`, `cubierto`, `sin_cubrir` y `sobrante` calculados.
-- [ ] Endpoints en `routes/funds.py`: listar ciclos, generar, mover una frontera.
-- [ ] `computeFlatten` confinado al ciclo, y `generate-payments` guardando `ciclo_id`.
-- [ ] Panel de ciclos en la pestaña Seguimiento: una fila por ciclo con su resumen.
+- [x] `ciclo` y `dia_corte_default` en `GROUP_COLUMNS`, `_normalize_group`, `create_group`.
+- [x] Generador `generar_ciclos()`: crea las filas que falten, contiguas, por los dos
+      extremos, y nunca toca las que ya existen.
+- [x] `mover_frontera()`: la frontera es la unidad editable, cambia dos filas a la vez.
+- [x] `fund_service`: reparte los movimientos por ciclo y devuelve el resumen de cada uno
+      con `credito`, `gasto`, `cubierto`, `sin_cubrir`, `sobrante` y `en_curso`.
+- [x] Endpoints en `routes/funds.py`: listar ciclos, editar la nota, mover una frontera.
+- [x] `computeFlatten` confinado al ciclo, y `generate-payments` guardando `ciclo_id`.
+- [x] Panel de ciclos en la pestaña Seguimiento + selector de ciclo y día de corte en los
+      modales de crear y editar fondo.
+
+Dos decisiones que se tomaron al implementar:
+
+- **Los ciclos se generan de forma perezosa al leer el fondo**, no con un botón. Un GET que
+  escribe no es bonito, pero la generación es idempotente y la alternativa era que el
+  usuario tuviera que acordarse de pulsar algo para que su mes existiera.
+- **El resumen de los ciclos ignora la lente "Ver desde"**. Si dependiera de ella, un ciclo
+  cuyo ingreso quedara fuera de la ventana aparecería como "sin ingreso" sin serlo. La
+  lente es para el gráfico y el extracto, no para la contabilidad de los períodos.
+- **`asegurar_cabecera()`**, en `variables_storage`: `create_payment` anexa con
+  `header=False`, o sea por posición, así que contra un `pagos.csv` con el esquema viejo
+  habría metido un campo de más, el archivo habría quedado dentado y `read_csv` habría
+  devuelto un DataFrame vacío tragándose la excepción — todos los pagos desaparecidos de la
+  app sin un solo error a la vista. Se migra el esquema antes de anexar.
 
 ### Fase 2 — El control manual
 

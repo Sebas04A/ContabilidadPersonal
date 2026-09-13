@@ -25,6 +25,12 @@ import pandas as pd
 
 from contabilidad.backend.logger import get_logger
 from contabilidad.backend.services.transaction_service import load_data
+from contabilidad.backend.storage.ciclos_storage import (
+    CicloStorage,
+    a_fecha,
+    ciclo_de_fecha,
+    generar_ciclos,
+)
 from contabilidad.backend.storage.variables_storage import InterpolationStorage
 
 logger = get_logger(__name__)
@@ -184,6 +190,63 @@ def _compute_metrics(movements: List[Dict[str, Any]], saldo_inicial: float,
     }
 
 
+def _asegurar_ciclos(group: Dict[str, Any], movements: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Los ciclos del fondo, creando por el camino los que falten.
+
+    El rango se toma de los movimientos reales y se estira hasta hoy, para que el ciclo en
+    curso exista aunque este mes todavía no haya pasado nada. Cubriendo de punta a punta, un
+    movimiento no puede quedarse sin ciclo por construcción.
+    """
+    if group.get('ciclo') != 'mensual':
+        return []
+
+    fechas = [m['date'] for m in movements if m.get('date') is not None]
+    if not fechas:
+        return CicloStorage.get_ciclos(group['id'])
+
+    generar_ciclos(
+        group_id=group['id'],
+        dia_corte=group.get('dia_corte_default') or 1,
+        primera_fecha=min(fechas),
+        ultima_fecha=max(max(fechas), date.today()),
+    )
+    return CicloStorage.get_ciclos(group['id'])
+
+
+def _resumir_ciclos(ciclos: List[Dict[str, Any]],
+                    movements: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Un resumen por ciclo, calculado siempre desde los movimientos.
+
+    Nada de esto se guarda en `ciclos.csv`: la fila del ciclo lleva decisiones —dónde están
+    las fronteras, por qué el mes fue raro—, y los números se recalculan. Guardarlos sería
+    una caché que se queda vieja en cuanto retiquetes una transacción.
+
+    Sin arrastre entre ciclos: el sobrante de uno es ahorro de ese mes y el déficit es que
+    ese mes gastaste de más. Ninguno de los dos cruza la frontera.
+    """
+    por_ciclo: Dict[str, List[Dict[str, Any]]] = {c['id']: [] for c in ciclos}
+    for m in movements:
+        if m.get('ciclo_id') in por_ciclo:
+            por_ciclo[m['ciclo_id']].append(m)
+
+    resumen = []
+    for ciclo in ciclos:
+        propios = por_ciclo[ciclo['id']]
+        credito = round(sum(m['amount'] for m in propios if m['amount'] > 0), 2)
+        gasto = round(sum(-m['amount'] for m in propios if m['amount'] < 0), 2)
+        resumen.append({
+            **ciclo,
+            'movimientos': len(propios),
+            'credito': credito,
+            'gasto': gasto,
+            'cubierto': round(min(credito, gasto), 2),
+            'sin_cubrir': round(max(0.0, gasto - credito), 2),
+            'sobrante': round(max(0.0, credito - gasto), 2),
+            'en_curso': ciclo['inicio'] <= date.today().isoformat() < ciclo['fin'],
+        })
+    return resumen
+
+
 def get_fund_detail(group_id: str, view_start: Optional[str] = None, view_end: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """
     Full fund detail: config + ordered movements with running balance + metrics.
@@ -210,6 +273,19 @@ def get_fund_detail(group_id: str, view_start: Optional[str] = None, view_end: O
         start_date = configured_start
     else:
         start_date = min((m['date'] for m in movements), default=None)
+
+    # Los ciclos se generan y se resumen sobre el rango real del fondo, antes de la lente
+    # de visualización. Si el resumen dependiera de "ver desde", un ciclo cuyo ingreso
+    # quedara fuera de la ventana aparecería como "sin ingreso" sin serlo: la lente es
+    # para el gráfico y el extracto, no para la contabilidad de los períodos.
+    ciclos = _asegurar_ciclos(group, movements)
+    for m in movements:
+        # De momento la pertenencia es solo por fecha. En la fase 2, el `ciclo_id` de la
+        # etiqueta mandará por encima de esto: es lo que saca al ingreso que llegó tarde
+        # del ciclo en el que cayó y lo mete en el que le tocaba.
+        ciclo = ciclo_de_fecha(ciclos, m['date']) if ciclos else None
+        m['ciclo_id'] = ciclo['id'] if ciclo else None
+    resumen_ciclos = _resumir_ciclos(ciclos, movements) if ciclos else []
 
     # Display lens: restart the view from a chosen date, balance from 0.
     view_start_date = _to_date(view_start)
@@ -259,6 +335,9 @@ def get_fund_detail(group_id: str, view_start: Optional[str] = None, view_end: O
         'fecha_inicio': start_date.isoformat() if start_date else None,
         'fecha_inicio_auto': configured_start is None,
         'view_start': view_start_date.isoformat() if view_start_date else None,
+        'ciclo': group.get('ciclo', 'ingreso'),
+        'dia_corte_default': group.get('dia_corte_default', 1),
+        'ciclos': resumen_ciclos,
         'summary': metrics,
         'movements': out_movements,
         'generated_payments': generated,

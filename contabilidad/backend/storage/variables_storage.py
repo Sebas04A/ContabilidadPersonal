@@ -24,7 +24,17 @@ PAYMENTS_FILE = os.path.join(BASE_DATA_PATH, 'pagos.csv')
 # `inversiones/posiciones.csv` point at it), the same way `es_fondo` marks a fund.
 # `es_custodia` marks a portfolio holding somebody else's money: it lives in the user's
 # bank account, so it must be tracked, but it never counts towards their net worth.
-GROUP_COLUMNS = ['id', 'name', 'description', 'type', 'es_fondo', 'fecha_inicio', 'saldo_inicial', 'tag_vinculado', 'fondo_origen', 'es_inversion', 'es_custodia']
+# `ciclo` y `dia_corte_default` son **defaults de generación** de los ciclos de un fondo, no
+# política de lectura: el grupo decide cómo nacen los ciclos nuevos, y cada ciclo ya escrito
+# se lee a sí mismo con las fronteras que lleva guardadas (ver `ciclos_storage`). Por eso
+# cambiar el día de corte hoy no reinterpreta el pasado.
+GROUP_COLUMNS = ['id', 'name', 'description', 'type', 'es_fondo', 'fecha_inicio', 'saldo_inicial', 'tag_vinculado', 'fondo_origen', 'es_inversion', 'es_custodia', 'ciclo', 'dia_corte_default']
+
+# `ingreso` es el emparejamiento secuencial de siempre: la ventana la abre cada ingreso
+# grande y no mira el calendario. `mensual` confina la cobertura a los ciclos. `ninguno`
+# apaga el emparejamiento automático. El vacío cae en `ingreso`, así que un fondo que nadie
+# ha tocado se comporta igual que antes de que existieran los ciclos.
+CICLO_MODOS = ('ingreso', 'mensual', 'ninguno')
 
 
 def _as_bool(value: Any) -> bool:
@@ -98,8 +108,30 @@ def _normalize_group(row: Dict[str, Any]) -> Dict[str, Any]:
         'fondo_origen': _clean_str(row.get('fondo_origen')) or None,
         'es_inversion': _as_bool(row.get('es_inversion')),
         'es_custodia': _as_bool(row.get('es_custodia')),
+        'ciclo': _modo_ciclo(row.get('ciclo')),
+        'dia_corte_default': _dia_corte(row.get('dia_corte_default')),
         'origen': _origen(row),
     }
+
+
+def _modo_ciclo(value: Any) -> str:
+    """El modo de ciclo, con el vacío y lo ilegible cayendo en `ingreso`.
+
+    El default no es neutral: `ingreso` es el comportamiento que había antes de los ciclos,
+    así que una celda vacía —que es lo que tienen todos los fondos existentes— significa
+    «no me han migrado» y no «no tengo ciclos».
+    """
+    texto = _texto_plano(value).lower()
+    return texto if texto in CICLO_MODOS else 'ingreso'
+
+
+def _dia_corte(value: Any) -> int:
+    """El día de corte por defecto, recortado a 1–31. Fuera de rango o ilegible → 1."""
+    try:
+        dia = int(float(_texto_plano(value)))
+    except (TypeError, ValueError):
+        return 1
+    return dia if 1 <= dia <= 31 else 1
 
 
 def _origen(row: Dict[str, Any]) -> str:
@@ -164,7 +196,10 @@ def read_csv(file_path: str, columns: List[str]) -> pd.DataFrame:
         logger.error("Error leyendo %s: %s", file_path, e)
         return pd.DataFrame(columns=columns)
 
-PAYMENT_COLUMNS = ['id', 'group_id', 'amount', 'start_date', 'end_date', 'note']
+# `ciclo_id` solo lo llevan los pagos generados desde un fondo con ciclos: dice a qué ciclo
+# pertenece el emparejamiento, para poder agrupar el panel por período y, más adelante,
+# regenerar un ciclo sin tocar los demás. Vacío en los pagos manuales.
+PAYMENT_COLUMNS = ['id', 'group_id', 'amount', 'start_date', 'end_date', 'note', 'ciclo_id']
 
 # Campos sin los cuales una fila de pago no significa nada.
 #
@@ -196,6 +231,31 @@ def _id_unico(df: pd.DataFrame) -> str:
         candidato = str(uuid.uuid4())
         if candidato not in existentes:
             return candidato
+
+
+def asegurar_cabecera(file_path: str, columns: List[str]) -> None:
+    """Reescribe el archivo con el esquema completo si en disco le faltan columnas.
+
+    Hace falta por el atajo de `create_payment`, que anexa la fila con `header=False` y por
+    tanto **por posición**. Contra un `pagos.csv` que todavía tuviera el esquema viejo, esa
+    fila llevaría un campo de más y el archivo quedaría dentado; `read_csv` no puede
+    parsearlo, se traga la excepción y devuelve un DataFrame vacío — o sea, todos los pagos
+    desaparecidos de la app sin un solo error a la vista.
+
+    Se ejecuta una vez: en cuanto el archivo tiene todas las columnas, no vuelve a tocarlo.
+    """
+    if not os.path.exists(file_path) or os.path.getsize(file_path) == 0:
+        return
+    try:
+        cabecera = pd.read_csv(file_path, nrows=0).columns.tolist()
+    except Exception as e:
+        logger.error("No se pudo leer la cabecera de %s: %s", file_path, e)
+        return
+    if all(col in cabecera for col in columns):
+        return
+    logger.info("Migrando el esquema de %s: faltaban %s",
+                file_path, [c for c in columns if c not in cabecera])
+    save_csv(read_csv(file_path, columns)[columns], file_path)
 
 
 def save_csv(df: pd.DataFrame, file_path: str):
@@ -253,7 +313,9 @@ class InterpolationStorage:
                      tag_vinculado: Optional[str] = None,
                      fondo_origen: Optional[str] = None,
                      es_inversion: bool = False,
-                     es_custodia: bool = False) -> Dict[str, Any]:
+                     es_custodia: bool = False,
+                     ciclo: Optional[str] = None,
+                     dia_corte_default: Optional[int] = None) -> Dict[str, Any]:
         ensure_data_dir()
         # Read existing (to guarantee full/consistent columns) then append.
         df = read_csv(GROUPS_FILE, GROUP_COLUMNS)
@@ -270,6 +332,11 @@ class InterpolationStorage:
             'fondo_origen': fondo_origen or None,
             'es_inversion': bool(es_inversion),
             'es_custodia': bool(es_custodia),
+            # Vacíos, no con su default escrito: así un fondo recién creado dice «nadie ha
+            # decidido esto todavía», y el día que cambie el default no habrá que tocar las
+            # filas que nunca lo eligieron.
+            'ciclo': ciclo or None,
+            'dia_corte_default': dia_corte_default,
         }
 
         df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
@@ -421,8 +488,10 @@ class InterpolationStorage:
         return payment.iloc[0].to_dict()
 
     @staticmethod
-    def create_payment(group_id: str, amount: float, start_date: date, end_date: date, note: str = None) -> Dict[str, Any]:
+    def create_payment(group_id: str, amount: float, start_date: date, end_date: date, note: str = None,
+                       ciclo_id: str = None) -> Dict[str, Any]:
         ensure_data_dir()
+        asegurar_cabecera(PAYMENTS_FILE, PAYMENT_COLUMNS)
         # El id se comprueba contra los que ya están: un uuid4 no colisiona por azar, pero
         # `pagos.csv` sí llegó a tener ids repetidos (sembrados a mano) y desde entonces
         # toda escritura por id es ambigua. Aquí se corta el problema en el origen.
@@ -431,11 +500,15 @@ class InterpolationStorage:
             'id': new_id, 
             'group_id': group_id, 
             'amount': amount, 
-            'start_date': start_date, 
-            'end_date': end_date, 
-            'note': note
+            'start_date': start_date,
+            'end_date': end_date,
+            'note': note,
+            # Tiene que estar aunque venga vacío: más abajo la fila se anexa con
+            # `header=False`, así que se escribe por posición. Una clave de menos aquí
+            # desplazaría todas las columnas del CSV a partir de esta fila.
+            'ciclo_id': ciclo_id,
         }
-        df_new = pd.DataFrame([new_row])
+        df_new = pd.DataFrame([new_row])[PAYMENT_COLUMNS]
         
         if os.path.exists(PAYMENTS_FILE) and os.path.getsize(PAYMENTS_FILE) > 0:
             try:

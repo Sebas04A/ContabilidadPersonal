@@ -744,6 +744,8 @@ export interface GeneratedPaymentInput {
   end: string;
   amount: number;
   note?: string;
+  /** Ciclo del emparejamiento, para poder agrupar y regenerar por período. */
+  ciclo_id?: string | null;
 }
 
 // Reference to the payments group generated from a fund.
@@ -787,7 +789,30 @@ export interface FundMovement {
   source: 'transaction' | 'manual' | 'tag';
   reviewed: boolean;
   running_balance: number;
+  /** Ciclo al que pertenece. `null` en fondos que no usan ciclos. */
+  ciclo_id: string | null;
 }
+
+/**
+ * Un período del fondo. Las fronteras vienen guardadas (`ciclos.csv`); los números
+ * se recalculan siempre desde los movimientos, nunca se guardan.
+ */
+export interface FundCiclo {
+  id: string;
+  group_id: string;
+  inicio: string;   // inclusivo
+  fin: string;      // exclusivo
+  nota: string;
+  movimientos: number;
+  credito: number;
+  gasto: number;
+  cubierto: number;
+  sin_cubrir: number;
+  sobrante: number;
+  en_curso: boolean;
+}
+
+export type FundCicloModo = 'ingreso' | 'mensual' | 'ninguno';
 
 export interface FundListItem {
   id: string;
@@ -808,6 +833,9 @@ export interface FundDetail {
   fecha_inicio: string | null;
   fecha_inicio_auto: boolean;
   view_start: string | null;
+  ciclo: FundCicloModo;
+  dia_corte_default: number;
+  ciclos: FundCiclo[];
   summary: FundSummary;
   movements: FundMovement[];
   generated_payments: GeneratedPaymentsInfo | null;
@@ -830,6 +858,8 @@ export interface FundCreate {
   fecha_inicio?: string | null;
   saldo_inicial?: number;
   tag_vinculado?: string | null;
+  ciclo?: FundCicloModo | null;
+  dia_corte_default?: number | null;
 }
 
 export interface SplitItem {

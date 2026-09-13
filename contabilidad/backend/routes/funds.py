@@ -9,6 +9,11 @@ from contabilidad.backend.services.transaction_service import (
     load_labels,
     set_fondo_for_part,
 )
+from contabilidad.backend.storage.ciclos_storage import (
+    CicloStorage,
+    a_fecha,
+    mover_frontera,
+)
 from contabilidad.backend.storage.variables_storage import InterpolationStorage
 
 logger = get_logger(__name__)
@@ -21,6 +26,8 @@ class FundCreate(BaseModel):
     fecha_inicio: Optional[str] = None
     saldo_inicial: Optional[float] = 0.0
     tag_vinculado: Optional[str] = None
+    ciclo: Optional[str] = None
+    dia_corte_default: Optional[int] = None
 
 
 class FundUpdate(BaseModel):
@@ -30,6 +37,16 @@ class FundUpdate(BaseModel):
     saldo_inicial: Optional[float] = None
     es_fondo: Optional[bool] = None
     tag_vinculado: Optional[str] = None
+    ciclo: Optional[str] = None
+    dia_corte_default: Optional[int] = None
+
+
+class FronteraUpdate(BaseModel):
+    fecha: str
+
+
+class CicloUpdate(BaseModel):
+    nota: Optional[str] = None
 
 
 class FundPartRef(BaseModel):
@@ -47,6 +64,7 @@ class GeneratedPayment(BaseModel):
     end: str            # expense date it covers (YYYY-MM-DD)
     amount: float       # covered amount (positive)
     note: Optional[str] = None
+    ciclo_id: Optional[str] = None   # ciclo del emparejamiento (vacío si el fondo no los usa)
 
 
 class GeneratePaymentsRequest(BaseModel):
@@ -83,6 +101,8 @@ def create_fund(fund: FundCreate):
         fecha_inicio=fund.fecha_inicio,
         saldo_inicial=fund.saldo_inicial,
         tag_vinculado=fund.tag_vinculado,
+        ciclo=fund.ciclo,
+        dia_corte_default=fund.dia_corte_default,
     )
     return group
 
@@ -104,10 +124,49 @@ def delete_fund(fund_id: str):
         rows = labels[labels['fondo_id'].fillna('').astype(str) == str(fund_id)]
         for _, r in rows.iterrows():
             set_fondo_for_part(str(r['source_id']), r.get('split_group_id'), "")
+    # Los ciclos se borran aquí y no en `delete_group` para no meter a
+    # `variables_storage` un import de `ciclos_storage`, que ya importa de él.
+    CicloStorage.borrar_de(fund_id)
     ok = InterpolationStorage.delete_group(fund_id)
     if not ok:
         raise HTTPException(status_code=404, detail="Fund not found")
     return {"status": "deleted", "id": fund_id}
+
+
+@router.get("/{fund_id}/ciclos")
+def list_ciclos(fund_id: str):
+    if InterpolationStorage.get_group(fund_id) is None:
+        raise HTTPException(status_code=404, detail="Fund not found")
+    return CicloStorage.get_ciclos(fund_id)
+
+
+@router.put("/{fund_id}/ciclos/{ciclo_id}")
+def update_ciclo(fund_id: str, ciclo_id: str, cambios: CicloUpdate):
+    """Solo la nota. Las fronteras no se editan sueltas — para eso está `/frontera`."""
+    actualizado = CicloStorage.actualizar(ciclo_id, cambios.model_dump(exclude_unset=True))
+    if actualizado is None:
+        raise HTTPException(status_code=404, detail="Ciclo not found")
+    return actualizado
+
+
+@router.put("/{fund_id}/ciclos/{ciclo_id}/frontera")
+def update_frontera(fund_id: str, ciclo_id: str, cambio: FronteraUpdate):
+    """Mueve el límite entre este ciclo y el anterior: cambia las dos filas a la vez.
+
+    Es la única forma de tocar una frontera, justamente para que no se pueda dejar un
+    hueco ni un solape a medio camino de la edición.
+    """
+    fecha = a_fecha(cambio.fecha)
+    if fecha is None:
+        raise HTTPException(status_code=400, detail="Fecha inválida")
+    tocados = mover_frontera(ciclo_id, fecha)
+    if tocados is None:
+        raise HTTPException(
+            status_code=400,
+            detail="No se puede mover esa frontera: o es el primer ciclo, o la fecha se "
+                   "sale del tramo que forman el ciclo anterior y este.",
+        )
+    return {"status": "movida", "ciclos": tocados}
 
 
 @router.post("/{fund_id}/assign")
@@ -161,6 +220,7 @@ def generate_payments(fund_id: str, req: GeneratePaymentsRequest):
             start_date=p.start,
             end_date=p.end,
             note=p.note or f"Fondo {fund['name']}",
+            ciclo_id=p.ciclo_id,
         )
         count += 1
 

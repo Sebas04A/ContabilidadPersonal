@@ -3,13 +3,16 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   PiggyBank, Plus, TrendingDown, TrendingUp, Calendar, Wallet, Search,
   ArrowDownRight, ArrowUpRight, Flame, Target, Link2, X, Check, ListPlus, Tag, Pencil,
-  FolderPlus, RefreshCw,
+  FolderPlus, RefreshCw, CalendarRange, ChevronDown,
 } from 'lucide-react';
 import {
   useFunds, useFund, useAssignToFund, useCreateFund, useCategories, useTags, useUpdateFund,
   useGenerateFundPayments,
 } from '../hooks/useTransactions';
-import { api, type FundListItem, type FundMovement, type Transaction } from '../services/api';
+import {
+  api,
+  type FundCiclo, type FundCicloModo, type FundListItem, type FundMovement, type Transaction,
+} from '../services/api';
 import { createPayment } from '../services/interpolated';
 import FundFlattenChart from '../components/FundFlattenChart';
 
@@ -25,6 +28,7 @@ export interface FlattenPayment {
   start: string; // income date
   end: string;   // expense date
   amount: number;
+  ciclo_id: string | null;
 }
 
 export interface FlattenResult {
@@ -42,22 +46,52 @@ export interface FlattenResult {
 const LARGE_INCOME_FRAC = 0.4;
 
 /**
- * PREVIEW ONLY (no data changes): flatten the running balance using the
- * fixed-payment approach. Matching runs in two passes:
+ * PREVIEW ONLY (no data changes): aplana el saldo con el enfoque de pagos fijos.
  *
- *  1. Forward: each "large" income (a monthly allowance) opens a coverage window that
- *     runs until the NEXT large income; small incomes inside the window are pooled into
- *     its credit rather than closing it. The window's credit covers the expenses inside
- *     it (partially covering the straddling expense), producing a POSITIVE offset over
- *     [income_date, expense_date) — this flattens the upward spike of money sitting in
- *     the fund before being spent.
- *  2. Backward: any expense still uncovered was paid before its money arrived, so it is
- *     matched against the earliest LATER income with credit left, producing a NEGATIVE
- *     offset over [expense_date, income_date) — this flattens the downward dip.
+ * La unidad de cobertura es la **ventana**, y hay dos formas de obtenerla:
  *
- * Subtracting the offset from the raw balance cancels matched income/expense in both
- * directions, leaving only excess / savings.
+ * - **Con ciclos** (`ciclo: 'mensual'`): la ventana es el ciclo, con sus fronteras
+ *   guardadas. Nada cruza de un ciclo al siguiente, así que el sobrante de un mes no
+ *   puede acabar pagando el mes siguiente. Un mes sin ingreso se queda sin cubrir y se
+ *   ve el bajón real, que es lo que de verdad pasó.
+ * - **Sin ciclos** (`ciclo: 'ingreso'`, el default): cada ingreso "grande" abre una
+ *   ventana que dura hasta el siguiente ingreso grande, y los pequeños se acumulan como
+ *   crédito en vez de cerrarla. Es una heurística para adivinar dónde acaba un período
+ *   cuando nadie lo ha dicho — y **no tiene tope temporal**: si nunca llega otro ingreso
+ *   grande, la ventana se estira hasta el final de los datos. Ese es exactamente el
+ *   goteo que los ciclos vienen a cortar.
+ *
+ * Dentro de una ventana, en los dos casos, el reparto va en dos pases:
+ *
+ *  1. Hacia adelante: el crédito de un ingreso cubre los gastos posteriores, con un
+ *     offset POSITIVO sobre [ingreso, gasto) — aplana el pico del dinero parado.
+ *  2. Hacia atrás: el gasto que quedó sin cubrir se pagó antes de que llegara su dinero,
+ *     así que se empareja con un ingreso posterior, con offset NEGATIVO sobre
+ *     [gasto, ingreso) — aplana el hundimiento.
+ *
+ * Restar el offset del saldo crudo cancela lo emparejado en las dos direcciones y deja
+ * solo el exceso o el ahorro.
  */
+/**
+ * Los índices agrupados por ciclo, en orden, o `null` si el fondo no usa ciclos.
+ *
+ * Se agrupa por `ciclo_id` y no por tramos contiguos de índice a propósito: hoy los ciclos
+ * son contiguos en el tiempo y los movimientos vienen ordenados por fecha, así que las dos
+ * cosas coinciden — pero en cuanto una etiqueta pueda mandar un ingreso a otro ciclo, el
+ * grupo dejará de ser un tramo y esto seguirá funcionando igual.
+ */
+function agruparPorCiclo(movs: FundMovement[]): number[][] | null {
+  if (!movs.some(m => m.ciclo_id)) return null;
+  const grupos = new Map<string, number[]>();
+  movs.forEach((m, i) => {
+    if (!m.ciclo_id) return;   // fuera de todo ciclo: sin cobertura, se ve el bajón real
+    const actual = grupos.get(m.ciclo_id);
+    if (actual) actual.push(i);
+    else grupos.set(m.ciclo_id, [i]);
+  });
+  return [...grupos.values()];
+}
+
 function computeFlatten(movs: FundMovement[]): FlattenResult {
   const expenseRemaining = movs.map(m => (m.amount < 0 ? -m.amount : 0));
   const incomeRemaining = movs.map(m => (m.amount > 0 ? m.amount : 0));
@@ -69,65 +103,112 @@ function computeFlatten(movs: FundMovement[]): FlattenResult {
 
   const addPayment = (startIdx: number, endIdx: number, amount: number) => {
     internal.push({ startIdx, endIdx, amount });
-    payments.push({ start: movs[startIdx].date, end: movs[endIdx].date, amount });
+    payments.push({
+      start: movs[startIdx].date,
+      end: movs[endIdx].date,
+      amount,
+      // El ciclo del gasto: es el período al que se le imputa la cobertura, aunque el
+      // dinero haya entrado en otra fecha.
+      ciclo_id: movs[amount >= 0 ? endIdx : startIdx].ciclo_id,
+    });
   };
 
-  // --- Pass 1: an income covers later expenses (upward spikes) ---
-  let i = 0;
-  while (i < movs.length) {
-    if (movs[i].amount <= 0) { i++; continue; }
-    // Open a window on this income. Its own amount anchors the "large" threshold, so
-    // subsequent tiny incomes don't reset the window; only a comparably large income
-    // (>= LARGE_INCOME_FRAC of the anchor) ends it. Small ones are pooled as credit.
-    const groupStart = i;
-    const anchor = movs[i].amount;
-    const members = [i]; // income indices whose credit this window pools
-    let remaining = anchor;
-    i++;
-    while (i < movs.length) {
-      const amt = movs[i].amount;
-      if (amt > 0) {
-        if (amt >= LARGE_INCOME_FRAC * anchor) break; // large income -> new window
-        remaining += amt;                             // small income -> pool as credit
-        members.push(i);
-      }
-      i++;
-    }
-    const windowEnd = i; // index of the next large income, or movs.length
+  const ciclos = agruparPorCiclo(movs);
 
-    for (let k = groupStart + 1; k < windowEnd && remaining > 0; k++) {
-      if (movs[k].amount < 0 && expenseRemaining[k] > 0) {
-        const cover = round2(Math.min(remaining, expenseRemaining[k]));
-        remaining = round2(remaining - cover);
-        expenseRemaining[k] = round2(expenseRemaining[k] - cover);
-        // Draw the credit down from the pooled incomes (FIFO), emitting one payment per
-        // chunk: each starts at the date of the income that actually funded it, so a
-        // chunk coming from a pooled small income doesn't offset the days before it
-        // arrived. Pass 2 then only sees credit that is genuinely left over.
-        let left = cover;
-        for (const m of members) {
-          if (left <= 0) break;
-          const take = round2(Math.min(left, incomeRemaining[m]));
-          if (take <= 0) continue;
-          addPayment(m, k, take);
-          incomeRemaining[m] = round2(incomeRemaining[m] - take);
-          left = round2(left - take);
+  if (ciclos) {
+    // --- Con ciclos: la cobertura no cruza la frontera ---
+    //
+    // Aquí no hace falta la heurística del "ingreso grande": existía solo para adivinar
+    // dónde acababa un período, y el ciclo ya lo dice. Todo el ingreso del ciclo es un
+    // único crédito, y se reparte primero entre los gastos posteriores a cada ingreso
+    // (pase 1) y luego entre los que se adelantaron a su dinero (pase 2).
+    for (const indices of ciclos) {
+      for (const k of indices) {
+        if (movs[k].amount >= 0 || expenseRemaining[k] <= 0) continue;
+        for (const m of indices) {
+          if (m >= k) break;                     // solo ingresos que ya habían llegado
+          if (expenseRemaining[k] <= 0) break;
+          if (incomeRemaining[m] <= 0) continue;
+          const cover = round2(Math.min(expenseRemaining[k], incomeRemaining[m]));
+          addPayment(m, k, cover);
+          incomeRemaining[m] = round2(incomeRemaining[m] - cover);
+          expenseRemaining[k] = round2(expenseRemaining[k] - cover);
+        }
+      }
+      for (const k of indices) {
+        if (expenseRemaining[k] <= 0) continue;
+        for (const j of indices) {
+          if (j <= k) continue;
+          if (expenseRemaining[k] <= 0) break;
+          if (incomeRemaining[j] <= 0) continue;
+          const cover = round2(Math.min(expenseRemaining[k], incomeRemaining[j]));
+          // Negativo: el saldo crudo está ABAJO durante [gasto, ingreso), así que el
+          // pago tiene que restar para que `raw - offset` vuelva al nivel.
+          addPayment(k, j, -cover);
+          expenseRemaining[k] = round2(expenseRemaining[k] - cover);
+          incomeRemaining[j] = round2(incomeRemaining[j] - cover);
         }
       }
     }
-  }
+  } else {
+    // --- Sin ciclos: el emparejamiento secuencial de siempre ---
+    // Pass 1: an income covers later expenses (upward spikes)
+    let i = 0;
+    while (i < movs.length) {
+      if (movs[i].amount <= 0) { i++; continue; }
+      // Open a window on this income. Its own amount anchors the "large" threshold, so
+      // subsequent tiny incomes don't reset the window; only a comparably large income
+      // (>= LARGE_INCOME_FRAC of the anchor) ends it. Small ones are pooled as credit.
+      const groupStart = i;
+      const anchor = movs[i].amount;
+      const members = [i]; // income indices whose credit this window pools
+      let remaining = anchor;
+      i++;
+      while (i < movs.length) {
+        const amt = movs[i].amount;
+        if (amt > 0) {
+          if (amt >= LARGE_INCOME_FRAC * anchor) break; // large income -> new window
+          remaining += amt;                             // small income -> pool as credit
+          members.push(i);
+        }
+        i++;
+      }
+      const windowEnd = i; // index of the next large income, or movs.length
 
-  // --- Pass 2: expenses paid ahead of their income (downward dips) ---
-  for (let k = 0; k < movs.length; k++) {
-    if (expenseRemaining[k] <= 0) continue;
-    for (let j = k + 1; j < movs.length && expenseRemaining[k] > 0; j++) {
-      if (incomeRemaining[j] <= 0) continue;
-      const cover = round2(Math.min(expenseRemaining[k], incomeRemaining[j]));
-      // Negative offset: the raw balance is DOWN by `cover` over [expense, income),
-      // so the payment must be negative for `raw - offset` to come back to level.
-      addPayment(k, j, -cover);
-      expenseRemaining[k] = round2(expenseRemaining[k] - cover);
-      incomeRemaining[j] = round2(incomeRemaining[j] - cover);
+      for (let k = groupStart + 1; k < windowEnd && remaining > 0; k++) {
+        if (movs[k].amount < 0 && expenseRemaining[k] > 0) {
+          const cover = round2(Math.min(remaining, expenseRemaining[k]));
+          remaining = round2(remaining - cover);
+          expenseRemaining[k] = round2(expenseRemaining[k] - cover);
+          // Draw the credit down from the pooled incomes (FIFO), emitting one payment per
+          // chunk: each starts at the date of the income that actually funded it, so a
+          // chunk coming from a pooled small income doesn't offset the days before it
+          // arrived. Pass 2 then only sees credit that is genuinely left over.
+          let left = cover;
+          for (const m of members) {
+            if (left <= 0) break;
+            const take = round2(Math.min(left, incomeRemaining[m]));
+            if (take <= 0) continue;
+            addPayment(m, k, take);
+            incomeRemaining[m] = round2(incomeRemaining[m] - take);
+            left = round2(left - take);
+          }
+        }
+      }
+    }
+
+    // Pass 2: expenses paid ahead of their income (downward dips)
+    for (let k = 0; k < movs.length; k++) {
+      if (expenseRemaining[k] <= 0) continue;
+      for (let j = k + 1; j < movs.length && expenseRemaining[k] > 0; j++) {
+        if (incomeRemaining[j] <= 0) continue;
+        const cover = round2(Math.min(expenseRemaining[k], incomeRemaining[j]));
+        // Negative offset: the raw balance is DOWN by `cover` over [expense, income),
+        // so the payment must be negative for `raw - offset` to come back to level.
+        addPayment(k, j, -cover);
+        expenseRemaining[k] = round2(expenseRemaining[k] - cover);
+        incomeRemaining[j] = round2(incomeRemaining[j] - cover);
+      }
     }
   }
 
@@ -377,7 +458,9 @@ function FundTracking({ fund }: { fund: import('../services/api').FundDetail }) 
     if (flat.payments.length === 0) return;
     generateMutation.mutate({
       fundId: fund.id,
-      payments: flat.payments.map(p => ({ start: p.start, end: p.end, amount: p.amount })),
+      payments: flat.payments.map(p => ({
+        start: p.start, end: p.end, amount: p.amount, ciclo_id: p.ciclo_id,
+      })),
     });
   };
 
@@ -407,6 +490,8 @@ function FundTracking({ fund }: { fund: import('../services/api').FundDetail }) 
           tone={s.projection?.status === 'deficit' ? 'rose' : 'primary'}
         />
       </div>
+
+      {fund.ciclos.length > 0 && <CiclosPanel ciclos={fund.ciclos} />}
 
       {/* Flattened chart + line toggles + payments list (client-side, no data changes) */}
       {flat.dates.length > 0 ? (
@@ -508,6 +593,110 @@ function FundTracking({ fund }: { fund: import('../services/api').FundDetail }) 
       </div>
 
       {showManual && <ManualMovementModal fundId={fund.id} onClose={() => setShowManual(false)} />}
+    </div>
+  );
+}
+
+/** El último día que el ciclo incluye. `fin` es exclusivo, y enseñárselo a un humano
+ *  como si fuera el final haría que cada mes pareciera acabar un día tarde. */
+function ultimoDia(fin: string): string {
+  const d = new Date(`${fin}T00:00:00`);
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().substring(0, 10);
+}
+
+function CiclosPanel({ ciclos }: { ciclos: FundCiclo[] }) {
+  const [abierto, setAbierto] = useState(true);
+  // Del más reciente al más antiguo: lo que se mira es el mes en curso.
+  const recientes = useMemo(() => [...ciclos].reverse(), [ciclos]);
+  const secos = recientes.filter(c => c.credito === 0 && c.gasto > 0).length;
+
+  return (
+    <div className="bg-surface-900/40 border border-white/10 rounded-2xl overflow-hidden">
+      <button
+        onClick={() => setAbierto(a => !a)}
+        className="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-white/[0.02] transition-colors"
+      >
+        <h3 className="text-sm font-bold text-white flex items-center gap-2">
+          <CalendarRange size={15} className="text-primary-400" />
+          Ciclos ({ciclos.length})
+        </h3>
+        <div className="flex items-center gap-2">
+          {secos > 0 && (
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-500/10 text-rose-300">
+              {secos} sin ingreso
+            </span>
+          )}
+          <ChevronDown
+            size={16}
+            className={`text-surface-500 transition-transform ${abierto ? 'rotate-180' : ''}`}
+          />
+        </div>
+      </button>
+
+      {abierto && (
+        <div className="border-t border-white/5 divide-y divide-white/5 max-h-72 overflow-y-auto custom-scrollbar">
+          {recientes.map(c => <CicloRow key={c.id} c={c} />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CicloRow({ c }: { c: FundCiclo }) {
+  // Un ciclo sin ingreso es el síntoma que trajo todo esto: antes se tapaba con el
+  // sobrante del mes anterior y no se veía. Ahora se dice.
+  const seco = c.credito === 0 && c.gasto > 0;
+
+  return (
+    <div className="flex items-center gap-3 px-4 py-2.5">
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-mono text-[12px] text-surface-200">
+            {c.inicio} <span className="text-surface-600">→</span> {ultimoDia(c.fin)}
+          </span>
+          {c.en_curso && (
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-primary-500/10 text-primary-300 uppercase tracking-wide">
+              en curso
+            </span>
+          )}
+          {seco && (
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-300 uppercase tracking-wide">
+              sin ingreso
+            </span>
+          )}
+        </div>
+        {c.nota && <span className="text-[11px] text-surface-500">{c.nota}</span>}
+      </div>
+
+      <div className="flex items-center gap-4 shrink-0 text-right">
+        <div>
+          <div className="text-[9px] text-surface-600 uppercase tracking-wider font-bold">Entró</div>
+          <div className="font-mono text-[12px] text-emerald-400">${fmt(c.credito)}</div>
+        </div>
+        <div>
+          <div className="text-[9px] text-surface-600 uppercase tracking-wider font-bold">Gastó</div>
+          <div className="font-mono text-[12px] text-rose-400">${fmt(c.gasto)}</div>
+        </div>
+        <div className="w-24">
+          {c.sin_cubrir > 0 ? (
+            <>
+              <div className="text-[9px] text-surface-600 uppercase tracking-wider font-bold">Sin cubrir</div>
+              <div className="font-mono text-[12px] font-bold text-amber-300">${fmt(c.sin_cubrir)}</div>
+            </>
+          ) : c.sobrante > 0 ? (
+            <>
+              <div className="text-[9px] text-surface-600 uppercase tracking-wider font-bold">Sobra</div>
+              <div className="font-mono text-[12px] font-bold text-emerald-300">${fmt(c.sobrante)}</div>
+            </>
+          ) : (
+            <>
+              <div className="text-[9px] text-surface-600 uppercase tracking-wider font-bold">Cuadrado</div>
+              <div className="font-mono text-[12px] text-surface-500">—</div>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -801,6 +990,8 @@ function EditFundModal({ fund, onClose }: { fund: import('../services/api').Fund
   const [description, setDescription] = useState(fund.description || '');
   const [fechaInicio, setFechaInicio] = useState(fund.fecha_inicio_auto ? '' : (fund.fecha_inicio || ''));
   const [tag, setTag] = useState(fund.tag_vinculado || '');
+  const [ciclo, setCiclo] = useState<FundCicloModo>(fund.ciclo);
+  const [diaCorte, setDiaCorte] = useState(String(fund.dia_corte_default || 1));
   const { data: tags } = useTags();
   const updateMutation = useUpdateFund();
 
@@ -813,6 +1004,8 @@ function EditFundModal({ fund, onClose }: { fund: import('../services/api').Fund
         description: description.trim(),
         fecha_inicio: fechaInicio || null,
         tag_vinculado: tag || null,
+        ciclo,
+        dia_corte_default: Number(diaCorte) || 1,
       },
     });
     onClose();
@@ -835,6 +1028,10 @@ function EditFundModal({ fund, onClose }: { fund: import('../services/api').Fund
           {(tags ?? []).map(t => <option key={t} value={t}>{t}</option>)}
         </select>
       </Field>
+      <CicloFields
+        ciclo={ciclo} setCiclo={setCiclo}
+        diaCorte={diaCorte} setDiaCorte={setDiaCorte}
+      />
       <ModalActions onClose={onClose} onSubmit={submit} loading={updateMutation.isPending} disabled={!name.trim()} submitLabel="Guardar cambios" />
     </ModalShell>
   );
@@ -845,6 +1042,8 @@ function CreateFundModal({ onClose }: { onClose: () => void }) {
   const [description, setDescription] = useState('');
   const [fechaInicio, setFechaInicio] = useState('');
   const [tag, setTag] = useState('');
+  const [ciclo, setCiclo] = useState<FundCicloModo>('ingreso');
+  const [diaCorte, setDiaCorte] = useState('1');
   const { data: tags } = useTags();
   const createMutation = useCreateFund();
 
@@ -855,6 +1054,8 @@ function CreateFundModal({ onClose }: { onClose: () => void }) {
       description: description.trim() || undefined,
       fecha_inicio: fechaInicio || null,
       tag_vinculado: tag || null,
+      ciclo,
+      dia_corte_default: ciclo === 'mensual' ? (Number(diaCorte) || 1) : null,
     });
     onClose();
   };
@@ -876,6 +1077,10 @@ function CreateFundModal({ onClose }: { onClose: () => void }) {
       <Field label="Fecha de inicio (opcional — si la dejas vacía, se usa el primer movimiento)">
         <input type="date" value={fechaInicio} onChange={e => setFechaInicio(e.target.value)} className={inputCls} />
       </Field>
+      <CicloFields
+        ciclo={ciclo} setCiclo={setCiclo}
+        diaCorte={diaCorte} setDiaCorte={setDiaCorte}
+      />
       <ModalActions onClose={onClose} onSubmit={submit} loading={createMutation.isPending} disabled={!name.trim()} submitLabel="Crear fondo" />
     </ModalShell>
   );
@@ -928,6 +1133,43 @@ function ManualMovementModal({ fundId, onClose }: { fundId: string; onClose: () 
       </p>
       <ModalActions onClose={onClose} onSubmit={submit} loading={loading} disabled={!amount} submitLabel="Guardar" />
     </ModalShell>
+  );
+}
+
+/** Los defaults de generación de ciclos. Cambiarlos no reinterpreta el pasado: los ciclos
+ *  ya escritos llevan sus fronteras guardadas y solo se tocan moviéndolas a mano. */
+function CicloFields({ ciclo, setCiclo, diaCorte, setDiaCorte }: {
+  ciclo: FundCicloModo; setCiclo: (v: FundCicloModo) => void;
+  diaCorte: string; setDiaCorte: (v: string) => void;
+}) {
+  return (
+    <>
+      <Field label="Ciclo">
+        <select
+          value={ciclo}
+          onChange={e => setCiclo(e.target.value as FundCicloModo)}
+          className={inputCls}
+        >
+          <option value="ingreso">Por ingreso — cada ingreso abre su ventana (como antes)</option>
+          <option value="mensual">Mensual — la cobertura no cruza de un mes al siguiente</option>
+          <option value="ninguno">Ninguno — sin emparejamiento automático</option>
+        </select>
+      </Field>
+      {ciclo === 'mensual' && (
+        <Field label="Día de corte para los ciclos nuevos (1–31)">
+          <input
+            type="number" min={1} max={31}
+            value={diaCorte}
+            onChange={e => setDiaCorte(e.target.value)}
+            className={inputCls}
+          />
+          <p className="text-[11px] text-surface-500 mt-1.5">
+            Solo afecta a los ciclos que aún no existen. Los que ya están guardan sus
+            propias fronteras, así que cambiar esto no toca el pasado.
+          </p>
+        </Field>
+      )}
+    </>
   );
 }
 

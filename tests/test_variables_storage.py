@@ -286,3 +286,64 @@ def test_read_csv_conserva_el_dtype_de_las_columnas_llenas(patched_storage, tmp_
     df = vs.read_csv(str(tmp_path / "pagos.csv"), vs.PAYMENT_COLUMNS)
     assert df["amount"].dtype != object, "sin huecos no hay por qué perder el dtype"
     assert df["amount"].sum() == 300.0
+
+
+# ── Migración de esquema y ciclos ─────────────────────────────────────────────
+
+def test_asegurar_cabecera_migra_un_pagos_csv_viejo(patched_storage, tmp_path):
+    """Un `pagos.csv` con el esquema anterior gana las columnas nuevas al escribir.
+
+    Sin esto, `create_payment` —que anexa con `header=False`, o sea por posición— metería
+    una fila con un campo de más, el archivo quedaría dentado y `read_csv` devolvería un
+    DataFrame vacío tragándose la excepción: todos los pagos desaparecidos sin un error.
+    """
+    from contabilidad.backend.storage import variables_storage as vs
+
+    ruta = str(tmp_path / "pagos.csv")
+    grupo = patched_storage.create_group("Viejo", "desc", group_type="fixed")
+    with open(ruta, "w", encoding="utf-8") as f:
+        f.write("id,group_id,amount,start_date,end_date,note\n")
+        f.write(f"p-viejo,{grupo['id']},50.0,2025-01-01,2025-02-01,antiguo\n")
+
+    patched_storage.create_payment(grupo["id"], 75.0, "2025-03-01", "2025-04-01", note="nuevo")
+
+    pagos = patched_storage.get_payments(grupo["id"])
+    assert len(pagos) == 2, "el pago viejo tiene que seguir ahí"
+    assert {p["note"] for p in pagos} == {"antiguo", "nuevo"}
+    assert pd.read_csv(ruta, nrows=0).columns.tolist() == vs.PAYMENT_COLUMNS
+
+
+def test_asegurar_cabecera_no_toca_un_archivo_ya_migrado(patched_storage, tmp_path):
+    from contabilidad.backend.storage import variables_storage as vs
+
+    ruta = str(tmp_path / "pagos.csv")
+    grupo = patched_storage.create_group("Nuevo", "desc", group_type="fixed")
+    patched_storage.create_payment(grupo["id"], 10.0, "2025-01-01", "2025-02-01", note="a")
+    antes = open(ruta, encoding="utf-8").read()
+
+    vs.asegurar_cabecera(ruta, vs.PAYMENT_COLUMNS)
+    assert open(ruta, encoding="utf-8").read() == antes
+
+
+def test_ciclo_id_viaja_en_el_pago_generado(patched_storage):
+    grupo = patched_storage.create_group("Con ciclo", "desc", group_type="fixed")
+    patched_storage.create_payment(grupo["id"], 30.0, "2026-01-22", "2026-02-01",
+                                   note="Fondo X", ciclo_id="ciclo-abc")
+
+    pagos = patched_storage.get_payments(grupo["id"])
+    assert pagos[0]["ciclo_id"] == "ciclo-abc"
+
+
+def test_los_defaults_de_ciclo_del_grupo(patched_storage):
+    """Vacío = `ingreso`: un fondo que nadie ha migrado se comporta como antes."""
+    viejo = patched_storage.create_group("Sin migrar", "desc", group_type="fixed")
+    assert viejo["ciclo"] == "ingreso"
+    assert viejo["dia_corte_default"] == 1
+
+    nuevo = patched_storage.create_group("Mensual", "desc", group_type="fixed",
+                                         ciclo="mensual", dia_corte_default=22)
+    assert nuevo["ciclo"] == "mensual"
+    assert nuevo["dia_corte_default"] == 22
+
+    leido = patched_storage.get_group(nuevo["id"])
+    assert leido["ciclo"] == "mensual" and leido["dia_corte_default"] == 22
