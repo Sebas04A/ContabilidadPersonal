@@ -347,3 +347,80 @@ def preview_payment(req: PreviewPaymentRequest):
     except Exception as e:
         logger.error("Error al previsualizar pago: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+class EditarCruceRequest(BaseModel):
+    # Deudas que salen del cruce. Vacío o ausente = deshacer el cruce entero.
+    excluir: Optional[List[str]] = None
+    # Clave del cliente: reintentar el guardado no repite la edición.
+    idem_key: Optional[str] = None
+
+
+def _respuesta_edicion(res: dict) -> dict:
+    """
+    El resultado de `editar_cruce` con lo que la pantalla necesita de cada deuda: cuánto
+    se cruzaba, cuánto se cruza ahora y con cuánto queda de verdad (el saldo a favor de
+    quien pagó puede cubrir lo que se reabre).
+    """
+    estado = res.get('estado') or {}
+    por_id = {str(d.get('id')): d for d in (estado.get('deudas') or [])}
+    items = []
+    for it in res.get('items') or []:
+        d = por_id.get(str(it.get('deuda_id'))) or {}
+        items.append({
+            'deuda_id': str(it.get('deuda_id')),
+            'titulo': it.get('titulo') or '—',
+            'fecha_gasto': it.get('fecha_gasto'),
+            'es_tu_deuda': it.get('lado') == 'tu_debes',
+            'excluida': bool(it.get('excluida')),
+            'antes': float(it.get('antes') or 0),
+            'despues': float(it.get('despues') or 0),
+            'saldo_real': float(d.get('saldo_real') or 0),
+            'abono_saldo_favor': float(d.get('abono_saldo_favor') or 0),
+        })
+    resumen = estado.get('resumen') or {}
+    return {
+        'cruce_id': str(res.get('cruce_id')),
+        'monto_antes': float(res.get('monto_antes') or 0),
+        'monto_despues': float(res.get('monto_despues') or 0),
+        'eliminado': bool(res.get('eliminado')),
+        'simulado': bool(res.get('simulado')),
+        'repetido': bool(res.get('repetido')),
+        'neto': float(resumen.get('neto') or 0),
+        'cruce_disponible': float((estado.get('cruce_sugerido') or {}).get('monto') or 0),
+        'items': items,
+    }
+
+
+def _editar_cruce(cruce_id: str, req: EditarCruceRequest, simular: bool) -> dict:
+    from postgrest.exceptions import APIError
+    from contabilidad.debts.escritura import editar_cruce
+
+    try:
+        res = editar_cruce(cruce_id, excluir=req.excluir or None, simular=simular,
+                           idem_key=None if simular else (req.idem_key or None)) or {}
+    except APIError as e:
+        # Las validaciones del RPC (no es el último, deuda ajena…) son errores del pedido.
+        if e.code == 'P0001':
+            raise HTTPException(status_code=400, detail=e.message)
+        logger.error("Error al editar cruce %s: %s", cruce_id, e)
+        raise HTTPException(status_code=500, detail=e.message or str(e))
+    except Exception as e:
+        logger.error("Error al editar cruce %s: %s", cruce_id, e)
+        raise HTTPException(status_code=500, detail=str(e))
+    return _respuesta_edicion(res)
+
+
+@router.post("/cruces/{cruce_id}/editar/preview")
+def preview_editar_cruce(cruce_id: str, req: EditarCruceRequest):
+    """Cómo quedaría el cruce sin esas deudas. No escribe nada."""
+    return _editar_cruce(cruce_id, req, simular=True)
+
+
+@router.post("/cruces/{cruce_id}/editar")
+def editar_cruce(cruce_id: str, req: EditarCruceRequest):
+    """Saca deudas del cruce de la última operación (o lo deshace entero). El pago real
+    no se toca; las deudas reabiertas se vuelven a cruzar en el siguiente pago."""
+    out = _editar_cruce(cruce_id, req, simular=False)
+    _invalidar_deudas()
+    return out

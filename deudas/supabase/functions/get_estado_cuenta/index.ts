@@ -84,6 +84,8 @@ serve(async (req: any) => {
                 abono_saldo_favor: d.abono_saldo_favor,
                 es_tu_deuda: d.es_tu_deuda,
                 fecha_gasto: d.fecha_gasto,
+                // Desempate del FIFO a igual fecha: la vista previa de la app lo necesita.
+                creado: d.creado,
                 cruce_sugerido: d.cruce_sugerido,
                 ...(pagoPlaneado ? { pago_planeado: pagoDe(d) } : {}),
             }))

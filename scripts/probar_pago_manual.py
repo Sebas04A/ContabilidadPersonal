@@ -180,6 +180,25 @@ def main():
         check("reintentar no duplica", r2["repetido"] is True)
         check("siguen siendo tres pagos", contar_pagos(deudor_id) == 3, contar_pagos(deudor_id))
 
+        print("\n── a igual fecha se paga primero la que se registró antes ──")
+        # Los ids van al revés a propósito: con el desempate viejo (por id) ganaría Helado.
+        almuerzo = "ffffffff-" + deudor_id[9:]
+        helado = "00000000-" + deudor_id[9:]
+        insertar("deudas", [
+            {"id": almuerzo, "deudor_id": deudor_id, "titulo": "Almuerzo", "monto": 10,
+             "fecha_gasto": "2025-12-31", "es_mi_deuda": True,
+             "created_at": "2026-01-01T08:00:00+00:00"},
+            {"id": helado, "deudor_id": deudor_id, "titulo": "Helado", "monto": 10,
+             "fecha_gasto": "2025-12-31", "es_mi_deuda": True,
+             "created_at": "2026-01-01T20:00:00+00:00"},
+        ])
+        r = rpc("registrar_pago", {"p_deudor_id": deudor_id, "p_monto": 12, "p_es_mi_pago": True,
+                                   "p_fecha": "2026-01-11", "p_idem_key": str(uuid.uuid4())})
+        check("Almuerzo (registrado antes) queda saldado",
+              cerca(deuda(r["estado"], almuerzo)["saldo_real"], 0), deuda(r["estado"], almuerzo))
+        check("Helado (el más nuevo) queda a medias en $8",
+              cerca(deuda(r["estado"], helado)["saldo_real"], 8), deuda(r["estado"], helado))
+
     except (urllib.error.HTTPError, RuntimeError) as e:
         detalle = e.read().decode()[:400] if isinstance(e, urllib.error.HTTPError) else str(e)[:400]
         print(f"\n✗ {detalle}")

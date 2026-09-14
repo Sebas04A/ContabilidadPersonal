@@ -113,17 +113,111 @@ def _operaciones_de_pago(out_pagos: list) -> dict:
     return grupos
 
 
-def _rango_evento(e) -> int:
+def _cruce_editable(out_pagos: list) -> Optional[str]:
     """
-    Desempate final cuando ni la fecha ni `created_at` distinguen dos eventos.
+    El `cruce_id` del cruce que `editar_cruce` acepta: el de la última operación del
+    deudor. Misma regla que el RPC: ningún pago ajeno al cruce registrado más de 5 s
+    después de él (el pago que lo disparó comparte instante; los cruces viejos de la app
+    llegaban con milisegundos de diferencia).
+    """
+    def instante(p):
+        try:
+            return datetime.fromisoformat(p['creado'].replace('Z', '+00:00'))
+        except (ValueError, AttributeError):
+            return None
 
-    Un pago que cruza escribe los dos pagos virtuales y el pago físico en la MISMA
-    transacción, y `NOW()` es el instante de la transacción: los tres comparten
-    `created_at`. El orden real es deuda → cruce → pago físico.
+    cruces = [p for p in out_pagos if p['es_compensacion'] and p['cruce_id'] and instante(p)]
+    if not cruces:
+        return None
+    ultimo = max(cruces, key=instante)
+    cruce_id = ultimo['cruce_id']
+    creado = max(instante(p) for p in cruces if p['cruce_id'] == cruce_id)
+    for p in out_pagos:
+        t = instante(p)
+        if p['cruce_id'] != cruce_id and t and (t - creado).total_seconds() > 5:
+            return None
+    return cruce_id
+
+
+def _secuencia_del_saldo(out_deudas: list, out_pagos: list, eventos: list):
     """
-    if e['tipo'] == 'deuda':
-        return 0
-    return 1 if e.get('es_compensacion') else 2
+    Ordena el ledger (pasado → presente) y le pone a cada movimiento su `saldo_acumulado`.
+
+    El saldo avanza deuda por deuda hasta que se paga:
+
+      * Las operaciones de pago (el pago físico y su cruce, que se escriben juntos) van en
+        orden cronológico, y cada una lleva justo antes las deudas que tocó por PRIMERA vez,
+        enteras: las que saldó y las que abonó a medias. Así el saldo tras un pago que dejó
+        algo a medias no es 0 sino lo que falta.
+      * Lo que ningún pago ha tocado va al final, después de todos los pagos.
+
+    Así una deuda nueva —aunque tenga fecha anterior a un pago ya hecho— solo mueve el
+    saldo de lo pendiente, nunca el que quedó tras ese pago. Una deuda que un pago posterior
+    termina de saldar ya estaba contada: ese pago no la vuelve a sumar.
+
+    Cada deuda aporta exactamente su monto, una vez, y cada pago su `delta`, así que el
+    último saldo sigue siendo el neto del ledger.
+
+    Devuelve (eventos ordenados, pago_id → posición de su operación).
+    """
+    ev_deuda = {e['id']: e for e in eventos if e['tipo'] == 'deuda'}
+    ev_pago = {e['id']: e for e in eventos if e['tipo'] == 'pago'}
+    deuda_por_id = {d['id']: d for d in out_deudas}
+    clave_deuda = _clave_fifo(out_deudas)
+    signo = lambda did: -1 if deuda_por_id[did]['es_tu_deuda'] else 1
+
+    grupos = _operaciones_de_pago(out_pagos)
+    ops: dict = {}
+    for p in out_pagos:
+        ops.setdefault(grupos[p['id']], []).append(p)
+
+    def _orden_op(ps):
+        fisicos = [p for p in ps if not p['es_compensacion']] or ps
+        return (min(p['fecha_pago'] or '' for p in fisicos), min(p['creado'] for p in ps))
+
+    colocada: set = set()
+    pos_op: dict = {}
+    salida: list = []
+    saldo = 0.0
+
+    def _colocar(did):
+        nonlocal saldo
+        saldo = round(saldo + signo(did) * deuda_por_id[did]['monto_original'], 2)
+        ev = ev_deuda[did]
+        ev['saldo_acumulado'] = saldo
+        salida.append(ev)
+        colocada.add(did)
+
+    for n, ps in enumerate(sorted(ops.values(), key=_orden_op)):
+        tocadas = set()
+        for p in ps:
+            pos_op[p['id']] = n
+            tocadas.update(a['deuda_id'] for a in p['deudas'] if a['deuda_id'] in deuda_por_id)
+
+        for did in sorted(tocadas - colocada, key=clave_deuda):
+            _colocar(did)
+
+        # El cruce antes que el pago físico: comparten `created_at`.
+        for p in sorted(ps, key=lambda x: (x['creado'], 0 if x['es_compensacion'] else 1)):
+            ev = ev_pago[p['id']]
+            saldo = round(saldo + ev['delta'], 2)
+            ev['saldo_acumulado'] = saldo
+            salida.append(ev)
+
+    for did in sorted((d for d in deuda_por_id if d not in colocada), key=clave_deuda):
+        _colocar(did)
+
+    return salida, pos_op
+
+
+def _clave_fifo(out_deudas: list):
+    """
+    El orden en que se pagan y se cruzan las deudas: la más antigua primero por fecha y, a
+    igual fecha, la que se registró antes (`created_at`). Así, si el dinero no alcanza, la
+    que queda a medias es la más nueva. Mismo orden que `estado_cuenta` en Postgres.
+    """
+    por_id = {d['id']: d for d in out_deudas}
+    return lambda did: ((por_id[did]['fecha_gasto'] or ''), por_id[did]['creado'], did)
 
 
 def _cruce_sugerido(out_deudas: list) -> dict:
@@ -136,10 +230,9 @@ def _cruce_sugerido(out_deudas: list) -> dict:
     reciente, igual que hace la app al aplicar el cruce.
     """
     vivas = [d for d in out_deudas if d['saldo_real'] > 0.01]
-    lado = {False: sorted((d for d in vivas if not d['es_tu_deuda']),
-                          key=lambda d: d['fecha_gasto'] or ''),
-            True: sorted((d for d in vivas if d['es_tu_deuda']),
-                         key=lambda d: d['fecha_gasto'] or '')}
+    fifo = _clave_fifo(out_deudas)
+    lado = {False: sorted((d for d in vivas if not d['es_tu_deuda']), key=lambda d: fifo(d['id'])),
+            True: sorted((d for d in vivas if d['es_tu_deuda']), key=lambda d: fifo(d['id']))}
 
     monto = round(min(sum(d['saldo_real'] for d in lado[False]),
                       sum(d['saldo_real'] for d in lado[True])), 2)
@@ -243,6 +336,7 @@ def _colapsar_cruces(eventos: list, cruce_items: dict) -> list:
             'delta': 0.0, 'saldo_acumulado': saldo,
             'monto_cruzado': max(tot_te_deben, tot_tu_debes),
             'pago_ids': [eventos[i]['id'] for i in idxs],
+            'cruce_id': eventos[idxs[0]].get('cruce_id'),
             'lados': {
                 'te_deben': {'total': tot_te_deben, 'items': te_deben},
                 'tu_debes': {'total': tot_tu_debes, 'items': tu_debes},
@@ -350,8 +444,9 @@ def _construir_flujo_cuenta(deudas_raw: list, pagos_raw: list, detalles: list) -
     credito = {True: favor_owner, False: favor_debtor}
     for d in out_deudas:
         d['abono_saldo_favor'] = 0.0
+    fifo = _clave_fifo(out_deudas)
     for d in sorted((x for x in out_deudas if x['saldo_pendiente'] > 0.01),
-                    key=lambda x: x['fecha_gasto'] or ''):
+                    key=lambda x: fifo(x['id'])):
         disponible = credito[d['es_tu_deuda']]
         if disponible <= 0.01:
             continue
@@ -403,50 +498,7 @@ def _construir_flujo_cuenta(deudas_raw: list, pagos_raw: list, detalles: list) -
             'detalle': [{'deuda_id': a['deuda_id'], 'titulo': a['titulo'],
                          'monto': a['monto_asignado']} for a in p['deudas']],
         })
-    # Las deudas mandan el orden: van por su fecha, y `created_at` desempata dentro del
-    # día (la fecha es DATE, así que una tarde entera de deudas empata).
-    orden_deudas = sorted(out_deudas, key=lambda d: ((d['fecha_gasto'] or ''), d['creado']))
-    pos_deuda = {d['id']: i for i, d in enumerate(orden_deudas)}
-
-    # Un pago NO va por su propia fecha: va justo DESPUÉS de la última deuda que pagó o
-    # cruzó, que es donde se entiende su efecto. Pagar mañana lo de ayer se lee como el
-    # cierre de ayer, no como un evento suelto al final del historial.
-    ancla = {}
-    for p in out_pagos:
-        tocadas = [pos_deuda[a['deuda_id']] for a in p['deudas'] if a['deuda_id'] in pos_deuda]
-        if tocadas:
-            ancla[p['id']] = max(tocadas)
-        else:
-            # No abonó a ninguna deuda (quedó entero como saldo a favor): entonces sí
-            # manda su fecha, después de todo lo que ya existía ese día.
-            ancla[p['id']] = max([pos_deuda[d['id']] for d in out_deudas
-                                  if (d['fecha_gasto'] or '') <= (p['fecha_pago'] or '')]
-                                 or [-1])
-
-    # El cruce y su pago físico son una sola operación: se mueven juntos, al ancla del más
-    # nuevo de los dos. Si no, el cruce se quedaría anclado a deudas viejas y el bloque
-    # "cruce + pago" se partiría en dos puntos del historial.
-    grupos = _operaciones_de_pago(out_pagos)
-    ancla_grupo: dict = {}
-    for pid, clave in grupos.items():
-        ancla_grupo[clave] = max(ancla_grupo.get(clave, -1), ancla[pid])
-    for pid, clave in grupos.items():
-        ancla[pid] = ancla_grupo[clave]
-
-    def _clave(e):
-        if e['tipo'] == 'deuda':
-            return (pos_deuda[e['id']], 0, '', '', 0)
-        # Empatados en ancla, el pago más viejo primero; y dentro de una operación, el
-        # cruce antes del pago físico (comparten `created_at`).
-        return (ancla[e['id']], 1, e['fecha'] or '', e.get('orden') or '', _rango_evento(e))
-
-    # Saldo acumulado: se acumula en este mismo orden, así el saldo que muestra cada fila
-    # es el que había justo después de ese movimiento tal como se lee en pantalla.
-    eventos.sort(key=_clave)
-    saldo = 0.0
-    for e in eventos:
-        saldo = round(saldo + e['delta'], 2)
-        e['saldo_acumulado'] = saldo
+    eventos, pos_op = _secuencia_del_saldo(out_deudas, out_pagos, eventos)
 
     # --- Qué le pasó a cada deuda en cada pago (y cuáles quedaron parciales) ---
     # Recorriendo los pagos cronológicamente y acumulando lo abonado por deuda, cada pago
@@ -463,8 +515,7 @@ def _construir_flujo_cuenta(deudas_raw: list, pagos_raw: list, detalles: list) -
     items_by_pago: dict = {}
     # Dentro del mismo día los cruces van primero: así los crea la app (`compensarDeudas`
     # corre antes de registrar el pago físico), y así se ven los saldos que cruzaron.
-    for p in sorted(out_pagos, key=lambda x: (ancla[x['id']], x['fecha_pago'] or '',
-                                              x['creado'],
+    for p in sorted(out_pagos, key=lambda x: (pos_op[x['id']], x['creado'],
                                               0 if x['es_compensacion'] else 1)):
         # Un pago puede tocar la misma deuda en varios detalles: se suman.
         agrupado: dict = {}
@@ -509,6 +560,10 @@ def _construir_flujo_cuenta(deudas_raw: list, pagos_raw: list, detalles: list) -
 
     # Los dos pagos virtuales de un cruce se muestran como un solo movimiento de dos lados.
     eventos = _colapsar_cruces(eventos, items_by_pago)
+    editable = _cruce_editable(out_pagos)
+    for e in eventos:
+        if e['tipo'] == 'cruce':
+            e['editable'] = bool(editable) and e.get('cruce_id') == editable
 
     # --- Orden de presentación: presente→pasado (cronológico descendente) ---
     # El pago tiene fecha posterior a las deudas que abonó, así que queda ARRIBA

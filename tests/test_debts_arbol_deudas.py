@@ -294,13 +294,67 @@ def test_el_pago_de_manana_se_coloca_entre_las_deudas_de_ayer():
     ]
 
 
-def test_un_pago_sin_deudas_se_coloca_por_su_fecha():
-    """Si no abonó a nada (quedó como saldo a favor) no hay ancla: manda su fecha."""
+def test_lo_pendiente_va_despues_de_todos_los_pagos():
+    """Una deuda sin pagar no se mete antes de un pago, aunque su fecha sea anterior."""
     deudas = [_deuda("ayer", 10.0, False, fecha=HOY),
               _deuda("hoy", 8.0, False, fecha=MANANA)]
-    est = _construir_flujo_cuenta(deudas, [_pago("suelto", 3.0, False, fecha=HOY)], [])
-    assert [m['concepto'] for m in est['movimientos']] == ['hoy', 'Pago recibido', 'ayer']
+    est = _construir_flujo_cuenta(deudas, [_pago("suelto", 3.0, False, fecha=MANANA)], [])
+    assert [m['concepto'] for m in est['movimientos']] == ['hoy', 'ayer', 'Pago recibido']
     assert est['resumen']['saldo_favor'] == pytest.approx(0.0)  # se abona a las pendientes
+
+
+def test_una_deuda_vieja_nueva_no_mueve_el_saldo_de_un_pago_hecho():
+    """El saldo tras un pago solo cuenta lo que ese pago (y los anteriores) saldaron."""
+    deudas = [_deuda("cena", 20.0, False, fecha=HOY, ts="09:00:00")]
+    pagos = [_pago("pago", 20.0, False, fecha=MANANA, ts="10:00:00")]
+    det = [_det("pago", "cena", 20.0)]
+
+    def saldo_del_pago(est):
+        return next(m for m in est['movimientos'] if m['tipo'] == 'pago')['saldo_acumulado']
+
+    antes = _construir_flujo_cuenta(deudas, pagos, det)
+    # Se registra después una deuda con fecha ANTERIOR al pago, que el pago no tocó.
+    vieja = _deuda("taxi", 7.0, False, fecha=HOY, ts="08:00:00")
+    luego = _construir_flujo_cuenta(deudas + [vieja], pagos, det)
+
+    assert saldo_del_pago(antes) == pytest.approx(0.0)
+    assert saldo_del_pago(luego) == pytest.approx(0.0)
+    assert luego['movimientos'][0]['concepto'] == 'taxi'
+    assert luego['movimientos'][0]['saldo_acumulado'] == pytest.approx(7.0)
+
+
+def test_una_deuda_abonada_a_medias_entra_entera_con_su_pago():
+    """El saldo tras el pago es lo que falta de la parcial, no 0."""
+    deudas = [_deuda("mc", 2.47, False, fecha=HOY, ts="09:00:00"),
+              _deuda("cristo", 31.29, False, fecha=HOY, ts="10:00:00"),
+              _deuda("taxi", 4.0, False, fecha=HOY, ts="08:00:00")]
+    pagos = [_pago("pago1", 25.06, False, fecha=MANANA, ts="10:00:00"),
+             _pago("pago2", 8.70, False, fecha=MANANA, ts="11:00:00")]
+    det = [_det("pago1", "mc", 2.47), _det("pago1", "cristo", 22.59),
+           _det("pago2", "cristo", 8.70)]
+
+    est = _construir_flujo_cuenta(deudas, pagos, det)
+    # Presente→pasado: taxi (sin tocar), el pago que cerró cristo (no la vuelve a sumar),
+    # y el primer pago con las dos deudas que tocó, cristo incluida.
+    assert [(m['concepto'], m['saldo_acumulado']) for m in est['movimientos']] == [
+        ('taxi', pytest.approx(4.0)),
+        ('Pago recibido', pytest.approx(0.0)),
+        ('Pago recibido', pytest.approx(8.70)),
+        ('cristo', pytest.approx(33.76)),
+        ('mc', pytest.approx(2.47)),
+    ]
+    assert est['resumen']['neto'] == pytest.approx(4.0)
+
+
+def test_a_igual_fecha_primero_la_que_se_registro_antes():
+    """El cruce sugerido usa la más antigua por fecha y, empatadas, la registrada antes."""
+    deudas = [_deuda("zz_vieja", 10.0, False, fecha=HOY, ts="08:00:00"),
+              _deuda("aa_nueva", 10.0, False, fecha=HOY, ts="20:00:00"),
+              _deuda("mia", 10.0, True, fecha=HOY, ts="09:00:00")]
+    est = _construir_flujo_cuenta(deudas, [], [])
+    cruce = {d['titulo']: d['cruce_sugerido'] for d in est['deudas']}
+    assert cruce['zz_vieja'] == pytest.approx(10.0)
+    assert cruce['aa_nueva'] == pytest.approx(0.0)
 
 
 def test_dos_cruces_del_mismo_dia_no_se_funden():

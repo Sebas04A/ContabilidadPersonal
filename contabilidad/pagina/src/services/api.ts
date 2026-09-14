@@ -341,6 +341,41 @@ export interface EstadoCuentaMovimiento {
   };
   /** Pago físico del mismo día que disparó el cruce, si lo hubo. */
   pago_vinculado?: { id: string; concepto: string; monto_total: number; fecha: string | null } | null;
+  /** Los dos pagos virtuales del cruce comparten este id. */
+  cruce_id?: string | null;
+  /** Es el cruce de la última operación: se le pueden sacar deudas. */
+  editable?: boolean;
+}
+
+/** Una deuda del cruce en la vista previa (o el resultado) de editarlo. */
+export interface EdicionCruceItem {
+  deuda_id: string;
+  titulo: string;
+  fecha_gasto: string | null;
+  es_tu_deuda: boolean;
+  excluida: boolean;
+  /** Lo que el cruce le aplicaba. */
+  antes: number;
+  /** Lo que le aplica tras la edición. */
+  despues: number;
+  /** Con cuánto queda la deuda de verdad. */
+  saldo_real: number;
+  /** De lo que se reabre, cuánto vuelve a cubrir el saldo a favor. */
+  abono_saldo_favor: number;
+}
+
+export interface EdicionCruce {
+  cruce_id: string;
+  monto_antes: number;
+  monto_despues: number;
+  /** El cruce quedó en $0 y se borró. */
+  eliminado: boolean;
+  simulado: boolean;
+  repetido: boolean;
+  neto: number;
+  /** Lo que queda por cruzar: se aplica en el siguiente pago. */
+  cruce_disponible: number;
+  items: EdicionCruceItem[];
 }
 
 /** Cruce que todavía se puede aplicar. Derivado: no está escrito en ningún lado. */
@@ -596,6 +631,18 @@ export const api = {
 
   getEstadoCuenta: async (deudorId: string): Promise<EstadoCuenta> => {
     const res = await axios.get(`${API_BASE}/supabase-debts/estado-cuenta`, { params: { deudor_id: deudorId } });
+    return res.data;
+  },
+
+  /** Cómo quedaría el cruce sin esas deudas. No escribe nada. */
+  previewEditarCruce: async (cruceId: string, excluir: string[]): Promise<EdicionCruce> => {
+    const res = await axios.post(`${API_BASE}/supabase-debts/cruces/${cruceId}/editar/preview`, { excluir });
+    return res.data;
+  },
+
+  /** Saca deudas del cruce de la última operación; el pago real no se toca. */
+  editarCruce: async (cruceId: string, excluir: string[], idemKey: string): Promise<EdicionCruce> => {
+    const res = await axios.post(`${API_BASE}/supabase-debts/cruces/${cruceId}/editar`, { excluir, idem_key: idemKey });
     return res.data;
   },
 

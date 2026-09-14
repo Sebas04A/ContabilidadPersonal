@@ -216,6 +216,27 @@ def previsualizar_pago(
     }).execute().data
 
 
+def editar_cruce(
+    cruce_id: str,
+    excluir: Optional[List[str]] = None,
+    simular: bool = False,
+    idem_key: Optional[str] = None,
+) -> Dict:
+    """
+    Saca deudas del cruce de la última operación con el RPC `editar_cruce`.
+
+    Sin `excluir` deshace el cruce entero. El pago real no se toca: solo se recortan los
+    dos pagos virtuales para que el cruce siga cuadrando. Con `simular` no escribe y
+    devuelve el estado tal como quedaría.
+    """
+    return supabase.rpc('editar_cruce', {
+        'p_cruce_id': cruce_id,
+        'p_excluir': excluir,
+        'p_simular': bool(simular),
+        'p_idem_key': idem_key,
+    }).execute().data
+
+
 def eliminar_deuda(deuda_id: str) -> bool:
     response = supabase.table('deudas').delete().eq('id', deuda_id).execute()
     return True

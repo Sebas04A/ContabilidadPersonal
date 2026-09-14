@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import {
   X, Search, Users, Calendar, ArrowDownLeft, ArrowUpRight,
   CheckCircle2, Clock, Scale, Coins, TrendingUp, AlertTriangle, RefreshCw,
-  ChevronDown, ChevronRight,
+  ChevronDown, ChevronRight, Pencil,
 } from 'lucide-react';
 import { useDeudores, useEstadoCuenta } from '../hooks/useTransactions';
+import { EditarCruceModal } from './EditarCruceModal';
 import type { SupabaseDeudor, EstadoCuentaDeuda, EstadoCuentaPago, EstadoCuentaMovimiento, MovimientoItem, CruceSugerido } from '../services/api';
 
 const fmt = (n: number) =>
@@ -313,7 +314,7 @@ function FlowLedger({ movimientos, nombre }: { movimientos: EstadoCuentaMovimien
           ) : f.mov.tipo === 'cruce' ? (
             <div key={`cruce-${f.mov.id}-${i}`} className="relative">
               <TimelineDot tone="sky" />
-              <CruceCard m={f.mov} deudas={deudasDe(f.mov)} />
+              <CruceCard m={f.mov} nombre={nombre} deudas={deudasDe(f.mov)} />
             </div>
           ) : (
             <div key={`${f.mov.tipo}-${f.mov.id}-${i}`} className="relative">
@@ -386,7 +387,7 @@ function LiquidacionGroup({ pago, cruce, nombre, deudasPago, deudasCruce }: {
           antes de este pago
           <div className="h-px flex-1 bg-sky-500/20" />
         </div>
-        <CruceCard m={cruce} deudas={deudasCruce} />
+        <CruceCard m={cruce} nombre={nombre} deudas={deudasCruce} />
       </div>
     </div>
   );
@@ -538,8 +539,11 @@ function SaldoResultante({ saldo, label }: { saldo: number; label: string }) {
 }
 
 /* ── Cruce de cuentas: dos lados, colapsable ───────────────────────────── */
-function CruceCard({ m, deudas = [] }: { m: EstadoCuentaMovimiento; deudas?: DeudaAdjunta[] }) {
+function CruceCard({ m, nombre, deudas = [] }: {
+  m: EstadoCuentaMovimiento; nombre: string; deudas?: DeudaAdjunta[];
+}) {
   const [open, setOpen] = useState(false);
+  const [editando, setEditando] = useState(false);
   const teDeben = m.lados?.te_deben ?? { total: 0, items: [] };
   const tuDebes = m.lados?.tu_debes ?? { total: 0, items: [] };
   const items = m.items ?? [];
@@ -550,9 +554,10 @@ function CruceCard({ m, deudas = [] }: { m: EstadoCuentaMovimiento; deudas?: Deu
 
   return (
     <div className="rounded-xl bg-surface-900/40 border border-sky-500/25">
+      <div className="flex items-stretch">
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-full px-4 py-3 flex items-center justify-between gap-3 text-left hover:bg-white/[0.02] rounded-xl transition-colors"
+        className="flex-1 min-w-0 px-4 py-3 flex items-center justify-between gap-3 text-left hover:bg-white/[0.02] rounded-xl transition-colors"
       >
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="p-1.5 rounded-lg shrink-0 bg-sky-500/15 text-sky-300"><RefreshCw size={15} /></div>
@@ -583,6 +588,18 @@ function CruceCard({ m, deudas = [] }: { m: EstadoCuentaMovimiento; deudas?: Deu
           </div>
         </div>
       </button>
+      {/* Solo el cruce de la última operación: los anteriores ya tienen pagos encima. */}
+      {m.editable && m.cruce_id && (
+        <button
+          onClick={() => setEditando(true)}
+          title="Sacar deudas de este cruce"
+          className="shrink-0 my-2 mr-2 px-2.5 rounded-lg text-[11px] font-semibold text-sky-300 hover:text-white bg-sky-500/10 hover:bg-sky-500/25 border border-sky-500/25 flex items-center gap-1.5 transition-colors"
+        >
+          <Pencil size={12} />Editar
+        </button>
+      )}
+      </div>
+      {editando && <EditarCruceModal cruce={m} nombre={nombre} onClose={() => setEditando(false)} />}
 
       {/* Las deudas que este cruce compensó, colgadas debajo de él. */}
       {deudas.length > 0 && <DeudasLiquidadas deudas={deudas} tone="sky" />}

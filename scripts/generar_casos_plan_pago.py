@@ -44,8 +44,10 @@ def sembrar():
     for _ in range(random.randint(1, 9)):
         deudas.append({"id": str(uuid.uuid4()), "deudor_id": deudor, "titulo": "d",
                        "monto": cents(1, 90), "es_mi_deuda": random.random() < 0.5,
-                       # pocas fechas distintas: los empates los desempata el id
-                       "fecha_gasto": f"2026-01-0{random.randint(1, 4)}"})
+                       # pocas fechas distintas: los empates los desempata created_at
+                       # (con pocas horas, para que también empate a veces y decida el id)
+                       "fecha_gasto": f"2026-01-0{random.randint(1, 4)}",
+                       "created_at": f"2026-01-05T0{random.randint(1, 3)}:00:00+00:00"})
     for _ in range(random.randint(0, 3)):
         lado = random.random() < 0.5
         del_lado = [d for d in deudas if d["es_mi_deuda"] == lado]
@@ -126,7 +128,7 @@ def main():
             plan = json.loads(fila)
             visibles = {d["id"] for d in base}
             casos.append({
-                "deudas": [{"id": d["id"], "fecha_gasto": d["fecha_gasto"],
+                "deudas": [{"id": d["id"], "fecha_gasto": d["fecha_gasto"], "creado": d["creado"],
                             "es_tu_deuda": d["es_tu_deuda"],
                             "saldo_pendiente": d["saldo_pendiente"],
                             "monto_pagado": d["monto_pagado"],

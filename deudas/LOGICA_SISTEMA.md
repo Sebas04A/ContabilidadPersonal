@@ -102,11 +102,42 @@ los detalles leyendo ese mismo cálculo. La edge `get_estado_cuenta` lo expone c
 Verificación: `scripts/probar_pago_manual.py` (escenarios) y el fixture de paridad de la
 app (`scripts/generar_casos_plan_pago.py`).
 
+### 3.2.2. Editar el cruce de la última operación
+El cruce se aplica solo al registrar un pago, y a veces cruza deudas que uno quería dejar
+pendientes todavía. `editar_cruce(p_cruce_id, p_excluir, p_simular, p_idem_key)` las saca:
+
+1. **El pago real no se toca.** Solo cambian los dos pagos virtuales del cruce y sus detalles.
+2. **El cruce se recorta para que cuadre.** Sin las deudas excluidas, el cruce nuevo es lo
+   que quede en el lado más chico; el lado más grande se recorta desde la deuda más
+   reciente. Nunca se agregan deudas que no estaban en el cruce. `p_excluir = NULL`
+   deshace el cruce entero; si queda en $0, los dos pagos virtuales se borran.
+3. **Solo el cruce de la última operación**: ningún pago ajeno al cruce registrado más de
+   5 s después (una operación posterior se calculó encima de él).
+4. Como el cruce se deriva del estado, lo que se saca vuelve al cruce sugerido y **se cruza
+   en el siguiente pago**.
+
+> Cruce de $15. Tu lado: Cena $15. Su lado: Taxi $10 + Uber $5.
+> Sacas Uber: su lado queda en $10, el cruce baja a $10 (Cena $10 con Taxi $10).
+> Quedan pendientes Uber $5 y $5 de Cena. El neto no cambia.
+
+Ojo: si quien pagó tiene saldo a favor, ese crédito abona solo sus deudas pendientes, así
+que una deuda reabierta puede seguir viéndose saldada. La vista previa lo avisa.
+
+`p_simular` hace lo mismo dentro de un subbloque que se revierte y devuelve el estado tal
+como quedaría: vista previa y escritura son el mismo código. Cada edición real queda en la
+tabla `cruces_editados` (antes y después: basta para restaurarla a mano), que además da la
+idempotencia por `idem_key`. Web: botón «Editar» en el cruce del estado de cuenta. App:
+icono en el detalle del deudor (solo con conexión y sin cambios pendientes de subir).
+Verificación: `scripts/probar_editar_cruce.py [--replica]`.
+
 ### 3.3. Sincronización en la App (`SyncService`)
 Cada objeto (`Deuda`, `Pago`, etc.) tiene una bandera `synced`.
 - Cuando creas un objeto y estás desconectado, se guarda en el celular con `synced = false`.
 - El servicio en segundo plano hace polling (o reacciona cundo vuelve el internet).
 - Lee los que tienen `synced = false`, hace un bulk insert/update (Hacia Supabase vía UPSERT), y si el servidor responde con 200 OK, la app los marca como `synced = true`.
+- Al bajar (`pullFromServer`, `refrescarDeudorDesdeServidor`) se **borran** los pagos y
+  detalles ya sincronizados que el servidor ya no tiene (un cruce editado o deshecho). Lo
+  que aún no se subió no se toca, y si una tabla llega al tope de 1000 filas no se poda.
 
 ---
 
