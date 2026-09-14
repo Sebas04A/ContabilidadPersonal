@@ -18,6 +18,42 @@ const fecha = (s: string | null) => {
   return new Date(normalized).toLocaleDateString('es-EC', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
+/**
+ * Lo más nuevo arriba, como el resto del timeline: leyendo de abajo hacia arriba se ve la
+ * deuda más antigua primero. `orden` (created_at) desempata dentro del mismo día.
+ */
+const porAntiguedad = (a: EstadoCuentaMovimiento, b: EstadoCuentaMovimiento) =>
+  (b.fecha ?? '').localeCompare(a.fecha ?? '') || (b.orden ?? '').localeCompare(a.orden ?? '');
+
+/**
+ * Ordena (lo nuevo arriba) y le pone a cada deuda la suma de ella y las más antiguas de la
+ * MISMA lista. El `saldo_acumulado` del backend es el de toda la cuenta y mete deudas que
+ * aquí no aparecen, así que dentro de un grupo no cuadraba.
+ */
+function conAcumulado(movs: EstadoCuentaMovimiento[], monto: (m: EstadoCuentaMovimiento) => number) {
+  const ordenadas = [...movs].sort(porAntiguedad);
+  let saldo = ordenadas.reduce((s, m) => s + monto(m), 0);
+  return ordenadas.map(m => {
+    const fila = { m, saldo };
+    saldo -= monto(m);
+    return fila;
+  });
+}
+
+const itemsPorAntiguedad =(items: MovimientoItem[]) =>
+  [...items].sort((a, b) => (b.fecha_gasto ?? '').localeCompare(a.fecha_gasto ?? ''));
+
+/** El saldo de la cuenta, teñido suave: verde si te deben, rojo si debes. */
+function SaldoChip({ saldo }: { saldo: number }) {
+  const alDia = Math.abs(saldo) < 0.01;
+  const tone = alDia ? 'text-surface-500' : saldo > 0 ? 'text-emerald-400/60' : 'text-rose-400/60';
+  return (
+    <div className={`text-[10px] flex items-center gap-1 justify-end ${tone}`}>
+      <TrendingUp size={9} /> saldo {saldo < -0.005 ? '−' : ''}${fmt(Math.abs(saldo))}
+    </div>
+  );
+}
+
 type Tab = 'flujo' | 'deudas' | 'pagos';
 
 export function AccountStatementModal({ onClose }: { onClose: () => void }) {
@@ -346,6 +382,7 @@ function PendientesBlock({ pendientes }: { pendientes: Pendiente[] }) {
   const falta = ({ mov, item }: Pendiente) =>
     item ? Math.max(0, item.saldo_despues - (item.abono_saldo_favor ?? 0)) : Math.abs(mov.delta);
   const total = pendientes.reduce((s, p) => s + falta(p), 0);
+  const porId = new Map(pendientes.map(p => [p.mov.id, p]));
 
   return (
     <div className="space-y-2.5">
@@ -353,10 +390,10 @@ function PendientesBlock({ pendientes }: { pendientes: Pendiente[] }) {
         tone="amber"
         texto={`sin pagar todavía · ${pendientes.length} deuda${pendientes.length === 1 ? '' : 's'} · $${fmt(total)}`}
       />
-      {pendientes.map(p => (
-        <div key={p.mov.id} className="relative">
-          <TimelineDot tone={p.mov.es_tu_deuda ? 'rose' : 'indigo'} />
-          <DeudaCard m={p.mov} abonado={Math.abs(p.mov.delta) - falta(p)} />
+      {conAcumulado(pendientes.map(p => p.mov), m => Math.sign(m.delta) * falta(porId.get(m.id)!)).map(({ m, saldo }) => (
+        <div key={m.id} className="relative">
+          <TimelineDot tone={m.es_tu_deuda ? 'rose' : 'indigo'} />
+          <DeudaCard m={m} abonado={Math.abs(m.delta) - falta(porId.get(m.id)!)} saldo={saldo} />
         </div>
       ))}
       <Separador texto="ya saldado" />
@@ -404,7 +441,8 @@ function DeudasLiquidadas({ deudas, tone }: { deudas: DeudaAdjunta[]; tone: 'eme
         tone={tone === 'sky' ? 'sky' : 'neutral'}
         texto={deudas.length === 1 ? 'saldó esta deuda' : `saldó estas ${deudas.length} deudas`}
       />
-      {deudas.map(({ mov }) => <DeudaCard key={mov.id} m={mov} />)}
+      {conAcumulado(deudas.map(d => d.mov), mov => mov.delta).map(({ m, saldo }) =>
+        <DeudaCard key={m.id} m={m} saldo={saldo} />)}
     </div>
   );
 }
@@ -583,9 +621,7 @@ function CruceCard({ m, nombre, deudas = [] }: {
         </div>
         <div className="text-right shrink-0">
           <div className="font-mono font-bold text-sm text-sky-300">${fmt(cruzado)}</div>
-          <div className="text-[10px] text-surface-500 flex items-center gap-1 justify-end">
-            <TrendingUp size={9} /> saldo ${fmt(Math.abs(m.saldo_acumulado))}
-          </div>
+          <SaldoChip saldo={m.saldo_acumulado} />
         </div>
       </button>
       {/* Solo el cruce de la última operación: los anteriores ya tienen pagos encima. */}
@@ -645,7 +681,7 @@ function CruceLado({ titulo, tone, total, items }: {
         <div className="text-[11px] text-surface-600 py-1">Sin deudas de este lado</div>
       ) : (
         <div className="space-y-1.5">
-          {items.map(it => it.cerrada
+          {itemsPorAntiguedad(items).map(it => it.cerrada
             ? <DeudaSaldadaRow key={it.deuda_id} it={it} tone={text} />
             : <DeudaParcialRow key={it.deuda_id} it={it} />)}
         </div>
@@ -663,7 +699,9 @@ function MovimientoCard({ m, nombre, deudas }: {
 }
 
 /** La deuda tal cual nació: el mismo formato que tenía suelta en la línea de tiempo. */
-function DeudaCard({ m, abonado }: { m: EstadoCuentaMovimiento; abonado?: number }) {
+function DeudaCard({ m, abonado, saldo = m.saldo_acumulado }: {
+  m: EstadoCuentaMovimiento; abonado?: number; saldo?: number;
+}) {
   const original = Math.abs(m.delta);
   // Una deuda a medio pagar es la misma tarjeta: solo se le añade lo que le falta.
   const parcial = (abonado ?? 0) > 0.01 && (abonado ?? 0) < original - 0.01;
@@ -704,9 +742,7 @@ function DeudaCard({ m, abonado }: { m: EstadoCuentaMovimiento; abonado?: number
               <div className={`font-mono font-bold text-sm ${m.delta >= 0 ? 'text-indigo-300' : 'text-emerald-300'}`}>
                 {m.delta >= 0 ? '+' : '−'}${fmt(original)}
               </div>
-              <div className="text-[10px] text-surface-500 flex items-center gap-1 justify-end">
-                <TrendingUp size={9} /> saldo ${fmt(m.saldo_acumulado)}
-              </div>
+              <SaldoChip saldo={saldo} />
             </>
           )}
         </div>
@@ -727,13 +763,12 @@ function DeudaCard({ m, abonado }: { m: EstadoCuentaMovimiento; abonado?: number
 function PagoCard({ m, nombre, deudas = [] }: {
   m: EstadoCuentaMovimiento; nombre: string; deudas?: DeudaAdjunta[];
 }) {
-  const [open, setOpen] = useState(false);
   const items = m.items ?? [];
   const saldadas = items.filter(cierra);
   // Las deudas colgadas ya se muestran enteras debajo; aquí solo queda lo que este pago
   // tocó sin cerrarlo (esas siguen vivas arriba) o lo que cerró otro movimiento.
   const colgadas = new Set(deudas.map(d => d.item.deuda_id));
-  const sueltos = items.filter(it => !colgadas.has(it.deuda_id));
+  const sueltos = itemsPorAntiguedad(items.filter(it => !colgadas.has(it.deuda_id)));
   const abiertas = items.length - saldadas.length;
   const sobrante = m.sobrante ?? 0;
   const entregado = !!m.es_mi_pago;
@@ -743,21 +778,13 @@ function PagoCard({ m, nombre, deudas = [] }: {
 
   return (
     <div className="rounded-xl bg-surface-900/40 border border-white/5">
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="w-full px-4 py-3 flex items-center justify-between gap-3 text-left hover:bg-white/[0.02] rounded-xl transition-colors"
-      >
+      <div className="w-full px-4 py-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className={`p-1.5 rounded-lg shrink-0 ${chip}`}>
             {entregado ? <ArrowUpRight size={15} /> : <ArrowDownLeft size={15} />}
           </div>
           <div className="min-w-0">
-            <div className="text-sm font-bold text-surface-100 flex items-center gap-1.5">
-              {m.concepto}
-              {items.length > 0 && (open
-                ? <ChevronDown size={13} className="text-surface-500" />
-                : <ChevronRight size={13} className="text-surface-500" />)}
-            </div>
+            <div className="text-sm font-bold text-surface-100">{m.concepto}</div>
             <div className="text-[11px] text-surface-500 flex items-center gap-2">
               <span className="flex items-center gap-1"><Calendar size={10} />{fecha(m.fecha)}</span>
               {saldadas.length > 0 && (
@@ -777,11 +804,31 @@ function PagoCard({ m, nombre, deudas = [] }: {
           <div className={`font-mono font-bold text-sm ${m.delta >= 0 ? 'text-indigo-300' : 'text-emerald-300'}`}>
             {m.delta >= 0 ? '+' : '−'}${fmt(Math.abs(m.delta))}
           </div>
-          <div className="text-[10px] text-surface-500 flex items-center gap-1 justify-end">
-            <TrendingUp size={9} /> saldo ${fmt(m.saldo_acumulado)}
+          <SaldoChip saldo={m.saldo_acumulado} />
+        </div>
+      </div>
+
+      {/* Lo abonado va primero y siempre a la vista: es el resumen de todo lo de abajo. */}
+      {items.length > 0 && (
+        <div className="px-4 pb-3">
+          <div className="rounded-lg bg-surface-950/40 border border-white/5 p-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-surface-400">
+                Abonó a {items.length} deuda{items.length === 1 ? '' : 's'}
+                {deudas.length > 0 && sueltos.length > 0 && ` · ${sueltos.length} de otro movimiento`}
+              </span>
+              <span className={`font-mono text-xs font-bold ${tone}`}>${fmt(asignado)}</span>
+            </div>
+            {sueltos.length > 0 && (
+              <div className="space-y-1.5 mt-2">
+                {sueltos.map(it => it.cerrada
+                  ? <DeudaSaldadaRow key={it.deuda_id} it={it} tone={tone} />
+                  : <DeudaParcialRow key={it.deuda_id} it={it} />)}
+              </div>
+            )}
           </div>
         </div>
-      </button>
+      )}
 
       {/* Lo que quedó a favor. Las deudas que no cerró viven arriba, en "Sin pagar todavía". */}
       {sobrante > 0.01 && (
@@ -792,30 +839,6 @@ function PagoCard({ m, nombre, deudas = [] }: {
 
       {/* Las deudas de este pago, siempre visibles justo debajo de él. */}
       {deudas.length > 0 && <DeudasLiquidadas deudas={deudas} tone="emerald" />}
-
-      {open && items.length > 0 && (
-        <div className="px-4 pb-3.5 pt-3 border-t border-white/5">
-          {sueltos.length > 0 && (
-            <div className="rounded-lg bg-surface-950/40 border border-white/5 p-2.5">
-              <div className="flex items-center justify-between gap-2 mb-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-surface-400">
-                  Abonó a {items.length} deuda{items.length === 1 ? '' : 's'}
-                  {deudas.length > 0 && ` · ${sueltos.length} de otro movimiento`}
-                </span>
-                <span className={`font-mono text-xs font-bold ${tone}`}>${fmt(asignado)}</span>
-              </div>
-              <div className="space-y-1.5">
-                {sueltos.map(it => it.cerrada
-                  ? <DeudaSaldadaRow key={it.deuda_id} it={it} tone={tone} />
-                  : <DeudaParcialRow key={it.deuda_id} it={it} />)}
-              </div>
-            </div>
-          )}
-          <div className="mt-3">
-            <SaldoResultante saldo={m.saldo_acumulado} label="Saldo después del pago" />
-          </div>
-        </div>
-      )}
     </div>
   );
 }
