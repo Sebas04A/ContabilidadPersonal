@@ -301,6 +301,38 @@ export interface NeutralizationPreview {
   };
 }
 
+export interface WorstDay {
+  fecha: string;
+  desvio: number;
+}
+
+export interface PortfolioRegenerationDetail {
+  portafolio: string;
+  portafolio_id: string;
+  grupo_id?: string;
+  pagos_ahora?: number;
+  pagos_nuevos?: number;
+  sin_cambios?: boolean;
+  dias?: number;
+  dias_que_cambian?: number;
+  max_desvio?: number;
+  peores_dias?: WorstDay[];
+  error?: string;
+}
+
+export interface RegenerationPreview {
+  fecha: string;
+  por_portafolio: PortfolioRegenerationDetail[];
+  sin_cambios: boolean;
+}
+
+export interface RegenerateResponse extends RegenerationPreview {
+  ok: boolean;
+  pagos_borrados?: number;
+  pagos_escritos?: number;
+  error?: string;
+}
+
 /** Serie diaria de una sola posición: cuánto capital había y cuánto interés llevaba corrido. */
 export interface GrowthSeries {
   fechas: string[];
@@ -651,6 +683,21 @@ export const investmentsApi = {
     omitidas: { posicion_id: string; motivo: string }[];
   }> => {
     const res = await axios.post(`${API_BASE}/detect/apply`, req);
+    return res.data;
+  },
+
+  // --- Regeneration of fixed payments ---
+  previewRegeneration: async (portafolioId?: string): Promise<RegenerationPreview> => {
+    const res = await axios.get(`${API_BASE}/cut/regenerate/preview`, {
+      params: portafolioId ? { portafolio_id: portafolioId } : undefined,
+    });
+    return res.data;
+  },
+
+  regeneratePayments: async (portafolioId?: string): Promise<RegenerateResponse> => {
+    const res = await axios.post(`${API_BASE}/cut/regenerate`, null, {
+      params: portafolioId ? { portafolio_id: portafolioId } : undefined,
+    });
     return res.data;
   },
 };

@@ -50,6 +50,13 @@ export function Investments() {
     queryFn: investmentsApi.getPortfolios,
   });
 
+  const { data: regPreview } = useQuery({
+    queryKey: ['inv-regeneration-preview'],
+    queryFn: () => investmentsApi.previewRegeneration(),
+  });
+
+  const hayPagosPendientes = regPreview && !regPreview.sin_cambios;
+
   return (
     <div className="flex flex-col h-full bg-surface-950 relative overflow-hidden">
       <div className="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
@@ -73,12 +80,18 @@ export function Investments() {
             <button
               key={id}
               onClick={() => setTab(id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all relative ${
                 tab === id ? 'bg-primary-600 text-white shadow-lg shadow-primary-600/20' : 'text-surface-400 hover:text-white hover:bg-white/5'
               }`}
             >
               <Icon size={15} />
-              {label}
+              <span>{label}</span>
+              {id === 'conciliacion' && hayPagosPendientes && (
+                <span
+                  className="w-2 h-2 rounded-full bg-amber-400 animate-pulse ml-0.5"
+                  title="Hay pagos desactualizados respecto a las posiciones"
+                />
+              )}
             </button>
           ))}
         </nav>

@@ -1,6 +1,16 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Check, GitBranch, RefreshCw, Scissors, Sparkles } from 'lucide-react';
+import {
+  AlertTriangle,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  GitBranch,
+  RefreshCw,
+  Scissors,
+  Sparkles,
+} from 'lucide-react';
 import {
   investmentsApi,
   type DetectedPosition,
@@ -16,10 +26,18 @@ import { Badge, EmptyState, Section, Spinner, money, pct } from './shared';
 export function ReconcileTab({ portfolios }: { portfolios: Portfolio[] }) {
   const queryClient = useQueryClient();
   const [asignaciones, setAsignaciones] = useState<Record<string, string>>({});
+  const [mensajeRegeneracion, setMensajeRegeneracion] = useState<string | null>(null);
+  const [errorRegeneracion, setErrorRegeneracion] = useState<string | null>(null);
+  const [mostrarDetalleReg, setMostrarDetalleReg] = useState(false);
 
   const { data: diff, isLoading, isFetching, refetch } = useQuery({
     queryKey: ['inv-detect'],
     queryFn: investmentsApi.detect,
+  });
+
+  const { data: regPreview } = useQuery({
+    queryKey: ['inv-regeneration-preview'],
+    queryFn: () => investmentsApi.previewRegeneration(),
   });
 
   const invalidar = () => {
@@ -28,12 +46,37 @@ export function ReconcileTab({ portfolios }: { portfolios: Portfolio[] }) {
     queryClient.invalidateQueries({ queryKey: ['inv-summary'] });
     queryClient.invalidateQueries({ queryKey: ['inv-timeline'] });
     queryClient.invalidateQueries({ queryKey: ['inv-portfolios'] });
+    queryClient.invalidateQueries({ queryKey: ['inv-regeneration-preview'] });
+    queryClient.invalidateQueries({ queryKey: ['dashboard'] });
   };
+
+  const regenerarMut = useMutation({
+    mutationFn: (portafolioId?: string) => investmentsApi.regeneratePayments(portafolioId),
+    onSuccess: (res) => {
+      invalidar();
+      setErrorRegeneracion(null);
+      const borrados = res.pagos_borrados ?? 0;
+      const escritos = res.pagos_escritos ?? 0;
+      setMensajeRegeneracion(
+        `Pagos fijos regenerados con éxito: ${borrados} pagos anteriores reemplazados por ${escritos} pagos actuales. El Dashboard y el patrimonio quedaron sincronizados.`
+      );
+      setTimeout(() => setMensajeRegeneracion(null), 9000);
+    },
+    onError: (err: any) => {
+      setErrorRegeneracion(err?.response?.data?.detail || err?.message || 'Error al regenerar los pagos.');
+      setTimeout(() => setErrorRegeneracion(null), 9000);
+    },
+  });
 
   const confirmar = useMutation({
     mutationFn: (req: Parameters<typeof investmentsApi.applyDetection>[0]) =>
       investmentsApi.applyDetection(req),
-    onSuccess: () => { setAsignaciones({}); invalidar(); },
+    onSuccess: () => {
+      setAsignaciones({});
+      invalidar();
+      // Regenerar automáticamente los pagos fijos tras confirmar posiciones
+      regenerarMut.mutate(undefined);
+    },
   });
 
   if (isLoading) return <Spinner />;
@@ -71,6 +114,152 @@ export function ReconcileTab({ portfolios }: { portfolios: Portfolio[] }) {
             Todo cuadra: las {resumen.detectadas} posiciones del extracto están guardadas y sin
             cancelaciones sueltas.
           </p>
+        </div>
+      )}
+
+      {/* Aviso / Feedback de regeneración exitosa */}
+      {mensajeRegeneracion && (
+        <div className="p-4 rounded-xl bg-emerald-500/[0.08] border border-emerald-500/25 flex items-center justify-between gap-3 text-xs text-emerald-200 animate-in fade-in duration-200">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
+            <span>{mensajeRegeneracion}</span>
+          </div>
+          <button
+            onClick={() => setMensajeRegeneracion(null)}
+            className="text-emerald-400/60 hover:text-emerald-300 font-bold px-1"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Error si algo falló */}
+      {errorRegeneracion && (
+        <div className="p-4 rounded-xl bg-rose-500/[0.08] border border-rose-500/25 flex items-center justify-between gap-3 text-xs text-rose-200 animate-in fade-in duration-200">
+          <div className="flex items-center gap-2.5">
+            <AlertTriangle size={16} className="text-rose-400 shrink-0" />
+            <span>{errorRegeneracion}</span>
+          </div>
+          <button
+            onClick={() => setErrorRegeneracion(null)}
+            className="text-rose-400/60 hover:text-rose-300 font-bold px-1"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Alerta de pagos desactualizados en el Dashboard */}
+      {regPreview && !regPreview.sin_cambios && (
+        <div className="p-5 rounded-2xl bg-amber-500/[0.07] border border-amber-500/25 shadow-lg relative overflow-hidden">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="flex items-start gap-3 max-w-2xl">
+              <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-300 shrink-0 mt-0.5">
+                <AlertTriangle size={18} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  Pagos fijos de inversión desactualizados en el Dashboard
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    Requiere regenerar
+                  </span>
+                </h3>
+                <p className="text-xs text-surface-300 mt-1 leading-relaxed">
+                  Las posiciones guardadas difieren de las cadenas de pagos fijos que lee el Dashboard.
+                  Regenerar actualizará los tramos en <code className="font-mono text-amber-200/90 text-[11px]">grupos.csv</code> sin tocar los extractos bancarios.
+                </p>
+
+                {/* Portafolios con cambios */}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {regPreview.por_portafolio
+                    .filter(p => !p.sin_cambios)
+                    .map(p => (
+                      <div
+                        key={p.portafolio_id}
+                        className="px-3 py-1.5 rounded-lg bg-surface-950/60 border border-amber-500/30 text-xs flex items-center gap-2"
+                      >
+                        <span className="font-bold text-white">{p.portafolio}:</span>
+                        <span className="text-surface-300">
+                          {p.pagos_ahora} → <span className="text-emerald-400 font-semibold">{p.pagos_nuevos}</span> pagos
+                        </span>
+                        <span className="text-surface-500 font-mono">·</span>
+                        <span className="text-amber-300 font-mono text-[11px]">
+                          {p.dias_que_cambian} días afectados
+                        </span>
+                        {p.max_desvio !== undefined && p.max_desvio > 0 && (
+                          <span className="text-surface-400 text-[11px]">
+                            (máx ±{money(p.max_desvio)})
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0 self-center">
+              <button
+                onClick={() => setMostrarDetalleReg(!mostrarDetalleReg)}
+                className="px-3 py-2 rounded-xl bg-surface-800 hover:bg-surface-700 text-surface-300 text-xs font-semibold flex items-center gap-1.5 transition-all"
+              >
+                {mostrarDetalleReg ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                {mostrarDetalleReg ? 'Ocultar detalle' : 'Ver detalle'}
+              </button>
+              <button
+                onClick={() => regenerarMut.mutate(undefined)}
+                disabled={regenerarMut.isPending}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-surface-950 font-bold text-xs shadow-lg shadow-amber-500/20 transition-all disabled:opacity-50"
+              >
+                <RefreshCw size={14} className={regenerarMut.isPending ? 'animate-spin' : ''} />
+                {regenerarMut.isPending ? 'Regenerando pagos...' : 'Regenerar pagos del Dashboard'}
+              </button>
+            </div>
+          </div>
+
+          {/* Detalle expandible */}
+          {mostrarDetalleReg && (
+            <div className="mt-4 pt-4 border-t border-white/[0.06] text-xs space-y-3 animate-in fade-in duration-150">
+              <h4 className="font-semibold text-surface-200">Días con mayor desvío detectados en la previa:</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto custom-scrollbar">
+                {regPreview.por_portafolio
+                  .filter(p => !p.sin_cambios && p.peores_dias && p.peores_dias.length > 0)
+                  .flatMap(p =>
+                    (p.peores_dias || []).map((dia, idx) => (
+                      <div
+                        key={`${p.portafolio_id}-${idx}`}
+                        className="bg-surface-950/70 border border-white/5 rounded-lg px-3 py-1.5 flex items-center justify-between text-[11px]"
+                      >
+                        <span className="text-surface-400 font-mono">{dia.fecha} ({p.portafolio})</span>
+                        <span className="font-mono text-amber-300 font-bold">±{money(dia.desvio)}</span>
+                      </div>
+                    ))
+                  )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Si los pagos ya están al día */}
+      {regPreview && regPreview.sin_cambios && !mensajeRegeneracion && (
+        <div className="px-4 py-2.5 rounded-xl bg-surface-900/40 border border-white/[0.05] flex items-center justify-between gap-3 text-xs text-surface-400 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Check size={14} className="text-emerald-400 shrink-0" />
+            <span>
+              Pagos fijos de inversión al día en el Dashboard{' '}
+              <span className="text-surface-500 font-mono">
+                ({regPreview.por_portafolio.map(p => `${p.portafolio}: ${p.pagos_ahora ?? 0}`).join(' · ')})
+              </span>
+            </span>
+          </div>
+          <button
+            onClick={() => regenerarMut.mutate(undefined)}
+            disabled={regenerarMut.isPending}
+            title="Reescribe los pagos fijos de forma idempotente en su sitio"
+            className="text-[11px] text-surface-400 hover:text-surface-200 underline transition-colors"
+          >
+            {regenerarMut.isPending ? 'Regenerando...' : 'Forzar regeneración'}
+          </button>
         </div>
       )}
 

@@ -362,3 +362,14 @@ def test_split_de_posicion_inexistente_da_404(storage_tmp):
         "partes": [{"capital": 1.0}, {"capital": 1.0}],
     })
     assert response.status_code == 404
+
+
+# ── /api/investments/cut/regenerate ──────────────────────────────────────────
+
+def test_regenerar_preview_endpoint(storage_tmp):
+    response = client.get("/api/investments/cut/regenerate/preview")
+    assert response.status_code == 200
+    data = response.json()
+    assert "sin_cambios" in data
+    assert "por_portafolio" in data
+
