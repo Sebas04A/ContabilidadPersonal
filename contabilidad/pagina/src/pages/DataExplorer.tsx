@@ -8,6 +8,11 @@ import {
   DebtSignFilterOption, DebtLinkFilterOption, DebtStatusFilterOption, DebtDirectionFilterOption,
   DebtPeopleModeOption, SIN_PERSONA, buildDebtLookup, applyDebtFilters, debtPerson, personKey, linkedDebtStatus
 } from '../utils/debtFilters';
+import {
+  ReimbursableFilterOption, PriorityFilterOption, TypeFilterOption, LabeledFilterOption, FixedFilterOption,
+  applyTransactionFilters, activeFundIds as fundIdsMarcados,
+} from '../utils/transactionFilters';
+import { FundFilterPanel, fundFilterLabel } from '../components/FundFilterPanel';
 
 import {
   Search, Tag, Filter, ArrowUpRight, ArrowDownRight, Calendar, Info, ChevronDown, ChevronUp, Check,
@@ -21,11 +26,6 @@ import { ExplorerExclusionsModal } from '../components/ExplorerExclusionsModal';
 
 export type SortByOption = 'date_desc' | 'date_asc' | 'amount_desc' | 'amount_asc';
 export type StructureFilterOption = 'all' | 'split' | 'grouped' | 'simple';
-export type ReimbursableFilterOption = 'all' | 'included' | 'excluded';
-export type PriorityFilterOption = 'all' | 'needs' | 'wants' | 'rated' | 'unrated';
-export type TypeFilterOption = 'all' | 'expenses' | 'income';
-export type LabeledFilterOption = 'all' | 'labeled' | 'unlabeled';
-export type FixedFilterOption = 'all' | 'fixed' | 'non_fixed';
 
 const EXPLORER_STORAGE_KEY = 'explorer_filter_settings';
 
@@ -183,136 +183,21 @@ export function DataExplorer() {
   const results = useMemo(() => {
     let list = rawTransactions;
 
-    // 1. Filtro de Categoría (incluye "Sin categoría")
-    if (categoryFilter === '__sin_categoria__') {
-      const isUncat = (c?: string) => !c || c.trim() === '' || c === '---';
-      list = list.filter(t => {
-        if (isUncat(t.categoria)) return true;
-        if (t.subTransactions && t.subTransactions.length > 0) {
-          return t.subTransactions.some(sub => isUncat(sub.categoria));
-        }
-        return false;
-      });
-    } else if (categoryFilter) {
-      list = list.filter(t => {
-        if (t.categoria === categoryFilter) return true;
-        if (t.subTransactions && t.subTransactions.length > 0) {
-          return t.subTransactions.some(sub => sub.categoria === categoryFilter);
-        }
-        return false;
-      });
-    }
-
-    // 2. Filtro de Tags (incluye "Sin tags / Sin etiquetas")
-    if (tagFilter === '__sin_tags__') {
-      const isUntagged = (tg?: string) => !tg || tg.trim() === '' || tg === '---';
-      list = list.filter(t => {
-        if (isUntagged(t.tags)) return true;
-        if (t.subTransactions && t.subTransactions.length > 0) {
-          return t.subTransactions.some(sub => isUntagged(sub.tags));
-        }
-        return false;
-      });
-    } else if (tagFilter) {
-      const tagLower = tagFilter.toLowerCase();
-      list = list.filter(t => {
-        const matchTag = (tagsStr?: string) => {
-          if (!tagsStr) return false;
-          return tagsStr.split(',').map(s => s.trim().toLowerCase()).includes(tagLower);
-        };
-        if (matchTag(t.tags)) return true;
-        if (t.subTransactions && t.subTransactions.length > 0) {
-          return t.subTransactions.some(sub => matchTag(sub.tags));
-        }
-        return false;
-      });
-    }
-
-    // 3. Filtro de Fuente (Banca/Tarjeta)
-    if (sourceTypeFilter) {
-      list = list.filter(t => (t.TIPO || '').toUpperCase() === sourceTypeFilter.toUpperCase());
-    }
-
-    // 4. Filtro de Reembolsables (estilo Presupuesto)
-    if (reimbursableFilter === 'included') {
-      list = list.filter(t => t.es_reembolsable);
-    } else if (reimbursableFilter === 'excluded') {
-      list = list.filter(t => !t.es_reembolsable);
-    }
-
-    // 5. Filtro de Prioridad (Necesidad / Deseo - estilo Presupuesto)
-    if (priorityFilter === 'needs') {
-      list = list.filter(t => t.MONTO >= 0 || t.prioridad === 'Necesidad');
-    } else if (priorityFilter === 'wants') {
-      list = list.filter(t => t.MONTO >= 0 || t.prioridad === 'Deseo');
-    } else if (priorityFilter === 'rated') {
-      list = list.filter(t => t.MONTO >= 0 || (t.prioridad === 'Necesidad' || t.prioridad === 'Deseo'));
-    } else if (priorityFilter === 'unrated') {
-      list = list.filter(t => t.MONTO < 0 && (!t.prioridad || t.prioridad === '---'));
-    }
-
-    // 6. Filtro de Estado de Etiquetado / Revisado
-    if (labeledFilter === 'unlabeled' || pendingOnlyFilter) {
-      list = list.filter(t => !t.revisado);
-    } else if (labeledFilter === 'labeled') {
-      list = list.filter(t => t.revisado);
-    }
-
-    // 7. Filtro de Tipo (Ingresos vs Gastos)
-    if (typeFilter === 'expenses') {
-      list = list.filter(t => t.MONTO < 0);
-    } else if (typeFilter === 'income') {
-      list = list.filter(t => t.MONTO > 0);
-    }
-
-    // 8. Filtro de Fondos (estilo Presupuesto)
-    if (selectedFunds !== null) {
-      list = list.filter(t => {
-        const f = matchFund(t, funds);
-        if (!f) return selectedFunds.includes('__sin_fondo__');
-        return selectedFunds.includes(f.id);
-      });
-    }
-
-    // 9. Filtro de Categorías Excluidas (estilo Presupuesto)
-    if (excludedCategories.length > 0) {
-      const isCatExcluded = (c?: string) => {
-        const catName = (!c || c.trim() === '' || c === '---') ? 'Sin Categoría' : c.trim();
-        return excludedCategories.includes(catName) || (catName === 'Sin Categoría' && excludedCategories.includes('__sin_categoria__'));
-      };
-
-      list = list.filter(t => {
-        if (t.subTransactions && t.subTransactions.length > 0) {
-          return t.subTransactions.some(sub => !isCatExcluded(sub.categoria));
-        }
-        return !isCatExcluded(t.categoria);
-      });
-    }
-
-    // 10. Filtro de Tags Excluidos (estilo Presupuesto)
-    if (excludedTags.length > 0) {
-      const areTagsExcluded = (tagsStr?: string) => {
-        const tTags = tagsStr ? tagsStr.split(',').map(tag => tag.trim()).filter(Boolean) : [];
-        if (tTags.length === 0) {
-          return excludedTags.includes('Sin Etiqueta') || excludedTags.includes('__sin_tags__');
-        }
-        return tTags.some(tg => excludedTags.includes(tg));
-      };
-
-      list = list.filter(t => {
-        if (t.subTransactions && t.subTransactions.length > 0) {
-          return t.subTransactions.some(sub => !areTagsExcluded(sub.tags));
-        }
-        return !areTagsExcluded(t.tags);
-      });
-    }
-
-    // 11. Filtro de Gastos Fijos (es_fijo)
-    if (fixedFilter === 'fixed') {
-      list = list.filter(t => t.es_fijo);
-    } else if (fixedFilter === 'non_fixed') {
-      list = list.filter(t => !t.es_fijo);
-    }
+    // 1-11. Categoría, tag, fuente, reembolsables, prioridad, revisado, tipo, fondos,
+    // exclusiones y gastos fijos: las mismas reglas que el presupuesto.
+    list = applyTransactionFilters(list, {
+      includedCategories: categoryFilter ? [categoryFilter] : [],
+      excludedCategories,
+      includedTags: tagFilter ? [tagFilter] : [],
+      excludedTags,
+      selectedFunds,
+      reimbursable: reimbursableFilter,
+      priority: priorityFilter,
+      labeled: pendingOnlyFilter ? 'unlabeled' : labeledFilter,
+      type: typeFilter,
+      fixed: fixedFilter,
+      sourceType: sourceTypeFilter,
+    }, funds);
 
     // 12. Filtros de Deudas (signo, persona, vínculo, estado de pago, dirección)
     list = applyDebtFilters(list, {
@@ -636,8 +521,7 @@ export function DataExplorer() {
     debtFiltersCount +
     totalExclusionsCount;
 
-  const fundList = funds || [];
-  const activeFundIds = selectedFunds ?? [...fundList.map(f => f.id), '__sin_fondo__'];
+  const activeFundIds = fundIdsMarcados(selectedFunds, funds);
 
   // Active filter chips list for visual badges and one-click removal
   const activeFilterChips = useMemo(() => {
@@ -1351,88 +1235,18 @@ export function DataExplorer() {
                     >
                       <div className="flex items-center gap-1.5 truncate">
                         <PiggyBank size={14} className={selectedFunds !== null ? 'text-teal-400' : 'text-surface-500'} />
-                        <span className="truncate">
-                          {selectedFunds === null
-                            ? 'Todos los fondos'
-                            : `Fondos (${activeFundIds.length}/${fundList.length + 1})`}
-                        </span>
+                        <span className="truncate">{fundFilterLabel(selectedFunds, funds)}</span>
                       </div>
                       <ChevronDown size={13} />
                     </button>
 
                     {showFundFilter && (
-                      <>
-                        <div className="fixed inset-0 z-30" onClick={() => setShowFundFilter(false)} />
-                        <div className="absolute z-40 mt-2 right-0 w-72 bg-surface-900 border border-white/10 rounded-2xl shadow-2xl p-3 backdrop-blur-xl space-y-2">
-                          <div className="flex justify-between items-center pb-2 border-b border-white/10">
-                            <span className="text-xs font-bold uppercase tracking-wider text-surface-300">Filtrar por fondo</span>
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => setSelectedFunds(null)}
-                                className="text-[11px] text-teal-400 hover:text-teal-300 font-semibold"
-                              >
-                                Todos
-                              </button>
-                              <span className="text-surface-600">|</span>
-                              <button
-                                onClick={() => setSelectedFunds([])}
-                                className="text-[11px] text-surface-400 hover:text-surface-200 font-semibold"
-                              >
-                                Ninguno
-                              </button>
-                            </div>
-                          </div>
-                          <div className="max-h-56 overflow-y-auto custom-scrollbar space-y-1">
-                            <button
-                              onClick={() => {
-                                const sinFondoMarcado = activeFundIds.includes('__sin_fondo__');
-                                const next = sinFondoMarcado
-                                  ? activeFundIds.filter(id => id !== '__sin_fondo__')
-                                  : [...activeFundIds, '__sin_fondo__'];
-                                setSelectedFunds(next);
-                              }}
-                              className={`w-full text-left text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-2 transition-colors border-b border-white/5 pb-2 mb-1 ${
-                                activeFundIds.includes('__sin_fondo__') ? 'bg-teal-500/10 text-teal-200 font-medium' : 'text-surface-400 hover:bg-white/5'
-                              }`}
-                            >
-                              <span className={`w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center ${
-                                activeFundIds.includes('__sin_fondo__') ? 'bg-teal-500 border-teal-500' : 'border-surface-600'
-                              }`}>
-                                {activeFundIds.includes('__sin_fondo__') && <Check size={10} className="text-surface-950" />}
-                              </span>
-                              <span className="truncate">⚪ Sin fondo asignado</span>
-                            </button>
-
-                            {fundList.length === 0 && (
-                              <p className="text-xs text-surface-500 italic py-2 text-center">No hay fondos configurados.</p>
-                            )}
-                            {fundList.map(f => {
-                              const marcado = activeFundIds.includes(f.id);
-                              return (
-                                <button
-                                  key={f.id}
-                                  onClick={() => {
-                                    const next = marcado
-                                      ? activeFundIds.filter(id => id !== f.id)
-                                      : [...activeFundIds, f.id];
-                                    setSelectedFunds(next);
-                                  }}
-                                  className={`w-full text-left text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-2 transition-colors ${
-                                    marcado ? 'bg-teal-500/10 text-teal-200 font-medium' : 'text-surface-400 hover:bg-white/5'
-                                  }`}
-                                >
-                                  <span className={`w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center ${
-                                    marcado ? 'bg-teal-500 border-teal-500' : 'border-surface-600'
-                                  }`}>
-                                    {marcado && <Check size={10} className="text-surface-950" />}
-                                  </span>
-                                  <span className="truncate">{f.name}</span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </>
+                      <FundFilterPanel
+                        funds={funds}
+                        selectedFunds={selectedFunds}
+                        onChange={setSelectedFunds}
+                        onClose={() => setShowFundFilter(false)}
+                      />
                     )}
                   </div>
                 </div>

@@ -5,7 +5,15 @@ import { Wallet, X, TrendingDown, Heart, Scale, Filter, BarChart3, List, PiggyBa
 
 import { groupSplits } from '../utils/groupSplits';
 import { matchFund } from '../utils/matchFund';
+import {
+  TransactionFilters, DEFAULT_TRANSACTION_FILTERS, SIN_CATEGORIA, SIN_ETIQUETA, SIN_FONDO,
+  applyTransactionFilters, cycleIncludeExclude,
+  LabeledFilterOption, ReimbursableFilterOption, PriorityFilterOption,
+} from '../utils/transactionFilters';
+import { money } from '../utils/format';
 import { useFunds } from '../hooks/useTransactions';
+import { usePersistentState } from '../hooks/usePersistentState';
+import { FundFilterPanel, fundFilterLabel } from '../components/FundFilterPanel';
 import { EditModal } from '../components/EditModal';
 import { BudgetTransactionRow } from '../components/budget/BudgetTransactionRow';
 
@@ -23,160 +31,53 @@ export function MonthlyBudget() {
   });
   const [budgetConfig, setBudgetConfig] = useState<BudgetConfig>({ tracked_tags: [] });
   const [allPeriodTransactions, setAllPeriodTransactions] = useState<Transaction[]>([]);
-  const [labeledFilter, setLabeledFilter] = useState<'all' | 'labeled' | 'unlabeled'>(() => {
-    const saved = localStorage.getItem('budget_labeledFilter');
-    return (saved as any) || 'all';
-  });
-  const [reimbursableFilter, setReimbursableFilter] = useState<'all' | 'included' | 'excluded'>(() => {
-    const saved = localStorage.getItem('budget_reimbursableFilter');
-    return (saved as any) || 'all';
-  });
-  const [priorityFilter, setPriorityFilter] = useState<'all' | 'needs' | 'wants' | 'rated'>(() => {
-    const saved = localStorage.getItem('budget_priorityFilter');
-    return (saved as any) || 'all';
-  });
+  const [labeledFilter, setLabeledFilter] = usePersistentState<LabeledFilterOption>('budget_labeledFilter', 'all');
+  const [reimbursableFilter, setReimbursableFilter] = usePersistentState<ReimbursableFilterOption>('budget_reimbursableFilter', 'all');
+  const [priorityFilter, setPriorityFilter] = usePersistentState<PriorityFilterOption>('budget_priorityFilter', 'all');
 
-  const [excludedCategories, setExcludedCategories] = useState<string[]>(() => {
-    const saved = localStorage.getItem('budget_excludedCategories');
-    try {
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
-  const [excludedTags, setExcludedTags] = useState<string[]>(() => {
-    const saved = localStorage.getItem('budget_excludedTags');
-    try {
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
-  // Inclusiones: si hay alguna, solo se muestran las transacciones que coinciden.
-  const [includedCategories, setIncludedCategories] = useState<string[]>(() => {
-    const saved = localStorage.getItem('budget_includedCategories');
-    try {
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
-  const [includedTags, setIncludedTags] = useState<string[]>(() => {
-    const saved = localStorage.getItem('budget_includedTags');
-    try {
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  // Categorías y etiquetas: inclusiones (solo mostrar) y exclusiones (ocultar).
+  const [excludedCategories, setExcludedCategories] = usePersistentState<string[]>('budget_excludedCategories', []);
+  const [excludedTags, setExcludedTags] = usePersistentState<string[]>('budget_excludedTags', []);
+  const [includedCategories, setIncludedCategories] = usePersistentState<string[]>('budget_includedCategories', []);
+  const [includedTags, setIncludedTags] = usePersistentState<string[]>('budget_includedTags', []);
   const [showExclusionModal, setShowExclusionModal] = useState(false);
-
-  const txCategory = (t: Transaction) => (!t.categoria || t.categoria === '---') ? 'Sin Categoría' : t.categoria;
-  // Una transacción sin tags cuenta como la pseudo-etiqueta 'Sin Etiqueta'.
-  const txTags = (t: Transaction) => {
-      const tags = t.tags ? t.tags.split(',').map(tag => tag.trim()).filter(Boolean) : [];
-      return tags.length > 0 ? tags : ['Sin Etiqueta'];
-  };
-
-  /**
-   * Filtro de categorías y etiquetas. Las inclusiones se combinan con Y entre
-   * categoría y etiqueta (si hay de ambas, deben cumplirse las dos) y con O dentro
-   * de cada grupo. Las exclusiones se aplican después y siempre ganan.
-   */
-  const matchesCategoryTag = (t: Transaction) => {
-      const cat = txCategory(t);
-      const tags = txTags(t);
-      if (includedCategories.length > 0 && !includedCategories.includes(cat)) return false;
-      if (includedTags.length > 0 && !tags.some(tg => includedTags.includes(tg))) return false;
-      if (excludedCategories.includes(cat)) return false;
-      if (tags.some(tg => excludedTags.includes(tg))) return false;
-      return true;
-  };
-
-  // Clic en un chip del modal: sin filtro → solo mostrar → ocultar → sin filtro.
-  const cycleFilter = (
-      value: string,
-      included: string[], setIncluded: (v: string[]) => void,
-      excluded: string[], setExcluded: (v: string[]) => void,
-  ) => {
-      if (included.includes(value)) {
-          setIncluded(included.filter(v => v !== value));
-          setExcluded([...excluded, value]);
-      } else if (excluded.includes(value)) {
-          setExcluded(excluded.filter(v => v !== value));
-      } else {
-          setIncluded([...included, value]);
-      }
-  };
 
   // Lista de fondos (cacheada por react-query) para marcar y filtrar a qué fondo
   // pertenece cada transacción: búsqueda en memoria, sin peticiones por fila.
   const { data: funds } = useFunds();
 
   /**
-   * Fondos seleccionados. Si `selectedFunds` es `null`, significa 'por defecto (todos marcados)'.
-   * De lo contrario es un array con los IDs de los fondos actualmente marcados.
+   * Fondos marcados; null = todos y lo que no tiene fondo. Antes lo que no tenía fondo
+   * se mostraba siempre, así que una selección guardada con el formato viejo lo marca.
    */
-  const [selectedFunds, setSelectedFunds] = useState<string[] | null>(() => {
-    const saved = localStorage.getItem('budget_selectedFunds');
+  const [selectedFunds, setSelectedFunds] = usePersistentState<string[] | null>('budget_selectedFunds_v2', () => {
     try {
-      return saved ? JSON.parse(saved) : null;
+      const legacy = JSON.parse(localStorage.getItem('budget_selectedFunds') ?? 'null');
+      return Array.isArray(legacy) ? [...legacy, SIN_FONDO] : null;
     } catch {
       return null;
     }
   });
   const [showFundFilter, setShowFundFilter] = useState(false);
 
-  // Array efectivo de fondos marcados (si es null, son todos los disponibles)
-  const activeFundIds = useMemo(() => {
-    if (selectedFunds === null) {
-      return (funds || []).map(f => f.id);
-    }
-    return selectedFunds;
-  }, [selectedFunds, funds]);
+  // Todo menos el estado de etiquetado, que se aplica aparte para contar etiquetadas y no.
+  const baseFilters = useMemo<TransactionFilters>(() => ({
+    ...DEFAULT_TRANSACTION_FILTERS,
+    includedCategories, excludedCategories, includedTags, excludedTags,
+    selectedFunds,
+    reimbursable: reimbursableFilter,
+    priority: priorityFilter,
+  }), [includedCategories, excludedCategories, includedTags, excludedTags, selectedFunds, reimbursableFilter, priorityFilter]);
 
-  const matchesFund = (t: Transaction) => {
-    const f = matchFund(t, funds);
-    if (!f) return true; // Las transacciones que no pertenecen a NINGÚN fondo SIEMPRE se muestran
-    
-    // Si la transacción pertenece a un fondo:
-    // Solo se muestra si ese fondo está marcado en la lista de activos
-    return activeFundIds.includes(f.id);
-  };
+  const transactionsBaseFilter = useMemo(
+    () => applyTransactionFilters(allPeriodTransactions, baseFilters, funds),
+    [allPeriodTransactions, baseFilters, funds],
+  );
 
-  // El filtro de prioridad solo aplica a gastos: los ingresos no se clasifican
-  // como Necesidad/Deseo y deben seguir contando para los porcentajes.
-  const matchesPriority = (t: Transaction) => {
-      if (priorityFilter === 'all' || t.MONTO >= 0) return true;
-      if (priorityFilter === 'needs') return t.prioridad === 'Necesidad';
-      if (priorityFilter === 'wants') return t.prioridad === 'Deseo';
-      return t.prioridad === 'Necesidad' || t.prioridad === 'Deseo';
-  };
-
-  const filteredByReimbursable = useMemo(() => {
-     return allPeriodTransactions.filter(t => {
-         if (!matchesPriority(t)) return false;
-         if (!matchesFund(t)) return false;
-         if (reimbursableFilter === 'all') return true;
-         const isReim = t.es_reembolsable;
-         return reimbursableFilter === 'included' ? isReim : !isReim;
-     });
-  }, [allPeriodTransactions, reimbursableFilter, priorityFilter, selectedFunds, funds]);
-
-  const transactionsBaseFilter = useMemo(() => {
-     return filteredByReimbursable.filter(matchesCategoryTag);
-  }, [filteredByReimbursable, excludedCategories, excludedTags, includedCategories, includedTags]);
-
-  const transactions = useMemo(() => {
-      return transactionsBaseFilter.filter(t => {
-          if (labeledFilter !== 'all') {
-             const isLabeled = t.revisado;
-             if (labeledFilter === 'labeled' && !isLabeled) return false;
-             if (labeledFilter === 'unlabeled' && isLabeled) return false;
-          }
-          return true;
-      });
-  }, [transactionsBaseFilter, labeledFilter]);
+  const transactions = useMemo(
+    () => applyTransactionFilters(transactionsBaseFilter, { ...DEFAULT_TRANSACTION_FILTERS, labeled: labeledFilter }, funds),
+    [transactionsBaseFilter, labeledFilter, funds],
+  );
 
   const labelingStats = useMemo(() => {
       const labeled = transactionsBaseFilter.filter(t => t.revisado);
@@ -209,38 +110,6 @@ export function MonthlyBudget() {
   useEffect(() => {
     localStorage.setItem('budget_activeTab', activeTab);
   }, [activeTab]);
-
-  useEffect(() => {
-    localStorage.setItem('budget_labeledFilter', labeledFilter);
-  }, [labeledFilter]);
-
-  useEffect(() => {
-    localStorage.setItem('budget_reimbursableFilter', reimbursableFilter);
-  }, [reimbursableFilter]);
-
-  useEffect(() => {
-    localStorage.setItem('budget_priorityFilter', priorityFilter);
-  }, [priorityFilter]);
-
-  useEffect(() => {
-    localStorage.setItem('budget_excludedCategories', JSON.stringify(excludedCategories));
-  }, [excludedCategories]);
-
-  useEffect(() => {
-    localStorage.setItem('budget_excludedTags', JSON.stringify(excludedTags));
-  }, [excludedTags]);
-
-  useEffect(() => {
-    localStorage.setItem('budget_includedCategories', JSON.stringify(includedCategories));
-  }, [includedCategories]);
-
-  useEffect(() => {
-    localStorage.setItem('budget_includedTags', JSON.stringify(includedTags));
-  }, [includedTags]);
-
-  useEffect(() => {
-    localStorage.setItem('budget_selectedFunds', JSON.stringify(selectedFunds));
-  }, [selectedFunds]);
 
   useEffect(() => {
     localStorage.setItem('budget_selectedPeriod', selectedPeriod);
@@ -449,20 +318,11 @@ export function MonthlyBudget() {
     return expenses;
   }, [transactions]);
 
-  const allTimeFiltered = useMemo(() => {
-      return allTimeTransactions.filter(t => {
-         if (!matchesPriority(t)) return false;
-         if (!matchesFund(t)) return false;
-
-         if (reimbursableFilter === 'excluded' && t.es_reembolsable) return false;
-         if (reimbursableFilter === 'included' && !t.es_reembolsable) return false;
-         
-         if (labeledFilter === 'labeled' && !t.revisado) return false;
-         if (labeledFilter === 'unlabeled' && t.revisado) return false;
-
-         return matchesCategoryTag(t);
-      });
-  }, [allTimeTransactions, reimbursableFilter, labeledFilter, priorityFilter, excludedCategories, excludedTags, includedCategories, includedTags, selectedFunds, funds]);
+  // Los mismos filtros del período, sobre todo el histórico.
+  const allTimeFiltered = useMemo(
+    () => applyTransactionFilters(allTimeTransactions, { ...baseFilters, labeled: labeledFilter }, funds),
+    [allTimeTransactions, baseFilters, labeledFilter, funds],
+  );
 
   const tagBalances = useMemo(() => {
     const balances: Record<string, number> = {};
@@ -549,7 +409,7 @@ export function MonthlyBudget() {
   };
 
   // UI Components
-  const formatCurrency = (val: number) => val.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
+  const formatCurrency = money;
 
   const renderProgressBar = (spent: number, budget: number, colorClass?: string) => {
     const percentage = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0;
@@ -845,152 +705,32 @@ export function MonthlyBudget() {
                      <option value="needs">Solo Necesidades</option>
                      <option value="wants">Solo Deseos</option>
                      <option value="rated">Solo Clasificadas (Nec + Des)</option>
+                     <option value="unrated">Gastos sin Clasificar</option>
                  </select>
 
                  {/* Filtro de fondos */}
                  <div className="relative">
-                     {(() => {
-                         const fundList = funds || [];
-                         const totalFundsCount = fundList.length;
-                         const isAllSelected = activeFundIds.length === totalFundsCount && totalFundsCount > 0;
-                         const isNoneSelected = activeFundIds.length === 0;
-
-                         let buttonLabel = 'Todos los fondos';
-                         if (isNoneSelected) {
-                             buttonLabel = 'Solo sin fondo (0 de ' + totalFundsCount + ')';
-                         } else if (isAllSelected) {
-                             buttonLabel = 'Todos los fondos';
-                         } else if (activeFundIds.length === 1) {
-                             const singleFund = fundList.find(f => f.id === activeFundIds[0]);
-                             buttonLabel = singleFund ? singleFund.name : '1 fondo';
-                         } else {
-                             buttonLabel = `Fondos (${activeFundIds.length}/${totalFundsCount})`;
-                         }
-
-                         return (
-                             <>
-                                 <button
-                                     onClick={() => setShowFundFilter(v => !v)}
-                                     className={`border text-sm rounded-lg px-3 py-2 flex items-center gap-2 transition-all ${
-                                         !isNoneSelected
-                                         ? 'bg-teal-500/20 border-teal-500/50 text-teal-300 hover:bg-teal-500/30 shadow-sm shadow-teal-500/10'
-                                         : 'bg-surface-800/40 border-white/10 text-surface-400 hover:bg-surface-700 hover:text-surface-200 backdrop-blur-md opacity-70'
-                                     }`}
-                                 >
-                                     <PiggyBank size={16} className={!isNoneSelected ? "text-teal-400" : "text-surface-500"} />
-                                     <span className="hidden md:inline font-medium">
-                                         {buttonLabel}
-                                     </span>
-                                     {!isNoneSelected && !isAllSelected && (
-                                         <span className="bg-teal-500 text-surface-950 font-bold text-[10px] px-1.5 py-0.2 rounded-full min-w-[18px] text-center">
-                                             {activeFundIds.length}
-                                         </span>
-                                     )}
-                                     {isAllSelected && (
-                                         <span className="bg-teal-500/30 text-teal-200 text-[10px] font-semibold px-1.5 py-0.5 rounded border border-teal-500/30">
-                                             Todos
-                                         </span>
-                                     )}
-                                     {isNoneSelected && (
-                                         <span className="bg-white/10 text-surface-400 text-[10px] font-semibold px-1.5 py-0.5 rounded">
-                                             0
-                                         </span>
-                                     )}
-                                 </button>
-
-                                 {showFundFilter && (
-                                     <>
-                                         <div className="fixed inset-0 z-30" onClick={() => setShowFundFilter(false)} />
-                                         <div className="absolute z-40 mt-2 w-72 right-0 bg-surface-900 border border-white/10 rounded-xl shadow-2xl p-3 space-y-2 backdrop-blur-xl">
-                                             <div className="flex justify-between items-center px-1 pb-2 border-b border-white/10">
-                                                 <div className="flex items-center gap-1.5">
-                                                     <PiggyBank size={14} className="text-teal-400" />
-                                                     <span className="text-xs font-bold uppercase tracking-wider text-surface-300">Filtrar por Fondo</span>
-                                                 </div>
-                                                 <div className="flex items-center gap-2">
-                                                     <button
-                                                         onClick={() => setSelectedFunds(fundList.map(f => f.id))}
-                                                         className="text-[11px] text-teal-400 hover:text-teal-300 font-semibold transition-colors"
-                                                     >
-                                                         Marcar todos
-                                                     </button>
-                                                     <span className="text-surface-600">|</span>
-                                                     <button
-                                                         onClick={() => setSelectedFunds([])}
-                                                         className="text-[11px] text-surface-400 hover:text-surface-200 font-semibold transition-colors"
-                                                     >
-                                                         Desmarcar todos
-                                                     </button>
-                                                 </div>
-                                             </div>
-
-                                             <div className="max-h-64 overflow-y-auto custom-scrollbar space-y-1 pr-0.5">
-                                                 {fundList.length === 0 && (
-                                                     <p className="text-xs text-surface-500 italic px-1 py-2 text-center">No hay fondos configurados.</p>
-                                                 )}
-
-                                                 {fundList.map(opt => {
-                                                     const checked = activeFundIds.includes(opt.id);
-                                                     return (
-                                                         <button
-                                                             key={opt.id}
-                                                             onClick={() => {
-                                                                 const current = activeFundIds;
-                                                                 const next = current.includes(opt.id)
-                                                                     ? current.filter(x => x !== opt.id)
-                                                                     : [...current, opt.id];
-                                                                 setSelectedFunds(next);
-                                                             }}
-                                                             className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-left text-sm transition-all ${
-                                                                 checked 
-                                                                     ? 'bg-teal-500/15 text-teal-200 border border-teal-500/30' 
-                                                                     : 'text-surface-400 hover:bg-white/5 border border-transparent'
-                                                             }`}
-                                                         >
-                                                             <div className="flex items-center gap-2.5 truncate pr-2">
-                                                                 <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
-                                                                     checked ? 'bg-teal-500 border-teal-500 text-surface-950' : 'border-white/20'
-                                                                 }`}>
-                                                                     {checked && <Check size={12} strokeWidth={3} />}
-                                                                 </span>
-                                                                 <span className="truncate font-medium">
-                                                                     {opt.name}
-                                                                 </span>
-                                                             </div>
-
-                                                             {opt.tag_vinculado && (
-                                                                 <span className="text-[10px] bg-white/5 text-surface-400 px-1.5 py-0.5 rounded border border-white/5 shrink-0">
-                                                                     #{opt.tag_vinculado}
-                                                                 </span>
-                                                             )}
-                                                         </button>
-                                                     );
-                                                 })}
-                                             </div>
-
-                                             <div className="pt-2 border-t border-white/10 flex justify-between items-center text-[10px] text-surface-400 px-1">
-                                                 <span>
-                                                     {isNoneSelected 
-                                                         ? 'Mostrando solo transacciones sin fondo' 
-                                                         : isAllSelected
-                                                             ? 'Todos los fondos marcados + No fondos'
-                                                             : `${activeFundIds.length} de ${totalFundsCount} fondos + No fondos`}
-                                                 </span>
-                                                 {!isAllSelected && (
-                                                     <button 
-                                                         onClick={() => setSelectedFunds(fundList.map(f => f.id))}
-                                                         className="text-teal-400 hover:text-teal-300 underline"
-                                                     >
-                                                         Restablecer todos
-                                                     </button>
-                                                 )}
-                                             </div>
-                                         </div>
-                                     </>
-                                 )}
-                             </>
-                         );
-                     })()}
+                     <button
+                         onClick={() => setShowFundFilter(v => !v)}
+                         className={`border text-sm rounded-lg px-3 py-2 flex items-center gap-2 transition-all ${
+                             selectedFunds !== null
+                             ? 'bg-teal-500/20 border-teal-500/50 text-teal-300 hover:bg-teal-500/30 shadow-sm shadow-teal-500/10'
+                             : 'bg-surface-800/50 border-white/10 text-white hover:bg-surface-700 backdrop-blur-md'
+                         }`}
+                     >
+                         <PiggyBank size={16} className={selectedFunds !== null ? 'text-teal-400' : 'text-surface-400'} />
+                         <span className="hidden md:inline font-medium">
+                             {fundFilterLabel(selectedFunds, funds)}
+                         </span>
+                     </button>
+                     {showFundFilter && (
+                         <FundFilterPanel
+                             funds={funds}
+                             selectedFunds={selectedFunds}
+                             onChange={setSelectedFunds}
+                             onClose={() => setShowFundFilter(false)}
+                         />
+                     )}
                  </div>
 
                  {(() => {
@@ -1190,15 +930,25 @@ export function MonthlyBudget() {
                               </div>
                           );
 
+                          const cycle = (
+                              value: string,
+                              included: string[], setIncluded: (v: string[]) => void,
+                              excluded: string[], setExcluded: (v: string[]) => void,
+                          ) => {
+                              const next = cycleIncludeExclude(value, included, excluded);
+                              setIncluded(next.included);
+                              setExcluded(next.excluded);
+                          };
+
                           return (
                               <>
                       {/* Categorías */}
                       <div>
                           {renderHeader('Categorías', includedCategories, excludedCategories, () => { setIncludedCategories([]); setExcludedCategories([]); })}
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                              {[...CATEGORIES.filter(c => c !== '---'), 'Sin Categoría'].map(cat =>
+                              {[...CATEGORIES.filter(c => c !== '---'), SIN_CATEGORIA].map(cat =>
                                   renderChip(cat, includedCategories, excludedCategories,
-                                      () => cycleFilter(cat, includedCategories, setIncludedCategories, excludedCategories, setExcludedCategories), true)
+                                      () => cycle(cat, includedCategories, setIncludedCategories, excludedCategories, setExcludedCategories), true)
                               )}
                           </div>
                       </div>
@@ -1210,9 +960,9 @@ export function MonthlyBudget() {
                               <p className="text-xs text-surface-500 -mt-2 mb-3">Se muestran las transacciones que tengan al menos una de las etiquetas marcadas.</p>
                           )}
                           <div className="flex flex-wrap gap-2">
-                              {[...availableTags, 'Sin Etiqueta'].map(tag =>
+                              {[...availableTags, SIN_ETIQUETA].map(tag =>
                                   renderChip(tag, includedTags, excludedTags,
-                                      () => cycleFilter(tag, includedTags, setIncludedTags, excludedTags, setExcludedTags), false)
+                                      () => cycle(tag, includedTags, setIncludedTags, excludedTags, setExcludedTags), false)
                               )}
                           </div>
                           {availableTags.length === 0 && (

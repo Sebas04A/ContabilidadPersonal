@@ -3,6 +3,7 @@ import { Transaction } from '../services/api';
 import { getGroups, createPayment, InterpolationGroup } from '../services/interpolated';
 import { X, Calendar, DollarSign, Calculator, ChevronRight } from 'lucide-react';
 import ExplorerChart from './ExplorerChart';
+import { money } from '../utils/format';
 
 interface AutoPaymentsModalProps {
   targetTransaction: Transaction;
@@ -172,9 +173,7 @@ const AutoPaymentsModal: React.FC<AutoPaymentsModalProps> = ({
       };
   }, [targetTransaction, expenseTransactions, plannedPayments]);
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(amount);
-  };
+  const formatCurrency = money;
 
   return (
     <div className="fixed inset-0 z-[100] flex flex-col items-center pt-10 sm:justify-center sm:pt-0 bg-black/60 backdrop-blur-sm p-4 overflow-y-auto custom-scrollbar" onClick={onClose}>
