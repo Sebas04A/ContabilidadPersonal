@@ -1,15 +1,19 @@
 import { useState, useEffect, useMemo, useCallback, Fragment } from 'react';
 import { api, Transaction } from '../services/api';
-import { useCategories, useTags, useUpdateTransaction, useMarkAsReviewed, useFunds } from '../hooks/useTransactions';
+import { useCategories, useTags, useUpdateTransaction, useMarkAsReviewed, useFunds, useSupabaseDebts, useSupabasePayments, useDeudores } from '../hooks/useTransactions';
 import { EditModal } from '../components/EditModal';
 import { sortTransactions, groupSplits } from '../utils/groupSplits';
 import { matchFund } from '../utils/matchFund';
+import {
+  DebtSignFilterOption, DebtLinkFilterOption, DebtStatusFilterOption, DebtDirectionFilterOption,
+  DebtPeopleModeOption, SIN_PERSONA, buildDebtLookup, applyDebtFilters, debtPerson, personKey, linkedDebtStatus
+} from '../utils/debtFilters';
 
 import {
   Search, Tag, Filter, ArrowUpRight, ArrowDownRight, Calendar, Info, ChevronDown, ChevronUp, Check,
   List as ListIcon, TrendingUp, Calculator, Pencil, X,
   CheckCircle2, RotateCcw, SlidersHorizontal, Sliders, CheckSquare, Square,
-  ArrowUpDown, Scissors, PiggyBank, BarChart3, Layers, Scale, Ban
+  ArrowUpDown, Scissors, PiggyBank, BarChart3, Layers, Scale, Ban, HandCoins
 } from 'lucide-react';
 import AutoPaymentsModal from '../components/AutoPaymentsModal';
 import { ExplorerAnalyticsModal, ExplorerAnalyticsContent } from '../components/ExplorerAnalyticsModal';
@@ -45,6 +49,14 @@ interface ExplorerStoredSettings {
   excludedCategories?: string[];
   excludedTags?: string[];
   fixedFilter?: FixedFilterOption;
+  debtSignFilter?: DebtSignFilterOption;
+  /** Formato viejo: una sola persona. Se lee para migrar a debtPeopleFilter. */
+  debtPersonFilter?: string;
+  debtPeopleFilter?: string[];
+  debtPeopleMode?: DebtPeopleModeOption;
+  debtLinkFilter?: DebtLinkFilterOption;
+  debtStatusFilter?: DebtStatusFilterOption;
+  debtDirectionFilter?: DebtDirectionFilterOption;
 }
 
 const getStoredSettings = (): ExplorerStoredSettings => {
@@ -91,6 +103,22 @@ export function DataExplorer() {
   const [fixedFilter, setFixedFilter] = useState<FixedFilterOption>(savedSettings.fixedFilter ?? 'all');
   const [showExclusionModal, setShowExclusionModal] = useState(false);
 
+  // Filtros de Deudas (persona, vínculo con Supabase, estado de pago)
+  const [debtSignFilter, setDebtSignFilter] = useState<DebtSignFilterOption>(savedSettings.debtSignFilter ?? 'all');
+  const [debtPeopleFilter, setDebtPeopleFilter] = useState<string[]>(
+    savedSettings.debtPeopleFilter
+      ?? (savedSettings.debtPersonFilter ? [savedSettings.debtPersonFilter === SIN_PERSONA ? SIN_PERSONA : savedSettings.debtPersonFilter.toLowerCase()] : [])
+  );
+  const [debtPeopleMode, setDebtPeopleMode] = useState<DebtPeopleModeOption>(savedSettings.debtPeopleMode ?? 'include');
+  const [showPeopleFilter, setShowPeopleFilter] = useState(false);
+
+  const toggleDebtPerson = (key: string) => {
+    setDebtPeopleFilter(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
+  };
+  const [debtLinkFilter, setDebtLinkFilter] = useState<DebtLinkFilterOption>(savedSettings.debtLinkFilter ?? 'all');
+  const [debtStatusFilter, setDebtStatusFilter] = useState<DebtStatusFilterOption>(savedSettings.debtStatusFilter ?? 'all');
+  const [debtDirectionFilter, setDebtDirectionFilter] = useState<DebtDirectionFilterOption>(savedSettings.debtDirectionFilter ?? 'all');
+
   // Exclusion toggle handlers
   const handleToggleExcludedCategory = (cat: string) => {
     setExcludedCategories(prev => {
@@ -118,6 +146,10 @@ export function DataExplorer() {
   const { data: categories } = useCategories();
   const { data: tags } = useTags();
   const { data: funds } = useFunds();
+  const { data: supabaseDebts } = useSupabaseDebts();
+  const { data: supabasePayments } = useSupabasePayments();
+  const { data: deudores } = useDeudores();
+  const debtLookup = useMemo(() => buildDebtLookup(supabaseDebts, supabasePayments), [supabaseDebts, supabasePayments]);
   const updateMutation = useUpdateTransaction();
   const markReviewedMutation = useMarkAsReviewed();
 
@@ -282,7 +314,17 @@ export function DataExplorer() {
       list = list.filter(t => !t.es_fijo);
     }
 
-    // 12. Agrupación de Splits
+    // 12. Filtros de Deudas (signo, persona, vínculo, estado de pago, dirección)
+    list = applyDebtFilters(list, {
+      sign: debtSignFilter,
+      people: debtPeopleFilter,
+      peopleMode: debtPeopleMode,
+      link: debtLinkFilter,
+      status: debtStatusFilter,
+      direction: debtDirectionFilter,
+    }, debtLookup);
+
+    // 12b. Agrupación de Splits
     if (groupSplitsMode) {
       list = groupSplits(list);
     }
@@ -325,8 +367,38 @@ export function DataExplorer() {
     sortBy,
     excludedCategories,
     excludedTags,
-    fixedFilter
+    fixedFilter,
+    debtSignFilter,
+    debtPeopleFilter,
+    debtPeopleMode,
+    debtLinkFilter,
+    debtStatusFilter,
+    debtDirectionFilter,
+    debtLookup
   ]);
+
+  // Personas para el filtro: las de Supabase más cualquier `deudor` escrito al etiquetar
+  // (con cuántas transacciones del rango aparece cada una)
+  const debtPeople = useMemo(() => {
+    const byKey = new Map<string, { key: string; name: string; count: number }>();
+    (deudores ?? []).forEach(d => {
+      if (d.nombre) byKey.set(personKey(d.nombre), { key: personKey(d.nombre), name: d.nombre, count: 0 });
+    });
+    rawTransactions.forEach(t => {
+      const rows = t.subTransactions && t.subTransactions.length > 0 ? t.subTransactions : [t];
+      rows.forEach(row => {
+        const p = debtPerson(row, debtLookup);
+        if (!p) return;
+        const entry = byKey.get(personKey(p)) ?? { key: personKey(p), name: p, count: 0 };
+        entry.count += 1;
+        byKey.set(entry.key, entry);
+      });
+    });
+    return Array.from(byKey.values()).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'es'));
+  }, [deudores, rawTransactions, debtLookup]);
+
+  const debtPeopleNames = useMemo(() => new Map(debtPeople.map(p => [p.key, p.name])), [debtPeople]);
+  const personLabel = (key: string) => key === SIN_PERSONA ? 'Sin persona' : debtPeopleNames.get(key) ?? key;
 
   const displayedResults = useMemo(() => {
     if (rowLimit === 'all') return results;
@@ -373,6 +445,12 @@ export function DataExplorer() {
         excludedCategories,
         excludedTags,
         fixedFilter,
+        debtSignFilter,
+        debtPeopleFilter,
+        debtPeopleMode,
+        debtLinkFilter,
+        debtStatusFilter,
+        debtDirectionFilter,
       };
       localStorage.setItem(EXPLORER_STORAGE_KEY, JSON.stringify(settings));
     } catch (e) {
@@ -398,7 +476,23 @@ export function DataExplorer() {
     excludedCategories,
     excludedTags,
     fixedFilter,
+    debtSignFilter,
+    debtPeopleFilter,
+    debtPeopleMode,
+    debtLinkFilter,
+    debtStatusFilter,
+    debtDirectionFilter,
   ]);
+
+  const resetDebtFilters = () => {
+    setReimbursableFilter('all');
+    setDebtSignFilter('all');
+    setDebtPeopleFilter([]);
+    setDebtPeopleMode('include');
+    setDebtLinkFilter('all');
+    setDebtStatusFilter('all');
+    setDebtDirectionFilter('all');
+  };
 
   // Reset all filters
   const handleResetFilters = () => {
@@ -418,7 +512,6 @@ export function DataExplorer() {
     setSortBy('date_desc');
     setGroupSplitsMode(true);
     setStructureFilter('all');
-    setReimbursableFilter('all');
     setPriorityFilter('all');
     setTypeFilter('all');
     setLabeledFilter('all');
@@ -426,6 +519,7 @@ export function DataExplorer() {
     setExcludedCategories([]);
     setExcludedTags([]);
     setFixedFilter('all');
+    resetDebtFilters();
     setSelectedIds(new Set());
     setExpandedSplits(new Set());
   };
@@ -517,6 +611,14 @@ export function DataExplorer() {
     excludedTags.length +
     (fixedFilter !== 'all' ? 1 : 0);
 
+  const debtFiltersCount =
+    (reimbursableFilter !== 'all' ? 1 : 0) +
+    (debtSignFilter !== 'all' ? 1 : 0) +
+    (debtPeopleFilter.length > 0 ? 1 : 0) +
+    (debtLinkFilter !== 'all' ? 1 : 0) +
+    (debtStatusFilter !== 'all' ? 1 : 0) +
+    (debtDirectionFilter !== 'all' ? 1 : 0);
+
   const activeFiltersCount =
     (searchText ? 1 : 0) +
     (categoryFilter ? 1 : 0) +
@@ -528,10 +630,10 @@ export function DataExplorer() {
     (sortBy !== 'date_desc' ? 1 : 0) +
     (!groupSplitsMode ? 1 : 0) +
     (structureFilter !== 'all' ? 1 : 0) +
-    (reimbursableFilter !== 'all' ? 1 : 0) +
     (priorityFilter !== 'all' ? 1 : 0) +
     (typeFilter !== 'all' ? 1 : 0) +
     (selectedFunds !== null ? 1 : 0) +
+    debtFiltersCount +
     totalExclusionsCount;
 
   const fundList = funds || [];
@@ -657,6 +759,76 @@ export function DataExplorer() {
         value: 'Sin Reembolsables',
         color: 'bg-surface-800 text-surface-300 border-white/10',
         onRemove: () => setReimbursableFilter('all'),
+      });
+    }
+
+    if (debtSignFilter !== 'all') {
+      chips.push({
+        key: 'debt_sign',
+        label: 'Deudas',
+        value: debtSignFilter === 'positive' ? 'Montos positivos' : 'Montos negativos',
+        color: debtSignFilter === 'positive'
+          ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+          : 'bg-rose-500/15 text-rose-300 border-rose-500/30',
+        onRemove: () => setDebtSignFilter('all'),
+      });
+    }
+
+    debtPeopleFilter.forEach(key => {
+      const excluding = debtPeopleMode === 'exclude';
+      chips.push({
+        key: `debt_person_${key}`,
+        label: excluding ? '🚫 Excluir Persona' : 'Persona',
+        value: personLabel(key),
+        color: excluding
+          ? 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+          : 'bg-orange-500/15 text-orange-300 border-orange-500/30',
+        onRemove: () => toggleDebtPerson(key),
+      });
+    });
+
+    if (debtLinkFilter !== 'all') {
+      const linkLabels: Record<DebtLinkFilterOption, string> = {
+        all: '',
+        deuda: 'Vinculadas a deuda',
+        pago: 'Vinculadas a pago',
+        linked: 'Con vínculo',
+        unlinked: 'Reembolsables sin vincular',
+      };
+      chips.push({
+        key: 'debt_link',
+        label: 'Vínculo',
+        value: linkLabels[debtLinkFilter],
+        color: 'bg-orange-500/15 text-orange-300 border-orange-500/30',
+        onRemove: () => setDebtLinkFilter('all'),
+      });
+    }
+
+    if (debtStatusFilter !== 'all') {
+      const statusLabels: Record<DebtStatusFilterOption, string> = {
+        all: '',
+        paid: 'Pagadas',
+        pending: 'Pendientes',
+        partial: 'Abonadas a medias',
+      };
+      chips.push({
+        key: 'debt_status',
+        label: 'Pago',
+        value: statusLabels[debtStatusFilter],
+        color: debtStatusFilter === 'paid'
+          ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+          : 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+        onRemove: () => setDebtStatusFilter('all'),
+      });
+    }
+
+    if (debtDirectionFilter !== 'all') {
+      chips.push({
+        key: 'debt_direction',
+        label: 'Dirección',
+        value: debtDirectionFilter === 'me_deben' ? 'Me deben' : 'Yo debo',
+        color: 'bg-orange-500/15 text-orange-300 border-orange-500/30',
+        onRemove: () => setDebtDirectionFilter('all'),
       });
     }
 
@@ -827,6 +999,13 @@ export function DataExplorer() {
     excludedCategories,
     excludedTags,
     fixedFilter,
+    debtSignFilter,
+    debtPeopleFilter,
+    debtPeopleMode,
+    debtPeopleNames,
+    debtLinkFilter,
+    debtStatusFilter,
+    debtDirectionFilter,
   ]);
 
   return (
@@ -1044,7 +1223,7 @@ export function DataExplorer() {
 
           {/* Structured Filter Cards */}
           {showAdvancedFilters && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 pt-2 border-t border-white/5 animate-in fade-in duration-200">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3.5 pt-2 border-t border-white/5 animate-in fade-in duration-200">
               
               {/* Card 1: Categorización & Tags */}
               <div className="bg-surface-950/60 border border-white/5 rounded-2xl p-3.5 space-y-2.5">
@@ -1153,27 +1332,6 @@ export function DataExplorer() {
                       <option value="wants" className="bg-surface-900 text-amber-300">🟡 Solo Deseos</option>
                       <option value="rated" className="bg-surface-900 text-surface-200">🏷️ Clasificadas (Nec + Des)</option>
                       <option value="unrated" className="bg-surface-900 text-surface-400">⚪ Sin clasificar</option>
-                    </select>
-                    <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 text-surface-500 pointer-events-none" size={13} />
-                  </div>
-                </div>
-
-                {/* Reembolsables */}
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-surface-400 mb-1">Reembolsos</label>
-                  <div className="relative">
-                    <select
-                      value={reimbursableFilter}
-                      onChange={e => setReimbursableFilter(e.target.value as ReimbursableFilterOption)}
-                      className={`w-full bg-surface-900 border rounded-xl px-3 py-2 text-xs focus:outline-none appearance-none cursor-pointer transition-all ${
-                        reimbursableFilter !== 'all'
-                          ? 'border-purple-500/60 text-purple-300 ring-1 ring-purple-500/30 font-medium'
-                          : 'border-white/10 text-surface-300'
-                      }`}
-                    >
-                      <option value="all" className="bg-surface-900 text-white">Todos (Reembolsables y propios)</option>
-                      <option value="included" className="bg-surface-900 text-purple-300 font-semibold">🟣 Solo Reembolsables</option>
-                      <option value="excluded" className="bg-surface-900 text-surface-300">🚫 Excluir Reembolsables</option>
                     </select>
                     <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 text-surface-500 pointer-events-none" size={13} />
                   </div>
@@ -1408,6 +1566,251 @@ export function DataExplorer() {
                 </div>
               </div>
 
+              {/* Card 4: Deudas */}
+              <div className="bg-surface-950/60 border border-white/5 rounded-2xl p-3.5 space-y-2.5">
+                <div className="flex items-center justify-between gap-2 pb-1 border-b border-white/5">
+                  <div className="flex items-center gap-2">
+                    <HandCoins size={14} className="text-orange-400" />
+                    <span className="text-xs font-bold text-surface-200 tracking-wide">Deudas</span>
+                    {debtFiltersCount > 0 && (
+                      <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-orange-500/20 text-orange-300">
+                        {debtFiltersCount}
+                      </span>
+                    )}
+                  </div>
+                  {debtFiltersCount > 0 && (
+                    <button
+                      onClick={resetDebtFilters}
+                      className="text-[10px] font-semibold text-surface-400 hover:text-rose-400 transition-colors"
+                      title="Quitar solo los filtros de deudas"
+                    >
+                      Limpiar
+                    </button>
+                  )}
+                </div>
+
+                {/* Reembolsables */}
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-surface-400 mb-1">Reembolsos</label>
+                  <div className="relative">
+                    <select
+                      value={reimbursableFilter}
+                      onChange={e => setReimbursableFilter(e.target.value as ReimbursableFilterOption)}
+                      className={`w-full bg-surface-900 border rounded-xl px-3 py-2 text-xs focus:outline-none appearance-none cursor-pointer transition-all ${
+                        reimbursableFilter !== 'all'
+                          ? 'border-purple-500/60 text-purple-300 ring-1 ring-purple-500/30 font-medium'
+                          : 'border-white/10 text-surface-300'
+                      }`}
+                    >
+                      <option value="all" className="bg-surface-900 text-white">Todos (Reembolsables y propios)</option>
+                      <option value="included" className="bg-surface-900 text-purple-300 font-semibold">🟣 Solo Reembolsables</option>
+                      <option value="excluded" className="bg-surface-900 text-surface-300">🚫 Excluir Reembolsables</option>
+                    </select>
+                    <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 text-surface-500 pointer-events-none" size={13} />
+                  </div>
+                </div>
+
+                {/* Signo del monto */}
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-surface-400 mb-1">Monto</label>
+                  <div className="grid grid-cols-3 gap-1 bg-surface-900 p-1 rounded-xl border border-white/10">
+                    {([
+                      { value: 'all', label: 'Todos', active: 'bg-surface-800 text-white' },
+                      { value: 'positive', label: '+ Positivos', active: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' },
+                      { value: 'negative', label: '− Negativos', active: 'bg-rose-500/20 text-rose-300 border border-rose-500/30' },
+                    ] as const).map(opt => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setDebtSignFilter(opt.value)}
+                        className={`py-1 text-[11px] font-semibold rounded-lg transition-all ${
+                          debtSignFilter === opt.value ? opt.active : 'text-surface-400 hover:text-white'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Persona */}
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-surface-400 mb-1">Persona</label>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setShowPeopleFilter(!showPeopleFilter)}
+                      className={`w-full flex items-center justify-between gap-2 py-2 px-3 rounded-xl border text-xs font-medium transition-all ${
+                        debtPeopleFilter.length === 0
+                          ? 'bg-surface-900 border-white/10 text-surface-300 hover:text-white'
+                          : debtPeopleMode === 'exclude'
+                            ? 'bg-rose-500/15 border-rose-500/40 text-rose-300'
+                            : 'bg-orange-500/15 border-orange-500/40 text-orange-300'
+                      }`}
+                    >
+                      <span className="truncate">
+                        {debtPeopleFilter.length === 0
+                          ? 'Todas las personas'
+                          : `${debtPeopleMode === 'exclude' ? 'Excepto' : 'Solo'} ${
+                              debtPeopleFilter.length <= 2
+                                ? debtPeopleFilter.map(personLabel).join(', ')
+                                : `${debtPeopleFilter.length} personas`
+                            }`}
+                      </span>
+                      <ChevronDown size={13} className="shrink-0" />
+                    </button>
+
+                    {showPeopleFilter && (
+                      <>
+                        <div className="fixed inset-0 z-30" onClick={() => setShowPeopleFilter(false)} />
+                        <div className="absolute z-40 mt-2 right-0 w-72 bg-surface-900 border border-white/10 rounded-2xl shadow-2xl p-3 backdrop-blur-xl space-y-2">
+                          {/* Modo: incluir solo las marcadas o excluirlas */}
+                          <div className="grid grid-cols-2 gap-1 bg-surface-950 p-1 rounded-xl border border-white/5">
+                            <button
+                              type="button"
+                              onClick={() => setDebtPeopleMode('include')}
+                              className={`py-1.5 text-[11px] font-semibold rounded-lg transition-all ${
+                                debtPeopleMode === 'include'
+                                  ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30'
+                                  : 'text-surface-400 hover:text-white'
+                              }`}
+                            >
+                              Solo estas
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDebtPeopleMode('exclude')}
+                              className={`py-1.5 text-[11px] font-semibold rounded-lg transition-all ${
+                                debtPeopleMode === 'exclude'
+                                  ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                                  : 'text-surface-400 hover:text-white'
+                              }`}
+                            >
+                              🚫 Excluir estas
+                            </button>
+                          </div>
+
+                          <div className="flex justify-between items-center pb-2 border-b border-white/10">
+                            <span className="text-[11px] text-surface-400">
+                              {debtPeopleFilter.length === 0 ? 'Ninguna marcada: se ven todas' : `${debtPeopleFilter.length} marcada${debtPeopleFilter.length > 1 ? 's' : ''}`}
+                            </span>
+                            {debtPeopleFilter.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => setDebtPeopleFilter([])}
+                                className="text-[11px] text-surface-400 hover:text-rose-300 font-semibold"
+                              >
+                                Desmarcar
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="max-h-56 overflow-y-auto custom-scrollbar space-y-1">
+                            {[{ key: SIN_PERSONA, name: '⚪ Sin persona', count: -1 }, ...debtPeople].map(p => {
+                              const marcado = debtPeopleFilter.includes(p.key);
+                              const excluding = debtPeopleMode === 'exclude';
+                              return (
+                                <button
+                                  key={p.key}
+                                  type="button"
+                                  onClick={() => toggleDebtPerson(p.key)}
+                                  className={`w-full text-left text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-2 transition-colors ${
+                                    p.key === SIN_PERSONA ? 'border-b border-white/5 pb-2 mb-1' : ''
+                                  } ${
+                                    marcado
+                                      ? excluding ? 'bg-rose-500/10 text-rose-200 font-medium' : 'bg-orange-500/10 text-orange-200 font-medium'
+                                      : 'text-surface-400 hover:bg-white/5'
+                                  }`}
+                                >
+                                  <span className={`w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center ${
+                                    marcado ? (excluding ? 'bg-rose-500 border-rose-500' : 'bg-orange-500 border-orange-500') : 'border-surface-600'
+                                  }`}>
+                                    {marcado && (excluding ? <X size={10} className="text-surface-950" /> : <Check size={10} className="text-surface-950" />)}
+                                  </span>
+                                  <span className={`truncate flex-1 ${marcado && excluding ? 'line-through' : ''}`}>{p.name}</span>
+                                  {p.count > 0 && (
+                                    <span className="text-[10px] font-mono text-surface-500">{p.count}</span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Estado de pago & Vínculo */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-surface-400 mb-1">Pago</label>
+                    <div className="relative">
+                      <select
+                        value={debtStatusFilter}
+                        onChange={e => setDebtStatusFilter(e.target.value as DebtStatusFilterOption)}
+                        className={`w-full bg-surface-900 border rounded-xl px-2.5 py-2 text-xs focus:outline-none appearance-none cursor-pointer transition-all ${
+                          debtStatusFilter !== 'all'
+                            ? debtStatusFilter === 'paid' ? 'border-emerald-500/60 text-emerald-300 ring-1 ring-emerald-500/30 font-medium' : 'border-amber-500/60 text-amber-300 ring-1 ring-amber-500/30 font-medium'
+                            : 'border-white/10 text-surface-300'
+                        }`}
+                        title="Estado de la deuda vinculada en Supabase"
+                      >
+                        <option value="all" className="bg-surface-900 text-white">Todas</option>
+                        <option value="paid" className="bg-surface-900 text-emerald-300">✅ Pagadas</option>
+                        <option value="pending" className="bg-surface-900 text-amber-300">⏳ Pendientes</option>
+                        <option value="partial" className="bg-surface-900 text-amber-300">◐ Abonadas</option>
+                      </select>
+                      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-surface-500 pointer-events-none" size={12} />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-surface-400 mb-1">Dirección</label>
+                    <div className="relative">
+                      <select
+                        value={debtDirectionFilter}
+                        onChange={e => setDebtDirectionFilter(e.target.value as DebtDirectionFilterOption)}
+                        className={`w-full bg-surface-900 border rounded-xl px-2.5 py-2 text-xs focus:outline-none appearance-none cursor-pointer transition-all ${
+                          debtDirectionFilter !== 'all'
+                            ? 'border-orange-500/60 text-orange-300 ring-1 ring-orange-500/30 font-medium'
+                            : 'border-white/10 text-surface-300'
+                        }`}
+                        title="Según la deuda o el pago vinculado"
+                      >
+                        <option value="all" className="bg-surface-900 text-white">Ambas</option>
+                        <option value="me_deben" className="bg-surface-900 text-white">Me deben</option>
+                        <option value="debo" className="bg-surface-900 text-white">Yo debo</option>
+                      </select>
+                      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-surface-500 pointer-events-none" size={12} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Vínculo con Supabase */}
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-surface-400 mb-1">Vínculo</label>
+                  <div className="relative">
+                    <select
+                      value={debtLinkFilter}
+                      onChange={e => setDebtLinkFilter(e.target.value as DebtLinkFilterOption)}
+                      className={`w-full bg-surface-900 border rounded-xl px-3 py-2 text-xs focus:outline-none appearance-none cursor-pointer transition-all ${
+                        debtLinkFilter !== 'all'
+                          ? 'border-orange-500/60 text-orange-300 ring-1 ring-orange-500/30 font-medium'
+                          : 'border-white/10 text-surface-300'
+                      }`}
+                    >
+                      <option value="all" className="bg-surface-900 text-white">Cualquiera</option>
+                      <option value="linked" className="bg-surface-900 text-white">🔗 Con deuda o pago</option>
+                      <option value="deuda" className="bg-surface-900 text-white">🧾 Vinculadas a una deuda</option>
+                      <option value="pago" className="bg-surface-900 text-white">💸 Vinculadas a un pago</option>
+                      <option value="unlinked" className="bg-surface-900 text-amber-300">⚠️ Reembolsables sin vincular</option>
+                    </select>
+                    <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 text-surface-500 pointer-events-none" size={13} />
+                  </div>
+                </div>
+              </div>
+
             </div>
           )}
 
@@ -1605,6 +2008,8 @@ export function DataExplorer() {
                         const isSplit = Boolean(t.subTransactions && t.subTransactions.length > 1);
                         const isExpanded = expandedSplits.has(t.id);
                         const fund = matchFund(t, funds);
+                        const debtStatus = linkedDebtStatus(t, debtLookup);
+                        const debtPersonName = debtPerson(t, debtLookup);
 
                         const toggleSplitExpand = (e: React.MouseEvent) => {
                           e.stopPropagation();
@@ -1773,6 +2178,24 @@ export function DataExplorer() {
                                   {t.es_reembolsable && (
                                     <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/20">
                                       reembolsable
+                                    </span>
+                                  )}
+                                  {debtStatus && (
+                                    <span
+                                      title={debtPersonName ? `Deuda con ${debtPersonName}` : 'Deuda vinculada'}
+                                      className={`text-[9px] font-bold px-1.5 py-0.5 rounded border whitespace-nowrap ${
+                                        debtStatus === 'paid'
+                                          ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+                                          : 'bg-amber-500/10 text-amber-300 border-amber-500/20'
+                                      }`}
+                                    >
+                                      {debtStatus === 'paid' ? 'pagada' : debtStatus === 'partial' ? 'abonada' : 'pendiente'}
+                                      {debtPersonName && ` · ${debtPersonName}`}
+                                    </span>
+                                  )}
+                                  {!debtStatus && t.pago_id && (
+                                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded border whitespace-nowrap bg-sky-500/10 text-sky-300 border-sky-500/20">
+                                      pago{debtPersonName && ` · ${debtPersonName}`}
                                     </span>
                                   )}
                                 </div>

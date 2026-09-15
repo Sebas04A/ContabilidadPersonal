@@ -52,7 +52,62 @@ export function MonthlyBudget() {
       return [];
     }
   });
+  // Inclusiones: si hay alguna, solo se muestran las transacciones que coinciden.
+  const [includedCategories, setIncludedCategories] = useState<string[]>(() => {
+    const saved = localStorage.getItem('budget_includedCategories');
+    try {
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [includedTags, setIncludedTags] = useState<string[]>(() => {
+    const saved = localStorage.getItem('budget_includedTags');
+    try {
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [showExclusionModal, setShowExclusionModal] = useState(false);
+
+  const txCategory = (t: Transaction) => (!t.categoria || t.categoria === '---') ? 'Sin Categoría' : t.categoria;
+  // Una transacción sin tags cuenta como la pseudo-etiqueta 'Sin Etiqueta'.
+  const txTags = (t: Transaction) => {
+      const tags = t.tags ? t.tags.split(',').map(tag => tag.trim()).filter(Boolean) : [];
+      return tags.length > 0 ? tags : ['Sin Etiqueta'];
+  };
+
+  /**
+   * Filtro de categorías y etiquetas. Las inclusiones se combinan con Y entre
+   * categoría y etiqueta (si hay de ambas, deben cumplirse las dos) y con O dentro
+   * de cada grupo. Las exclusiones se aplican después y siempre ganan.
+   */
+  const matchesCategoryTag = (t: Transaction) => {
+      const cat = txCategory(t);
+      const tags = txTags(t);
+      if (includedCategories.length > 0 && !includedCategories.includes(cat)) return false;
+      if (includedTags.length > 0 && !tags.some(tg => includedTags.includes(tg))) return false;
+      if (excludedCategories.includes(cat)) return false;
+      if (tags.some(tg => excludedTags.includes(tg))) return false;
+      return true;
+  };
+
+  // Clic en un chip del modal: sin filtro → solo mostrar → ocultar → sin filtro.
+  const cycleFilter = (
+      value: string,
+      included: string[], setIncluded: (v: string[]) => void,
+      excluded: string[], setExcluded: (v: string[]) => void,
+  ) => {
+      if (included.includes(value)) {
+          setIncluded(included.filter(v => v !== value));
+          setExcluded([...excluded, value]);
+      } else if (excluded.includes(value)) {
+          setExcluded(excluded.filter(v => v !== value));
+      } else {
+          setIncluded([...included, value]);
+      }
+  };
 
   // Lista de fondos (cacheada por react-query) para marcar y filtrar a qué fondo
   // pertenece cada transacción: búsqueda en memoria, sin peticiones por fila.
@@ -109,22 +164,8 @@ export function MonthlyBudget() {
   }, [allPeriodTransactions, reimbursableFilter, priorityFilter, selectedFunds, funds]);
 
   const transactionsBaseFilter = useMemo(() => {
-     return filteredByReimbursable.filter(t => {
-         const tCategory = (!t.categoria || t.categoria === '---') ? 'Sin Categoría' : t.categoria;
-         if (excludedCategories.includes(tCategory)) return false;
-
-         if (excludedTags.length > 0) {
-             const tTags = t.tags ? t.tags.split(',').map(tag => tag.trim()).filter(Boolean) : [];
-             if (tTags.length === 0) {
-                 if (excludedTags.includes('Sin Etiqueta')) return false;
-             } else {
-                 if (tTags.some(tg => excludedTags.includes(tg))) return false;
-             }
-         }
-
-         return true;
-     });
-  }, [filteredByReimbursable, excludedCategories, excludedTags]);
+     return filteredByReimbursable.filter(matchesCategoryTag);
+  }, [filteredByReimbursable, excludedCategories, excludedTags, includedCategories, includedTags]);
 
   const transactions = useMemo(() => {
       return transactionsBaseFilter.filter(t => {
@@ -188,6 +229,14 @@ export function MonthlyBudget() {
   useEffect(() => {
     localStorage.setItem('budget_excludedTags', JSON.stringify(excludedTags));
   }, [excludedTags]);
+
+  useEffect(() => {
+    localStorage.setItem('budget_includedCategories', JSON.stringify(includedCategories));
+  }, [includedCategories]);
+
+  useEffect(() => {
+    localStorage.setItem('budget_includedTags', JSON.stringify(includedTags));
+  }, [includedTags]);
 
   useEffect(() => {
     localStorage.setItem('budget_selectedFunds', JSON.stringify(selectedFunds));
@@ -410,21 +459,10 @@ export function MonthlyBudget() {
          
          if (labeledFilter === 'labeled' && !t.revisado) return false;
          if (labeledFilter === 'unlabeled' && t.revisado) return false;
-         
-         const tCategory = (!t.categoria || t.categoria === '---') ? 'Sin Categoría' : t.categoria;
-         if (excludedCategories.includes(tCategory)) return false;
 
-         if (excludedTags.length > 0) {
-             const tTags = t.tags ? t.tags.split(',').map(tag => tag.trim()).filter(Boolean) : [];
-             if (tTags.length === 0) {
-                 if (excludedTags.includes('Sin Etiqueta')) return false;
-             } else {
-                 if (tTags.some(tg => excludedTags.includes(tg))) return false;
-             }
-         }
-         return true;
+         return matchesCategoryTag(t);
       });
-  }, [allTimeTransactions, reimbursableFilter, labeledFilter, priorityFilter, excludedCategories, excludedTags, selectedFunds, funds]);
+  }, [allTimeTransactions, reimbursableFilter, labeledFilter, priorityFilter, excludedCategories, excludedTags, includedCategories, includedTags, selectedFunds, funds]);
 
   const tagBalances = useMemo(() => {
     const balances: Record<string, number> = {};
@@ -955,19 +993,31 @@ export function MonthlyBudget() {
                      })()}
                  </div>
 
-                 <button
-                     onClick={() => setShowExclusionModal(true)}
-                     className={`border text-sm rounded-lg block px-3 py-2 flex items-center gap-2 transition-colors ${
-                         (excludedCategories.length + excludedTags.length) > 0 
-                         ? 'bg-rose-500/20 border-rose-500/50 text-rose-400 hover:bg-rose-500/30' 
-                         : 'bg-surface-800/50 border-white/10 text-white hover:bg-surface-700 backdrop-blur-md'
-                     }`}
-                 >
-                     <Filter size={16} /> 
-                     <span className="hidden md:inline">
-                         Exclusiones {(excludedCategories.length + excludedTags.length) > 0 ? `(${excludedCategories.length + excludedTags.length})` : ''}
-                     </span>
-                 </button>
+                 {(() => {
+                     const includedCount = includedCategories.length + includedTags.length;
+                     const excludedCount = excludedCategories.length + excludedTags.length;
+                     const parts = [
+                         includedCount > 0 ? `${includedCount} solo` : '',
+                         excludedCount > 0 ? `${excludedCount} excl.` : '',
+                     ].filter(Boolean);
+                     return (
+                         <button
+                             onClick={() => setShowExclusionModal(true)}
+                             className={`border text-sm rounded-lg block px-3 py-2 flex items-center gap-2 transition-colors ${
+                                 includedCount > 0
+                                 ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300 hover:bg-emerald-500/30'
+                                 : excludedCount > 0
+                                 ? 'bg-rose-500/20 border-rose-500/50 text-rose-400 hover:bg-rose-500/30'
+                                 : 'bg-surface-800/50 border-white/10 text-white hover:bg-surface-700 backdrop-blur-md'
+                             }`}
+                         >
+                             <Filter size={16} />
+                             <span className="hidden md:inline">
+                                 Filtros {parts.length > 0 ? `(${parts.join(' · ')})` : ''}
+                             </span>
+                         </button>
+                     );
+                 })()}
                  
                  {selectedPeriod === 'custom' && (
                      <div className="flex items-center gap-2 animate-fade-in">
@@ -1073,76 +1123,105 @@ export function MonthlyBudget() {
                   <div className="p-6 border-b border-white/10 flex justify-between items-center bg-surface-800/50">
                       <div>
                           <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                              Filtros de Exclusión
+                              Filtros de Categorías y Etiquetas
                           </h2>
-                          <p className="text-surface-400 text-sm mt-1">Oculta categorías o etiquetas específicas de todo el análisis.</p>
+                          <p className="text-surface-400 text-sm mt-1">
+                              Clic en un elemento para alternar:{' '}
+                              <span className="text-emerald-400 font-medium">solo mostrar</span> →{' '}
+                              <span className="text-rose-400 font-medium">ocultar</span> → sin filtro.
+                          </p>
                       </div>
                       <button onClick={() => setShowExclusionModal(false)} className="p-2 text-surface-400 hover:text-white transition-colors bg-surface-950 rounded-xl hover:bg-surface-700">
                           <X size={24} />
                       </button>
                   </div>
-                  
+
                   <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-8">
+                      {(() => {
+                          const renderChip = (value: string, included: string[], excluded: string[], onClick: () => void, fullWidth: boolean) => {
+                              const isIncluded = included.includes(value);
+                              const isExcluded = excluded.includes(value);
+                              return (
+                                  <button
+                                      key={value}
+                                      onClick={onClick}
+                                      title={isIncluded ? 'Solo mostrar (clic para ocultar)' : isExcluded ? 'Oculto (clic para quitar el filtro)' : 'Sin filtro (clic para mostrar solo esto)'}
+                                      className={`flex items-center gap-2 ${fullWidth ? 'p-2' : 'px-3 py-1.5'} rounded-lg border text-left text-sm transition-colors ${
+                                          isIncluded
+                                          ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300 font-medium'
+                                          : isExcluded
+                                          ? 'bg-rose-500/10 border-rose-500/30 text-rose-400 font-medium'
+                                          : 'bg-surface-950 border-white/5 text-surface-300 hover:bg-surface-800'
+                                      }`}
+                                  >
+                                      <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                                          isIncluded ? 'bg-emerald-500 border-emerald-500 text-surface-950'
+                                          : isExcluded ? 'bg-rose-500 border-rose-500 text-surface-950'
+                                          : 'border-surface-600 bg-surface-800'
+                                      }`}>
+                                          {isIncluded && <Check size={12} strokeWidth={3} />}
+                                          {isExcluded && <X size={12} strokeWidth={3} />}
+                                      </span>
+                                      <span className={`truncate ${isExcluded ? 'line-through' : ''}`}>{value}</span>
+                                  </button>
+                              );
+                          };
+
+                          const renderHeader = (title: string, included: string[], excluded: string[], onClear: () => void) => (
+                              <div className="flex justify-between items-center mb-4 gap-3">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                      <h3 className="text-lg font-bold text-white">{title}</h3>
+                                      {included.length > 0 && (
+                                          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                                              Solo {included.length}
+                                          </span>
+                                      )}
+                                      {excluded.length > 0 && (
+                                          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/30">
+                                              Ocultas {excluded.length}
+                                          </span>
+                                      )}
+                                  </div>
+                                  {(included.length + excluded.length) > 0 && (
+                                      <button onClick={onClear} className="text-xs text-surface-400 hover:text-white shrink-0">
+                                          Limpiar
+                                      </button>
+                                  )}
+                              </div>
+                          );
+
+                          return (
+                              <>
                       {/* Categorías */}
                       <div>
-                          <div className="flex justify-between items-center mb-4">
-                              <h3 className="text-lg font-bold text-white">Categorías Excluidas</h3>
-                              <button 
-                                  onClick={() => setExcludedCategories([])}
-                                  className="text-xs text-rose-400 hover:text-rose-300"
-                              >
-                                  Limpiar todas
-                              </button>
-                          </div>
+                          {renderHeader('Categorías', includedCategories, excludedCategories, () => { setIncludedCategories([]); setExcludedCategories([]); })}
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                              {[...CATEGORIES.filter(c => c !== '---'), 'Sin Categoría'].map(cat => (
-                                  <label key={cat} className="flex items-center gap-2 p-2 bg-surface-950 rounded-lg border border-white/5 cursor-pointer hover:bg-surface-800 transition-colors">
-                                      <input 
-                                          type="checkbox" 
-                                          checked={excludedCategories.includes(cat)}
-                                          onChange={(e) => {
-                                              if (e.target.checked) setExcludedCategories([...excludedCategories, cat]);
-                                              else setExcludedCategories(excludedCategories.filter(c => c !== cat));
-                                          }}
-                                          className="rounded border-surface-600 bg-surface-800 text-rose-500 focus:ring-rose-500/50 focus:ring-offset-surface-950"
-                                      />
-                                      <span className={`text-sm ${excludedCategories.includes(cat) ? 'text-rose-400 font-medium line-through' : 'text-surface-300'}`}>{cat}</span>
-                                  </label>
-                              ))}
+                              {[...CATEGORIES.filter(c => c !== '---'), 'Sin Categoría'].map(cat =>
+                                  renderChip(cat, includedCategories, excludedCategories,
+                                      () => cycleFilter(cat, includedCategories, setIncludedCategories, excludedCategories, setExcludedCategories), true)
+                              )}
                           </div>
                       </div>
 
                       {/* Etiquetas */}
                       <div>
-                          <div className="flex justify-between items-center mb-4">
-                              <h3 className="text-lg font-bold text-white">Etiquetas Excluidas</h3>
-                              <button 
-                                  onClick={() => setExcludedTags([])}
-                                  className="text-xs text-rose-400 hover:text-rose-300"
-                              >
-                                  Limpiar todas
-                              </button>
-                          </div>
+                          {renderHeader('Etiquetas', includedTags, excludedTags, () => { setIncludedTags([]); setExcludedTags([]); })}
+                          {includedTags.length > 1 && (
+                              <p className="text-xs text-surface-500 -mt-2 mb-3">Se muestran las transacciones que tengan al menos una de las etiquetas marcadas.</p>
+                          )}
                           <div className="flex flex-wrap gap-2">
-                              {[...availableTags, 'Sin Etiqueta'].map(tag => (
-                                  <label key={tag} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border cursor-pointer transition-colors ${excludedTags.includes(tag) ? 'bg-rose-500/10 border-rose-500/30' : 'bg-surface-950 border-white/5 hover:bg-surface-800'}`}>
-                                      <input 
-                                          type="checkbox" 
-                                          checked={excludedTags.includes(tag)}
-                                          onChange={(e) => {
-                                              if (e.target.checked) setExcludedTags([...excludedTags, tag]);
-                                              else setExcludedTags(excludedTags.filter(t => t !== tag));
-                                          }}
-                                          className="rounded border-surface-600 bg-surface-800 text-rose-500 focus:ring-rose-500/50 focus:ring-offset-surface-950"
-                                      />
-                                      <span className={`text-sm ${excludedTags.includes(tag) ? 'text-rose-400 font-medium line-through' : 'text-surface-300'}`}>{tag}</span>
-                                  </label>
-                              ))}
+                              {[...availableTags, 'Sin Etiqueta'].map(tag =>
+                                  renderChip(tag, includedTags, excludedTags,
+                                      () => cycleFilter(tag, includedTags, setIncludedTags, excludedTags, setExcludedTags), false)
+                              )}
                           </div>
                           {availableTags.length === 0 && (
                               <p className="text-surface-500 text-sm italic">No hay etiquetas disponibles aún.</p>
                           )}
                       </div>
+                              </>
+                          );
+                      })()}
                   </div>
                   <div className="p-4 border-t border-white/10 bg-surface-800/50 flex justify-end">
                       <button 
