@@ -41,8 +41,8 @@ function Popover({ abierto, onCerrar, children }: {
   if (!abierto) return null;
   return (
     <>
-      <div className='fixed inset-0 z-30' onClick={onCerrar} />
-      <div className='absolute z-40 mt-2 right-0 w-80 bg-slate-900 border border-white/10 rounded-2xl shadow-2xl p-3 backdrop-blur-xl'>
+      <div className='fixed inset-0 z-40' onClick={onCerrar} />
+      <div className='absolute z-50 mt-2 left-0 sm:left-auto sm:right-0 w-80 max-w-[90vw] bg-slate-900/95 border border-white/15 rounded-2xl shadow-2xl p-3 backdrop-blur-2xl'>
         {children}
       </div>
     </>
@@ -75,7 +75,7 @@ export function DashboardFilterBar({ filters, onChange, onClear, resumen }: Prop
   const nExcluidas = (filters.categoriasExcluidas.length + filters.tagsExcluidos.length);
 
   return (
-    <div className='w-full flex flex-col gap-2'>
+    <div className='w-full flex flex-col gap-2 relative z-30'>
       <div className='flex flex-wrap items-center gap-2 bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-2xl px-3 py-2.5 shadow-xl'>
         <div className='flex items-center gap-2 text-slate-400 pr-1'>
           <Filter size={16} className={activo ? 'text-amber-400' : ''} />

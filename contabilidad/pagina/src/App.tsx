@@ -111,7 +111,7 @@ function App() {
                  </div>
 
                  {/* Filtros — uno solo para las dos vistas */}
-                 <div className="w-full px-1">
+                 <div className="w-full px-1 relative z-30">
                     <DashboardFilterBar
                         filters={filters}
                         onChange={setFilters}
@@ -121,7 +121,7 @@ function App() {
                  </div>
 
                  {/* Content Area */}
-                 <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-500 px-1">
+                 <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-500 px-1 relative z-10">
                     {dashboardView === 'evolution' ? (
                         <DashboardChart
                             incluirInversiones={incluirInversiones}

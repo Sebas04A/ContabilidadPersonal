@@ -6,6 +6,7 @@ import { Loader2, AlertCircle, MousePointerClick, Activity, TrendingUp, Layers }
 import { ChartAnalysis, Curve } from './ChartAnalysis';
 import type { EChartsOption } from 'echarts';
 import { TOOLTIP } from '../utils/chartTheme';
+import { money, signedMoney } from '../utils/format';
 
 interface DashboardChartProps {
   /** Si el patrimonio suma el capital que está dentro de una posición de inversión. */
@@ -29,6 +30,7 @@ export function DashboardChart({
   useEffect(() => {
     onResumenFiltro?.((chartData as any)?.metadata?.filtro ?? null);
   }, [chartData, onResumenFiltro]);
+  const [chartMode, setChartMode] = useState<'cumulative' | 'delta'>('cumulative');
   const [curves, setCurves] = useState<Curve[]>([]);
   const [tempPoint, setTempPoint] = useState<{date: string, value: number} | null>(null);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -82,6 +84,37 @@ export function DashboardChart({
     });
   }, [chartData, windowSize]);
 
+  // Primera derivada (Δ) con baseline en $0 según ventana temporal
+  const deltaData = useMemo(() => {
+    if (!chartData || !chartData.data || chartData.data.length === 0) return [];
+    const raw = chartData.data;
+    const keys = ['total', 'saldo', 'saldo_sin_inversion', 'tarjeta', 'deuda_acumulada', 'pagos_fijos', 'interpolado'];
+
+    return raw.map((item: any, index: number) => {
+      const prevIndex = Math.max(0, index - windowSize);
+      const prevItem: any = raw[prevIndex];
+      const newItem: any = { ...item };
+
+      keys.forEach(key => {
+        const currVal = typeof item[key] === 'number' ? item[key] : 0;
+        const prevVal = typeof prevItem?.[key] === 'number' ? prevItem[key] : currVal;
+        newItem[key] = index === 0 ? 0 : (currVal - prevVal);
+      });
+
+      if (windowSize === 1) {
+        newItem.diff_total = item.diff_total ?? 0;
+      } else {
+        const start = Math.max(0, index - windowSize + 1);
+        const slice = raw.slice(start, index + 1);
+        newItem.diff_total = slice.reduce((sum: number, curr: any) => sum + (typeof curr.diff_total === 'number' ? curr.diff_total : 0), 0);
+      }
+
+      return newItem;
+    });
+  }, [chartData, windowSize]);
+
+  const displayData = chartMode === 'delta' ? deltaData : smoothedData;
+
   if (isLoading) {
     return (
       <div className="w-full h-[600px] flex items-center justify-center">
@@ -122,7 +155,8 @@ export function DashboardChart({
     if (!params || !params.name) return;
     
     const date = params.name;
-    const pointData = data.find((d: any) => d.date === date);
+    const activeList = chartMode === 'delta' ? deltaData : data;
+    const pointData = activeList.find((d: any) => d.date === date);
     if (!pointData) return;
     
     const value = pointData.total; 
@@ -154,16 +188,39 @@ export function DashboardChart({
         lineStyle: { color: '#94a3b8', type: 'dashed' }
       },
       formatter: function (params: any) {
-        let tooltip = `<div class="font-bold mb-2">${params[0].axisValueLabel}</div>`;
+        if (!params || !params.length) return '';
+        let tooltip = `<div class="font-bold mb-2 text-slate-200">${params[0].axisValueLabel}</div>`;
         params.forEach((param: any) => {
-          const value = typeof param.value === 'number' ? param.value.toFixed(2) : param.value;
+          if (param.value === undefined || param.value === null) return;
+          const valNum = typeof param.value === 'number' ? param.value : parseFloat(param.value);
+          const isNum = !isNaN(valNum);
           const color = param.color;
-          tooltip += `<div class="flex items-center justify-between gap-4 text-sm">
-            <span class="flex items-center gap-2">
-              <span class="w-2 h-2 rounded-full" style="background-color: ${color}"></span>
+          let formattedValue = '$' + (isNum ? valNum.toFixed(2) : param.value);
+          let deltaBadge = '';
+          let valColorClass = 'text-slate-200';
+
+          if (chartMode === 'delta' && isNum) {
+            formattedValue = signedMoney(valNum);
+            if (valNum < -0.01) {
+              valColorClass = 'text-rose-400';
+              deltaBadge = '<span class="text-[10px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-semibold ml-1.5">Salida</span>';
+            } else if (valNum > 0.01) {
+              valColorClass = 'text-emerald-400';
+              deltaBadge = '<span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold ml-1.5">Entrada</span>';
+            } else {
+              valColorClass = 'text-slate-400';
+            }
+          }
+
+          tooltip += `<div class="flex items-center justify-between gap-4 text-sm py-0.5">
+            <span class="flex items-center gap-2 text-slate-300">
+              <span class="w-2 h-2 rounded-full flex-shrink-0" style="background-color: ${color}"></span>
               ${param.seriesName}
             </span>
-            <span class="font-mono font-medium">$${value}</span>
+            <span class="flex items-center font-mono font-medium ${valColorClass}">
+              ${formattedValue}
+              ${deltaBadge}
+            </span>
           </div>`;
         });
         return tooltip;
@@ -234,7 +291,17 @@ export function DashboardChart({
       },
       axisTick: { alignWithLabel: true }
     },
-    yAxis: [
+    yAxis: chartMode === 'delta' ? [
+      {
+        type: 'value',
+        name: windowSize === 1 ? 'Δ Diario ($)' : `Δ ${windowSize}d ($)`,
+        position: 'left',
+        axisLine: { show: true, lineStyle: { color: '#475569' } },
+        axisLabel: { color: '#94a3b8', formatter: (val: number) => money(val, 0) },
+        splitLine: { lineStyle: { color: '#334155', type: 'dashed', opacity: 0.3 } },
+        scale: true
+      }
+    ] : [
       {
         type: 'value',
         name: 'Variación',
@@ -258,11 +325,11 @@ export function DashboardChart({
         name: 'Variación Neta',
         type: 'bar',
         yAxisIndex: 0,
-        data: data.map((item: any) => item.diff_total),
+        data: (chartMode === 'delta' ? deltaData : data).map((item: any) => item.diff_total),
         itemStyle: { 
             color: (params: any) => {
                 const val = typeof params.value === 'number' ? params.value : 0;
-                return val >= 0 ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)';
+                return val >= 0 ? 'rgba(34, 197, 94, 0.35)' : 'rgba(239, 68, 68, 0.35)';
             },
             borderRadius: [2, 2, 0, 0]
         },
@@ -272,14 +339,28 @@ export function DashboardChart({
       {
         name: 'Patrimonio Neto',
         type: 'line',
-        yAxisIndex: 1,
-        data: smoothedData.map((item: any) => item.total),
+        yAxisIndex: chartMode === 'delta' ? 0 : 1,
+        data: displayData.map((item: any) => item.total),
         smooth: smoothness,
         showSymbol: false,
         symbolSize: 8,
-        lineStyle: { width: 4, shadowColor: 'rgba(239, 68, 68, 0.5)', shadowBlur: 10 }, 
-        itemStyle: { color: '#ef4444' }, // Red
-        areaStyle: {
+        lineStyle: { 
+          width: 4, 
+          shadowColor: chartMode === 'delta' ? 'rgba(56, 189, 248, 0.4)' : 'rgba(239, 68, 68, 0.5)', 
+          shadowBlur: 10,
+          color: chartMode === 'delta' ? '#38bdf8' : '#ef4444'
+        }, 
+        itemStyle: { color: chartMode === 'delta' ? '#38bdf8' : '#ef4444' },
+        areaStyle: chartMode === 'delta' ? {
+          color: {
+            type: 'linear',
+            x: 0, y: 0, x2: 0, y2: 1,
+            colorStops: [
+              { offset: 0, color: 'rgba(56, 189, 248, 0.18)' },
+              { offset: 1, color: 'rgba(56, 189, 248, 0.01)' }
+            ]
+          }
+        } : {
           color: {
             type: 'linear',
             x: 0, y: 0, x2: 0, y2: 1,
@@ -294,45 +375,45 @@ export function DashboardChart({
       {
         name: 'Saldo Banco',
         type: 'line',
-        yAxisIndex: 1,
-        data: smoothedData.map((item: any) => item.saldo),
+        yAxisIndex: chartMode === 'delta' ? 0 : 1,
+        data: displayData.map((item: any) => item.saldo),
         smooth: smoothness,
         showSymbol: false,
         lineStyle: { width: 2, type: 'dashed' }, 
-        itemStyle: { color: '#64748b' }, // Slate
+        itemStyle: { color: '#94a3b8' },
         z: 5
       },
       {
         name: 'Saldo (Sin Inv)',
         type: 'line',
-        yAxisIndex: 1,
-        data: smoothedData.map((item: any) => item.saldo_sin_inversion),
+        yAxisIndex: chartMode === 'delta' ? 0 : 1,
+        data: displayData.map((item: any) => item.saldo_sin_inversion),
         smooth: smoothness,
         showSymbol: false,
         lineStyle: { width: 3 }, 
-        itemStyle: { color: '#22c55e' }, // Green
+        itemStyle: { color: '#22c55e' },
         z: 8
       },
       {
         name: 'Deuda Tarjeta',
         type: 'line',
-        yAxisIndex: 1,
-        data: smoothedData.map((item: any) => item.tarjeta),
+        yAxisIndex: chartMode === 'delta' ? 0 : 1,
+        data: displayData.map((item: any) => item.tarjeta),
         smooth: smoothness,
         showSymbol: false,
         lineStyle: { width: 2 }, 
-        itemStyle: { color: '#3b82f6' }, // Blue
+        itemStyle: { color: '#3b82f6' },
         z: 6
       },
       {
         name: 'Deuda Acumulada',
         type: 'line',
-        yAxisIndex: 1,
-        data: smoothedData.map((item: any) => item.deuda_acumulada),
+        yAxisIndex: chartMode === 'delta' ? 0 : 1,
+        data: displayData.map((item: any) => item.deuda_acumulada),
         smooth: smoothness,
         showSymbol: false,
         lineStyle: { width: 3 }, 
-        itemStyle: { color: '#8b5cf6' }, // Violet
+        itemStyle: { color: '#8b5cf6' },
         areaStyle: {
           color: {
             type: 'linear',
@@ -345,26 +426,26 @@ export function DashboardChart({
         },
         z: 7
       },
-       {
+      {
         name: 'Pagos Fijos',
         type: 'line',
-        yAxisIndex: 1,
-        data: smoothedData.map((item: any) => item.pagos_fijos),
+        yAxisIndex: chartMode === 'delta' ? 0 : 1,
+        data: displayData.map((item: any) => item.pagos_fijos),
         smooth: smoothness,
         showSymbol: false,
         lineStyle: { width: 2, type: 'dotted' }, 
-        itemStyle: { color: '#a855f7' }, // Purple
+        itemStyle: { color: '#a855f7' },
         z: 4
       },
       {
         name: 'Interpolaciones',
         type: 'line',
-        yAxisIndex: 1,
-        data: smoothedData.map((item: any) => item.interpolado),
+        yAxisIndex: chartMode === 'delta' ? 0 : 1,
+        data: displayData.map((item: any) => item.interpolado),
         smooth: smoothness,
         showSymbol: false,
         lineStyle: { width: 2, type: 'dashed' }, 
-        itemStyle: { color: '#f97316' }, // Orange
+        itemStyle: { color: '#f97316' },
         z: 4
       }
     ]
@@ -374,6 +455,23 @@ export function DashboardChart({
   // Add markLines logic
   let markLineData: any[] = [];
   let markPointData: any[] = [];
+
+  // 0. Baseline $0 (for Delta Mode)
+  if (chartMode === 'delta') {
+    markLineData.push({
+      yAxis: 0,
+      label: { 
+        formatter: 'Baseline $0', 
+        position: 'end', 
+        color: '#94a3b8', 
+        fontSize: 10,
+        backgroundColor: 'rgba(15, 23, 42, 0.85)',
+        padding: [2, 4],
+        borderRadius: 4
+      },
+      lineStyle: { color: '#64748b', width: 1.5, type: 'dashed' }
+    });
+  }
   
   // 1. Highlighted Days
   if (highlighted_days && highlighted_days.length > 0) {
@@ -434,24 +532,65 @@ export function DashboardChart({
   return (
     <>
       <div className="w-full bg-slate-900/50 p-6 rounded-3xl border border-white/10 shadow-xl backdrop-blur-xl relative">
-        <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4">
-            <h3 className="text-xl font-bold text-white flex items-center gap-3">
-            <span className="w-2 h-8 bg-gradient-to-b from-blue-500 to-green-500 rounded-full"></span>
-            Evolución Financiera
-            {/* Cuáles de estas líneas responden al filtro y cuáles no. Sin esto, un
-                gráfico con filtro puesto se lee como si todo estuviera filtrado. */}
-            {filtroActivo && (
-              <span
-                className="text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-lg bg-amber-400/15 text-amber-300 border border-amber-400/30"
-                title="El filtro descuenta del Saldo Banco y de la Deuda Tarjeta, y con ellos de todo lo que se deriva: Saldo sin Inv., Patrimonio y Variación Neta. Deuda Acumulada, Pagos Fijos e Interpolaciones no salen de transacciones etiquetadas y van sin filtrar."
-              >
-                Filtrado
-              </span>
-            )}
-            </h3>
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-6 gap-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <h3 className="text-xl font-bold text-white flex items-center gap-3">
+                <span className={`w-2 h-8 rounded-full transition-all duration-300 ${
+                  chartMode === 'delta' 
+                    ? 'bg-gradient-to-b from-purple-500 to-pink-500' 
+                    : 'bg-gradient-to-b from-blue-500 to-green-500'
+                }`}></span>
+                {chartMode === 'delta' ? 'Delta (Primera Derivada)' : 'Evolución Financiera'}
+                {chartMode === 'delta' && (
+                  <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-lg bg-purple-500/15 text-purple-300 border border-purple-500/30">
+                    Baseline $0 · {windowSize === 1 ? 'Diario' : `${windowSize}d`}
+                  </span>
+                )}
+                {/* Cuáles de estas líneas responden al filtro y cuáles no. Sin esto, un
+                    gráfico con filtro puesto se lee como si todo estuviera filtrado. */}
+                {filtroActivo && (
+                  <span
+                    className="text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-lg bg-amber-400/15 text-amber-300 border border-amber-400/30"
+                    title="El filtro descuenta del Saldo Banco y de la Deuda Tarjeta, y con ellos de todo lo que se deriva: Saldo sin Inv., Patrimonio y Variación Neta. Deuda Acumulada, Pagos Fijos e Interpolaciones no salen de transacciones etiquetadas y van sin filtrar."
+                  >
+                    Filtrado
+                  </span>
+                )}
+              </h3>
 
-            {/* Selection Toggle */}
-            <div className="flex items-center gap-4">
+              {/* Mode Switch: Acumulado vs Delta Baseline $0 */}
+              <div className="flex items-center bg-slate-950/80 p-1 rounded-2xl border border-white/10 shadow-inner">
+                <button
+                  type="button"
+                  onClick={() => setChartMode('cumulative')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 ${
+                    chartMode === 'cumulative'
+                      ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md shadow-blue-500/25'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                  }`}
+                  title="Curva acumulada de patrimonio y saldos"
+                >
+                  <TrendingUp size={14} />
+                  <span>Acumulado</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setChartMode('delta')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 ${
+                    chartMode === 'delta'
+                      ? 'bg-gradient-to-r from-purple-600 to-pink-500 text-white shadow-md shadow-purple-500/25'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                  }`}
+                  title="Primera derivada con baseline en $0: resalta las mayores salidas y entradas de dinero"
+                >
+                  <Activity size={14} />
+                  <span>Delta (Δ) Baseline $0</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Controls */}
+            <div className="flex flex-wrap items-center gap-4">
                <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-2 rounded-xl">
                  <Activity size={16} className="text-gray-400" />
                  <div className="flex flex-col gap-1">
@@ -477,7 +616,7 @@ export function DashboardChart({
                  <div className="flex flex-col gap-1">
                     <div className="flex justify-between text-[10px] text-gray-500 uppercase font-bold tracking-wider">
                         <span>Tendencia</span>
-                        <span>{windowSize}d</span>
+                        <span>{chartMode === 'delta' ? (windowSize === 1 ? '1d (Diario)' : windowSize === 7 ? '7d (Semanal)' : `${windowSize}d`) : `${windowSize}d`}</span>
                     </div>
                     <input 
                     type="range" 
@@ -487,7 +626,7 @@ export function DashboardChart({
                     value={windowSize} 
                     onChange={(e) => setWindowSize(parseInt(e.target.value))}
                     className="w-20 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-violet-500"
-                    title="Suavizado de Datos (Media Móvil)"
+                    title={chartMode === 'delta' ? "Ventana temporal para el Delta (1d = diario, 7d = semanal)" : "Suavizado de Datos (Media Móvil)"}
                     />
                  </div>
                </div>
