@@ -160,13 +160,53 @@ def exportar_etiquetas(output_path: str = None) -> str:
     return output_path
 
 
+def exportar_inversiones(output_dir: str = DEFAULT_OUTPUT_DIR) -> tuple[str, str]:
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    os.makedirs(output_dir, exist_ok=True)
+    inv_dir = os.path.join(_PROJECT_ROOT, "data", "sistema", "inversiones")
+
+    pos_src = os.path.join(inv_dir, "posiciones.csv")
+    mov_src = os.path.join(inv_dir, "movimientos.csv")
+
+    pos_dst = os.path.join(output_dir, f"inversiones_posiciones_{today_str}.csv")
+    mov_dst = os.path.join(output_dir, f"inversiones_movimientos_{today_str}.csv")
+
+    if os.path.exists(pos_src):
+        df_pos = pd.read_csv(pos_src)
+        df_pos.to_csv(pos_dst, index=False, encoding="utf-8")
+        print(f"Exportación de inversiones_posiciones -> {pos_dst} ({len(df_pos)} filas)")
+    if os.path.exists(mov_src):
+        df_mov = pd.read_csv(mov_src)
+        df_mov.to_csv(mov_dst, index=False, encoding="utf-8")
+        print(f"Exportación de inversiones_movimientos -> {mov_dst} ({len(df_mov)} filas)")
+    return pos_dst, mov_dst
+
+
+def exportar_fondos(output_dir: str = DEFAULT_OUTPUT_DIR) -> str:
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    os.makedirs(output_dir, exist_ok=True)
+    grupos_src = os.path.join(_PROJECT_ROOT, "data", "sistema", "interpolaciones", "grupos.csv")
+    fondos_dst = os.path.join(output_dir, f"fondos_{today_str}.csv")
+    if os.path.exists(grupos_src):
+        df_fondos = pd.read_csv(grupos_src)
+        df_fondos.to_csv(fondos_dst, index=False, encoding="utf-8")
+        print(f"Exportación de fondos -> {fondos_dst} ({len(df_fondos)} filas)")
+    return fondos_dst
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Exportar transacciones de ContabilidadPersonal para informacion.")
     parser.add_argument("--output", help="Ruta de destino del CSV de transacciones", default=None)
     parser.add_argument("--output-etiquetas", help="Ruta de destino del CSV de etiquetas", default=None)
     parser.add_argument("--solo-etiquetas", action="store_true", help="Exportar únicamente las etiquetas")
+    parser.add_argument("--sin-inversiones", action="store_true", help="Omitir exportación de inversiones")
+    parser.add_argument("--sin-fondos", action="store_true", help="Omitir exportación de fondos")
     args = parser.parse_args()
 
     if not args.solo_etiquetas:
         exportar_transacciones(args.output)
     exportar_etiquetas(args.output_etiquetas)
+    if not args.sin_inversiones:
+        exportar_inversiones()
+    if not args.sin_fondos:
+        exportar_fondos()
