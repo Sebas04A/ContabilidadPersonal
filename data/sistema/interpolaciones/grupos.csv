@@ -1,16 +1,17 @@
-id,name,description,type,es_fondo,fecha_inicio,saldo_inicial,tag_vinculado,fondo_origen,es_inversion,es_custodia
-0f195c2d-b234-46fa-9a01-38e0ccc60f14,Mensual_Madre,Mensual de Comida y Extras,interpolated,,,,,,,
-bd963a38-13b9-4a6f-80a5-b871f9dc38d7,Inversiones_Mias,Mis inversiones,fixed,,,26000.0,,,True,False
-e996e29a-1443-4026-bb64-13f6da31ab32,Inversiones_Uni,Inversiones para pagar la universidad,fixed,,,3177.0,,,True,True
-5a1076ed-9b20-4e86-bd35-a91c57db1246,Inversiones_Madre,Inversiones de dinero que madre me dejo en mi cuenta,fixed,,,-0.84,,,True,True
-bad2a96c-41dc-413f-82da-2c8bc5ce27f2,Mis Depositos,,fixed,,,,,,,
-9850d962-59f8-48ad-91aa-f9fc45c6a8a3,Arreglos,Todo lo que necesite un arreglo puntual,fixed,,,,,,,
-365eaa81-c254-4d01-85ee-bcc31efb0dab,Gasolina_PAGOS Pagos,Pagos generados automáticamente del fondo «Gasolina_PAGOS»,fixed,False,,0.0,,9fd02acc-e6a0-4596-ae82-5cc9f83c6b94,,
-8c65cf09-adf1-496d-b838-38cddf6efc88,Comida Pagos,Pagos generados automáticamente del fondo «Comida»,fixed,False,,0.0,,8742d56b-9583-4c52-8d2a-f0d7b15db287,,
-9fd02acc-e6a0-4596-ae82-5cc9f83c6b94,Gasolina_PAGOS,,fixed,True,,0.0,Gasolina,,,
-8742d56b-9583-4c52-8d2a-f0d7b15db287,Comida,,fixed,True,,0.0,Mensual_Comida,,,
-e5988525-9016-4714-a260-2a0d313d384d,Parqueadero U,Pagos del parqueadero de la U,fixed,True,,0.0,,,,
-46a027af-555f-47c7-aa74-bb039dfbf38e,Parqueadero U Pagos,Pagos generados automáticamente del fondo «Parqueadero U»,fixed,False,,0.0,,e5988525-9016-4714-a260-2a0d313d384d,,
-55b93fe5-4de4-4bae-8d97-68f41cc69d02,Inversiones_Mias Pagos,Pagos generados desde las posiciones de «Inversiones_Mias»,fixed,False,,0.0,,bd963a38-13b9-4a6f-80a5-b871f9dc38d7,False,False
-4bce2d29-042b-4928-aae6-f9efce437f5a,Inversiones_Uni Pagos,Pagos generados desde las posiciones de «Inversiones_Uni»,fixed,False,,0.0,,e996e29a-1443-4026-bb64-13f6da31ab32,False,False
-1dc744d6-990c-4dc5-8f60-1314a9e67598,Inversiones_Madre Pagos,Pagos generados desde las posiciones de «Inversiones_Madre»,fixed,False,,0.0,,5a1076ed-9b20-4e86-bd35-a91c57db1246,False,False
+id,name,description,type,es_fondo,fecha_inicio,saldo_inicial,tag_vinculado,fondo_origen,es_inversion,es_custodia,ciclo,dia_corte_default
+0f195c2d-b234-46fa-9a01-38e0ccc60f14,Mensual_Madre,Mensual de Comida y Extras,interpolated,,,,,,,,,
+bd963a38-13b9-4a6f-80a5-b871f9dc38d7,Inversiones_Mias,Mis inversiones,fixed,,,26000.0,,,True,False,,
+e996e29a-1443-4026-bb64-13f6da31ab32,Inversiones_Uni,Inversiones para pagar la universidad,fixed,,,3177.0,,,True,True,,
+5a1076ed-9b20-4e86-bd35-a91c57db1246,Inversiones_Madre,Inversiones de dinero que madre me dejo en mi cuenta,fixed,,,-0.84,,,True,True,,
+bad2a96c-41dc-413f-82da-2c8bc5ce27f2,Mis Depositos,,fixed,,,,,,,,,
+9850d962-59f8-48ad-91aa-f9fc45c6a8a3,Arreglos,Todo lo que necesite un arreglo puntual,fixed,,,,,,,,,
+365eaa81-c254-4d01-85ee-bcc31efb0dab,Gasolina_PAGOS Pagos,Pagos generados automáticamente del fondo «Gasolina_PAGOS»,fixed,False,,0.0,,9fd02acc-e6a0-4596-ae82-5cc9f83c6b94,,,,
+8c65cf09-adf1-496d-b838-38cddf6efc88,Comida Pagos,Pagos generados automáticamente del fondo «Comida»,fixed,False,,0.0,,8742d56b-9583-4c52-8d2a-f0d7b15db287,,,,
+9fd02acc-e6a0-4596-ae82-5cc9f83c6b94,Gasolina_PAGOS,,fixed,True,,0.0,Gasolina,,,,,
+8742d56b-9583-4c52-8d2a-f0d7b15db287,Comida,,fixed,True,,0.0,Mensual_Comida,,,,,
+e5988525-9016-4714-a260-2a0d313d384d,Parqueadero U,Pagos del parqueadero de la U,fixed,True,,0.0,,,,,,
+46a027af-555f-47c7-aa74-bb039dfbf38e,Parqueadero U Pagos,Pagos generados automáticamente del fondo «Parqueadero U»,fixed,False,,0.0,,e5988525-9016-4714-a260-2a0d313d384d,,,,
+55b93fe5-4de4-4bae-8d97-68f41cc69d02,Inversiones_Mias Pagos,Pagos generados desde las posiciones de «Inversiones_Mias»,fixed,False,,0.0,,bd963a38-13b9-4a6f-80a5-b871f9dc38d7,False,False,,
+4bce2d29-042b-4928-aae6-f9efce437f5a,Inversiones_Uni Pagos,Pagos generados desde las posiciones de «Inversiones_Uni»,fixed,False,,0.0,,e996e29a-1443-4026-bb64-13f6da31ab32,False,False,,
+1dc744d6-990c-4dc5-8f60-1314a9e67598,Inversiones_Madre Pagos,Pagos generados desde las posiciones de «Inversiones_Madre»,fixed,False,,0.0,,5a1076ed-9b20-4e86-bd35-a91c57db1246,False,False,,
+426d8c4e-31ac-47ae-a7f4-ac6be3e81478,Viaje Rio,,fixed,True,2026-08-15,0.0,Viaje_RIO,,False,False,ingreso,

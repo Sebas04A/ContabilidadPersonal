@@ -5,7 +5,6 @@ e996e29a-1443-4026-bb64-13f6da31ab32,Inversiones_Uni,Inversiones para pagar la u
 5a1076ed-9b20-4e86-bd35-a91c57db1246,Inversiones_Madre,Inversiones de dinero que madre me dejo en mi cuenta,fixed,,,-0.84,,,True,True
 bad2a96c-41dc-413f-82da-2c8bc5ce27f2,Mis Depositos,,fixed,,,,,,,
 9850d962-59f8-48ad-91aa-f9fc45c6a8a3,Arreglos,Todo lo que necesite un arreglo puntual,fixed,,,,,,,
-4615e12b-983b-4dd7-9e4b-814d8487dee5,Pagos Parqueadero,,fixed,,,,,,,
 365eaa81-c254-4d01-85ee-bcc31efb0dab,Gasolina_PAGOS Pagos,Pagos generados automáticamente del fondo «Gasolina_PAGOS»,fixed,False,,0.0,,9fd02acc-e6a0-4596-ae82-5cc9f83c6b94,,
 8c65cf09-adf1-496d-b838-38cddf6efc88,Comida Pagos,Pagos generados automáticamente del fondo «Comida»,fixed,False,,0.0,,8742d56b-9583-4c52-8d2a-f0d7b15db287,,
 9fd02acc-e6a0-4596-ae82-5cc9f83c6b94,Gasolina_PAGOS,,fixed,True,,0.0,Gasolina,,,
