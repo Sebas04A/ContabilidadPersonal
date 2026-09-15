@@ -3,6 +3,7 @@ import ReactECharts from 'echarts-for-react';
 import { Heart, Meh, Frown, AlertCircle } from 'lucide-react';
 import { Transaction } from '../../services/api';
 import { money } from '../../utils/format';
+import { TOOLTIP } from '../../utils/chartTheme';
 
 interface HappinessTabProps {
   transactions: Transaction[];
@@ -375,6 +376,7 @@ export function HappinessTab({ transactions, formatCurrency, openLocalModal }: H
 
     return {
       tooltip: {
+        ...TOOLTIP,
         trigger: 'item',
         formatter: function (params: any) {
           const d = params.data;
@@ -385,9 +387,6 @@ export function HappinessTab({ transactions, formatCurrency, openLocalModal }: H
                     Felicidad: ${Math.round(d[0])}
                   </div>`;
         },
-        backgroundColor: '#1f2937',
-        borderColor: '#374151',
-        textStyle: { color: '#f3f4f6' }
       },
       grid: {
         left: '10%',
@@ -589,6 +588,7 @@ export function HappinessTab({ transactions, formatCurrency, openLocalModal }: H
 
     const option = {
       tooltip: {
+        ...TOOLTIP,
         trigger: 'axis',
         axisPointer: { type: 'shadow' },
         formatter: (params: any) => {
@@ -620,7 +620,6 @@ export function HappinessTab({ transactions, formatCurrency, openLocalModal }: H
                   Gap ponderado-simple: ${d.gap >= 0 ? '+' : ''}${d.gap.toFixed(2)}<br/>
                   <span style="color:#6b7280;font-size:11px">Tasa cruda (sensible a montos chicos): ${d.raw.toFixed(2)} pts/$100</span>`;
         },
-        backgroundColor: '#1f2937', borderColor: '#374151', textStyle: { color: '#f3f4f6' }
       },
       grid: { left: '3%', right: '6%', bottom: '3%', top: '5%', containLabel: true },
       xAxis: {
@@ -706,6 +705,7 @@ export function HappinessTab({ transactions, formatCurrency, openLocalModal }: H
 
     return {
       tooltip: {
+        ...TOOLTIP,
         trigger: 'item',
         formatter: (params: any) => {
           const d = params.data;
@@ -721,7 +721,6 @@ export function HappinessTab({ transactions, formatCurrency, openLocalModal }: H
                     Transacciones: ${d[2]}
                   </div>`;
         },
-        backgroundColor: '#1f2937', borderColor: '#374151', textStyle: { color: '#f3f4f6' }
       },
       grid: { left: '8%', right: '8%', bottom: '15%', top: '10%', containLabel: true },
       xAxis: {

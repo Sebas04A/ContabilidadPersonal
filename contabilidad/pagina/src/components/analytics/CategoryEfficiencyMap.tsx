@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactECharts from 'echarts-for-react';
 import { BarChart3, TrendingUp, Info } from 'lucide-react';
+import { TOOLTIP } from '../../utils/chartTheme';
 
 export const CategoryEfficiencyMap: React.FC = () => {
     // Mock Data: Average Spending vs Average Happiness for all categories
@@ -20,6 +21,7 @@ export const CategoryEfficiencyMap: React.FC = () => {
     const option = {
         backgroundColor: 'transparent',
         tooltip: {
+            ...TOOLTIP,
             trigger: 'item',
             formatter: (params: any) => {
                 const data = params.data;

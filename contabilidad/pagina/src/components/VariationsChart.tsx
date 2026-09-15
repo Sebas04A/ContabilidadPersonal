@@ -21,6 +21,7 @@ interface Props {
 
 //     // Explicit Fixed Flag
 //     if (d.source === 'fixed' || (d as any).is_fixed) return 'fixed';
+import { TOOLTIP } from '../utils/chartTheme';
 
 //     const cat = (d.description || '').toLowerCase();
 //     const acc = (d.source || '').toLowerCase();
@@ -154,6 +155,7 @@ export function VariationsChart({ className, incluirInversiones = false, filters
         return {
             backgroundColor: 'transparent',
             tooltip: {
+                ...TOOLTIP,
                 trigger: 'axis',
                 axisPointer: { type: 'shadow' },
                 formatter: (params: any) => {
@@ -291,11 +293,9 @@ export function VariationsChart({ className, incluirInversiones = false, filters
                 textStyle: { color: '#dda0dd', fontSize: 14, fontWeight: 'bold' },
             },
             tooltip: {
+                ...TOOLTIP,
                 trigger: 'axis',
                 axisPointer: { type: 'shadow' },
-                backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                borderColor: 'rgba(255,255,255,0.1)',
-                textStyle: { color: '#e2e8f0' },
                 formatter: (params: any) => {
                     const param = params[0]
                     if (!param) return ''

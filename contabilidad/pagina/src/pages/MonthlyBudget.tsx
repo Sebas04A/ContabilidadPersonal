@@ -21,6 +21,7 @@ import { GeneralBudgetTab } from '../components/budget/GeneralBudgetTab';
 import { HappinessTab } from '../components/budget/HappinessTab';
 import { NeedsWantsTab } from '../components/budget/NeedsWantsTab';
 import { CategoriesTagsTab } from '../components/budget/CategoriesTagsTab';
+import { TOOLTIP } from '../utils/chartTheme';
 
 const CATEGORIES = ['Alimentación', 'Transporte', 'Ocio', 'Salud', 'Subscripciones', 'Mensual', 'Inversion', 'Regalo', 'Mujeres', 'Aseo', 'Deudas', 'Tarjeta', 'Ropa', 'Viajes', 'Otro'];
 
@@ -496,6 +497,7 @@ export function MonthlyBudget() {
           const dataReversed = [...sortedComercios].reverse();
           barChartOption = {
               tooltip: {
+                  ...TOOLTIP,
                   trigger: 'axis',
                   axisPointer: { type: 'shadow' },
                   confine: true,
@@ -504,7 +506,6 @@ export function MonthlyBudget() {
                       const d = params[0].data;
                       return `<strong class="text-white">${d.name}</strong><br/>Monto: ${money(d.value)}`;
                   },
-                  backgroundColor: '#1f2937', borderColor: '#374151', textStyle: { color: '#f3f4f6' }
               },
               grid: { left: '3%', right: '4%', bottom: '3%', top: '5%', containLabel: true },
               xAxis: { 
@@ -552,12 +553,12 @@ export function MonthlyBudget() {
           }));
           pieChartOption = {
               tooltip: {
+                  ...TOOLTIP,
                   trigger: 'item',
                   formatter: (params: any) => {
                       const percentage = totalNegative > 0 ? (params.value / totalNegative) * 100 : 0;
                       return `<strong class="text-white">${params.name}</strong><br/>Monto Distribuido: ${money(params.value)}<br/>Proporción: ${percentage.toFixed(1)}%`;
                   },
-                  backgroundColor: '#1f2937', borderColor: '#374151', textStyle: { color: '#f3f4f6' }
               },
               series: [
                   {
@@ -588,11 +589,11 @@ export function MonthlyBudget() {
           const pieData = sortedCategories.map(item => ({ value: item.value, name: item.name }));
           pieChartOption = {
               tooltip: {
+                  ...TOOLTIP,
                   trigger: 'item',
                   formatter: (params: any) => {
                       return `<strong class="text-white">${params.data.name}</strong><br/>Monto: ${money(params.data.value)} (${params.percent.toFixed(1)}%)`;
                   },
-                  backgroundColor: '#1f2937', borderColor: '#374151', textStyle: { color: '#f3f4f6' }
               },
               legend: { show: false },
               series: [
@@ -613,11 +614,11 @@ export function MonthlyBudget() {
           const pieData = sortedCategories.map(item => ({ value: item.value, name: item.name }));
           pieChartOption = {
               tooltip: {
+                  ...TOOLTIP,
                   trigger: 'item',
                   formatter: (params: any) => {
                       return `<strong class="text-white">${params.data.name}</strong><br/>Monto: ${money(params.data.value)} (${params.percent.toFixed(1)}%)`;
                   },
-                  backgroundColor: '#1f2937', borderColor: '#374151', textStyle: { color: '#f3f4f6' }
               },
               legend: { show: false },
               series: [

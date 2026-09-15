@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { Transaction, FundListItem } from '../services/api';
 import { money } from '../utils/format';
+import { TOOLTIP } from '../utils/chartTheme';
 
 export interface ExplorerAnalyticsContentProps {
   transactions: Transaction[];
@@ -161,11 +162,9 @@ export function ExplorerAnalyticsContent({
 
     return {
       tooltip: {
+        ...TOOLTIP,
         trigger: 'axis',
         axisPointer: { type: 'shadow' },
-        backgroundColor: '#0f172a',
-        borderColor: 'rgba(255,255,255,0.1)',
-        textStyle: { color: '#f8fafc' },
         formatter: (params: any) => {
           const d = params[0].data;
           return `<strong class="text-white">${d.name}</strong><br/>Total: <span class="text-indigo-400 font-bold">${money(d.value)}</span><br/>Transacciones: ${d.count}`;
@@ -216,10 +215,8 @@ export function ExplorerAnalyticsContent({
 
     return {
       tooltip: {
+        ...TOOLTIP,
         trigger: 'item',
-        backgroundColor: '#0f172a',
-        borderColor: 'rgba(255,255,255,0.1)',
-        textStyle: { color: '#f8fafc' },
         formatter: '{b}: <strong class="text-white">${c}</strong> ({d}%)'
       },
       legend: {
@@ -268,11 +265,9 @@ export function ExplorerAnalyticsContent({
 
     return {
       tooltip: {
+        ...TOOLTIP,
         trigger: 'axis',
         axisPointer: { type: 'shadow' },
-        backgroundColor: '#0f172a',
-        borderColor: 'rgba(255,255,255,0.1)',
-        textStyle: { color: '#f8fafc' },
         formatter: (params: any) => {
           const d = params[0].data;
           return `<strong class="text-white">${d.name}</strong><br/>Total: <span class="text-rose-400 font-bold">${money(d.value)}</span><br/>Transacciones: ${d.count}`;
@@ -333,11 +328,9 @@ export function ExplorerAnalyticsContent({
 
     return {
       tooltip: {
+        ...TOOLTIP,
         trigger: 'axis',
         axisPointer: { type: 'shadow' },
-        backgroundColor: '#0f172a',
-        borderColor: 'rgba(255,255,255,0.1)',
-        textStyle: { color: '#f8fafc' },
         formatter: (params: any) => {
           const d = params[0].data;
           return `<strong class="text-white">${d.name}</strong><br/>Total: <span class="text-violet-400 font-bold">${money(Math.round(d.value))}</span><br/>Apariciones: ${d.count}`;
@@ -402,11 +395,9 @@ export function ExplorerAnalyticsContent({
 
     return {
       tooltip: {
+        ...TOOLTIP,
         trigger: 'axis',
         axisPointer: { type: 'shadow' },
-        backgroundColor: '#0f172a',
-        borderColor: 'rgba(255,255,255,0.1)',
-        textStyle: { color: '#f8fafc' },
         formatter: (params: any) => {
           const d = params[0].data;
           const label = d.level >= 8 ? 'Gran Satisfacción' : d.level >= 6 ? 'Buena Satisfacción' : d.level === 5 ? 'Neutro' : d.level >= 3 ? 'Bajo Valor / Decepción' : 'Arrepentimiento / Quema de dinero';
@@ -471,10 +462,8 @@ export function ExplorerAnalyticsContent({
 
     return {
       tooltip: {
+        ...TOOLTIP,
         trigger: 'item',
-        backgroundColor: '#0f172a',
-        borderColor: 'rgba(255,255,255,0.1)',
-        textStyle: { color: '#f8fafc' },
         formatter: '{b}: <strong class="text-white">${c}</strong> ({d}%)'
       },
       legend: {
@@ -544,11 +533,9 @@ export function ExplorerAnalyticsContent({
 
     return {
       tooltip: {
+        ...TOOLTIP,
         trigger: 'axis',
         axisPointer: { type: 'cross', label: { backgroundColor: '#334155' } },
-        backgroundColor: '#0f172a',
-        borderColor: 'rgba(255,255,255,0.1)',
-        textStyle: { color: '#f8fafc' },
         formatter: (params: any) => {
           let res = `<div class="font-bold text-white mb-1">${params[0]?.axisValue}</div>`;
           params.forEach((p: any) => {
@@ -632,10 +619,8 @@ export function ExplorerAnalyticsContent({
 
     return {
       tooltip: {
+        ...TOOLTIP,
         trigger: 'item',
-        backgroundColor: '#0f172a',
-        borderColor: 'rgba(255,255,255,0.1)',
-        textStyle: { color: '#f8fafc' },
         formatter: '{b}: <strong class="text-white">${c}</strong> ({d}%)'
       },
       legend: {

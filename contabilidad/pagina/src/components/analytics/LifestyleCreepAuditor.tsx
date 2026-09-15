@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactECharts from 'echarts-for-react';
 import { Target, AlertTriangle, TrendingUp, Info } from 'lucide-react';
+import { TOOLTIP } from '../../utils/chartTheme';
 
 export const LifestyleCreepAuditor: React.FC = () => {
     // Mock Data representing months
@@ -19,6 +20,7 @@ export const LifestyleCreepAuditor: React.FC = () => {
     const option = {
         backgroundColor: 'transparent',
         tooltip: {
+            ...TOOLTIP,
             trigger: 'axis',
             formatter: (params: any) => {
                 let res = `<strong>${params[0].name}</strong><br/>`;
@@ -27,9 +29,6 @@ export const LifestyleCreepAuditor: React.FC = () => {
                 });
                 return res;
             },
-            backgroundColor: 'rgba(15, 23, 42, 0.9)',
-            borderColor: 'rgba(255, 255, 255, 0.1)',
-            textStyle: { color: '#f8fafc' }
         },
         legend: {
             data: ['Crecimiento de Ingresos', 'Crecimiento de Gastos en "Deseos"'],

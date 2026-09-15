@@ -4,6 +4,7 @@ import { PiggyBank, TrendingDown, Check, AlertCircle, Layers, Activity, ArrowUpR
 import { Transaction } from '../../services/api';
 import { useFunds } from '../../hooks/useTransactions';
 import { money } from '../../utils/format';
+import { TOOLTIP } from '../../utils/chartTheme';
 
 interface GeneralBudgetTabProps {
   transactions: Transaction[];
@@ -73,13 +74,13 @@ export function GeneralBudgetTab({
 
      const options = {
          tooltip: {
+             ...TOOLTIP,
              trigger: 'item',
              confine: true,
              position: (pos: any) => [pos[0] + 15, Math.max(10, pos[1] - 30)],
              formatter: (params: any) => {
                  return `<strong class="text-white">${params.data.name}</strong><br/>Monto: ${money(params.data.value)}<br/>Transacciones: ${params.data.txs.length}`;
              },
-             backgroundColor: '#1f2937', borderColor: '#374151', textStyle: { color: '#f3f4f6' }
          },
          legend: { show: false },
          series: [
@@ -127,13 +128,13 @@ export function GeneralBudgetTab({
 
      const catOptions = {
          tooltip: {
+             ...TOOLTIP,
              trigger: 'item',
              confine: true,
              position: (pos: any) => [pos[0] + 15, Math.max(10, pos[1] - 30)],
              formatter: (params: any) => {
                  return `<strong class="text-white">${params.data.name}</strong><br/>Monto: ${money(params.data.value)}<br/>Transacciones: ${params.data.txs.length}`;
              },
-             backgroundColor: '#1f2937', borderColor: '#374151', textStyle: { color: '#f3f4f6' }
          },
          legend: { show: false },
          series: [
@@ -199,13 +200,13 @@ export function GeneralBudgetTab({
 
      const tagOptions = {
          tooltip: {
+             ...TOOLTIP,
              trigger: 'item',
              confine: true,
              position: (pos: any) => [pos[0] + 15, Math.max(10, pos[1] - 30)],
              formatter: (params: any) => {
                  return `<strong class="text-white">${params.data.name}</strong><br/>Monto: ${money(params.data.value)}<br/>Transacciones: ${params.data.txs.length}`;
              },
-             backgroundColor: '#1f2937', borderColor: '#374151', textStyle: { color: '#f3f4f6' }
          },
          legend: { show: false },
          series: [

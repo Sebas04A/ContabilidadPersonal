@@ -1,7 +1,9 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import * as echarts from 'echarts';
 import type { FundMovement } from '../services/api';
 import { money } from '../utils/format';
+import { TOOLTIP } from '../utils/chartTheme';
+import { useEChart } from '../hooks/useEChart';
 
 interface FundBalanceChartProps {
   movements: FundMovement[];
@@ -13,14 +15,10 @@ interface FundBalanceChartProps {
  * (a favor) and red below zero (en rojo / faltante), split at the y=0 line.
  */
 const FundBalanceChart: React.FC<FundBalanceChartProps> = ({ movements, startBalance = 0 }) => {
-  const chartRef = useRef<HTMLDivElement>(null);
-  const chartInstance = useRef<echarts.ECharts | null>(null);
+  const { ref: chartRef, chart: chartInstance } = useEChart();
 
   useEffect(() => {
-    if (!chartRef.current) return;
-    if (!chartInstance.current) {
-      chartInstance.current = echarts.init(chartRef.current);
-    }
+    if (!chartInstance.current) return;
 
     const dates = movements.map(m => m.date);
     const values = movements.map(m => m.running_balance);
@@ -36,10 +34,8 @@ const FundBalanceChart: React.FC<FundBalanceChartProps> = ({ movements, startBal
       backgroundColor: 'transparent',
       grid: { left: 8, right: 16, top: 24, bottom: 24, containLabel: true },
       tooltip: {
+        ...TOOLTIP,
         trigger: 'axis',
-        backgroundColor: 'rgba(15,17,26,0.95)',
-        borderColor: 'rgba(255,255,255,0.1)',
-        textStyle: { color: '#e5e7eb', fontSize: 12 },
         formatter: (params: any) => {
           const p = Array.isArray(params) ? params[0] : params;
           const idx = p.dataIndex;
@@ -98,19 +94,6 @@ const FundBalanceChart: React.FC<FundBalanceChartProps> = ({ movements, startBal
 
     chartInstance.current.setOption(options, true);
   }, [movements, startBalance]);
-
-  useEffect(() => {
-    const handleResize = () => chartInstance.current?.resize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      chartInstance.current?.dispose();
-      chartInstance.current = null;
-    };
-  }, []);
 
   return <div ref={chartRef} className="w-full h-full min-h-[240px]" />;
 };

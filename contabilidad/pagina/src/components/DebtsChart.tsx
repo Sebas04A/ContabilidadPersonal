@@ -4,6 +4,7 @@ import * as echarts from 'echarts';
 import { X, Loader2, Users, TrendingUp, Activity, BarChart3 } from 'lucide-react';
 import { useSupabaseDebts, useSupabasePayments } from '../hooks/useTransactions';
 import { money } from '../utils/format';
+import { TOOLTIP } from '../utils/chartTheme';
 
 interface DebtsChartProps {
   onClose: () => void;
@@ -42,11 +43,9 @@ export function DebtsChart({ onClose }: DebtsChartProps) {
 
     return {
       tooltip: {
+        ...TOOLTIP,
         trigger: 'axis',
         axisPointer: { type: 'shadow' },
-        backgroundColor: 'rgba(9, 9, 11, 0.9)',
-        borderColor: '#27272a',
-        textStyle: { color: '#fafafa' },
         padding: [12, 16],
         formatter: (params: any) => {
            let tooltip = `<div style="font-weight:700; margin-bottom:8px; font-size:14px; border-bottom:1px solid #3f3f46; padding-bottom:4px;">${params[0].name}</div>`;
@@ -155,11 +154,9 @@ export function DebtsChart({ onClose }: DebtsChartProps) {
 
     return {
       tooltip: {
+        ...TOOLTIP,
         trigger: 'axis',
         axisPointer: { type: 'shadow' },
-        backgroundColor: 'rgba(9, 9, 11, 0.9)',
-        borderColor: '#27272a',
-        textStyle: { color: '#fafafa' },
         formatter: (params: any) => {
           if (!params.length) return '';
           let tooltip = `<div style="font-weight:700; margin-bottom:8px; border-bottom:1px solid #3f3f46; padding-bottom:4px;">${params[0].axisValueLabel}</div>`;
@@ -272,10 +269,8 @@ export function DebtsChart({ onClose }: DebtsChartProps) {
 
     return {
        tooltip: {
+        ...TOOLTIP,
         trigger: 'axis',
-        backgroundColor: 'rgba(9, 9, 11, 0.9)',
-        borderColor: '#27272a',
-        textStyle: { color: '#fafafa' },
         formatter: (params: any) => {
            if (!params.length) return '';
            const p = params[0];

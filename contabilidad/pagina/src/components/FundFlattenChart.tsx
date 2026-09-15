@@ -1,6 +1,8 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import * as echarts from 'echarts';
 import { money } from '../utils/format';
+import { TOOLTIP } from '../utils/chartTheme';
+import { useEChart } from '../hooks/useEChart';
 
 interface FundFlattenChartProps {
   dates: string[];
@@ -15,13 +17,11 @@ interface FundFlattenChartProps {
  * flat line: crudo − pagos = aplanado. Purely a preview visualization.
  */
 const FundFlattenChart: React.FC<FundFlattenChartProps> = ({ dates, raw, offset, flattened, visible }) => {
-  const chartRef = useRef<HTMLDivElement>(null);
-  const chartInstance = useRef<echarts.ECharts | null>(null);
+  const { ref: chartRef, chart: chartInstance } = useEChart();
   const show = visible ?? { raw: true, offset: true, flattened: true };
 
   useEffect(() => {
-    if (!chartRef.current) return;
-    if (!chartInstance.current) chartInstance.current = echarts.init(chartRef.current);
+    if (!chartInstance.current) return;
 
     const allSeries: Record<string, echarts.SeriesOption> = {
       raw: {
@@ -75,10 +75,8 @@ const FundFlattenChart: React.FC<FundFlattenChartProps> = ({ dates, raw, offset,
       backgroundColor: 'transparent',
       grid: { left: 8, right: 16, top: 16, bottom: 24, containLabel: true },
       tooltip: {
+        ...TOOLTIP,
         trigger: 'axis',
-        backgroundColor: 'rgba(15,17,26,0.95)',
-        borderColor: 'rgba(255,255,255,0.1)',
-        textStyle: { color: '#e5e7eb', fontSize: 12 },
         valueFormatter: (v: any) => (v == null ? '' : `${money(Number(v))}`),
       },
       xAxis: {
@@ -98,17 +96,6 @@ const FundFlattenChart: React.FC<FundFlattenChartProps> = ({ dates, raw, offset,
 
     chartInstance.current.setOption(options, true);
   }, [dates, raw, offset, flattened, show.raw, show.offset, show.flattened]);
-
-  useEffect(() => {
-    const onResize = () => chartInstance.current?.resize();
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
-
-  useEffect(() => () => {
-    chartInstance.current?.dispose();
-    chartInstance.current = null;
-  }, []);
 
   return <div ref={chartRef} className="w-full h-full min-h-[240px]" />;
 };

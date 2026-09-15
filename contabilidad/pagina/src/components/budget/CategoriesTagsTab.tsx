@@ -3,6 +3,7 @@ import ReactECharts from 'echarts-for-react';
 import { TrendingDown } from 'lucide-react';
 import { Transaction } from '../../services/api';
 import { money } from '../../utils/format';
+import { TOOLTIP } from '../../utils/chartTheme';
 
 interface CategoriesTagsTabProps {
   transactions: Transaction[];
@@ -35,6 +36,7 @@ export function CategoriesTagsTab({ transactions, CATEGORIES, availableTags, for
 
      return {
         tooltip: {
+            ...TOOLTIP,
             trigger: 'axis',
             axisPointer: { type: 'shadow' },
             confine: true,
@@ -43,7 +45,6 @@ export function CategoriesTagsTab({ transactions, CATEGORIES, availableTags, for
                 const d = params[0].data;
                 return `<strong class="text-white">${d.name}</strong><br/>Monto: ${money(d.value)}<br/>Transacciones: ${d.count}`;
             },
-            backgroundColor: '#1f2937', borderColor: '#374151', textStyle: { color: '#f3f4f6' }
         },
         grid: { left: '3%', right: '4%', bottom: '3%', top: '5%', containLabel: true },
         xAxis: { type: 'value', splitLine: { show: true, lineStyle: { color: 'rgba(255,255,255,0.05)' } }, axisLabel: { color: '#9ca3af', formatter: (val: number) => val >= 1000 ? (val/1000) + 'k' : val } },
@@ -90,6 +91,7 @@ export function CategoriesTagsTab({ transactions, CATEGORIES, availableTags, for
 
      return {
         tooltip: {
+            ...TOOLTIP,
             trigger: 'axis',
             axisPointer: { type: 'shadow' },
             confine: true,
@@ -98,7 +100,6 @@ export function CategoriesTagsTab({ transactions, CATEGORIES, availableTags, for
                 const d = params[0].data;
                 return `<strong class="text-white">${d.name}</strong><br/>Monto: ${money(d.value)}<br/>Transacciones: ${d.count}`;
             },
-            backgroundColor: '#1f2937', borderColor: '#374151', textStyle: { color: '#f3f4f6' }
         },
         grid: { left: '3%', right: '4%', bottom: '3%', top: '5%', containLabel: true },
         xAxis: { type: 'value', splitLine: { show: true, lineStyle: { color: 'rgba(255,255,255,0.05)' } }, axisLabel: { color: '#9ca3af', formatter: (val: number) => val >= 1000 ? (val/1000) + 'k' : val } },
@@ -127,12 +128,12 @@ export function CategoriesTagsTab({ transactions, CATEGORIES, availableTags, for
 
      return {
         tooltip: {
+            ...TOOLTIP,
             trigger: 'item',
             formatter: (params: any) => {
                 const d = params.data;
                 return `<strong class="text-white">${d.name}</strong><br/>Monto: ${money(d.value)}<br/>Transacciones: ${d.count}`;
             },
-            backgroundColor: '#1f2937', borderColor: '#374151', textStyle: { color: '#f3f4f6' }
         },
         series: [{
             name: 'Categorías',
@@ -161,12 +162,12 @@ export function CategoriesTagsTab({ transactions, CATEGORIES, availableTags, for
 
      return {
         tooltip: {
+            ...TOOLTIP,
             trigger: 'item',
             formatter: (params: any) => {
                 const d = params.data;
                 return `<strong class="text-white">${d.name}</strong><br/>Monto: ${money(d.value)}<br/>Transacciones: ${d.count}`;
             },
-            backgroundColor: '#1f2937', borderColor: '#374151', textStyle: { color: '#f3f4f6' }
         },
         series: [{
             name: 'Etiquetas',

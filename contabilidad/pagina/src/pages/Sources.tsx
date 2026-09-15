@@ -9,6 +9,7 @@ import {
 import ReactECharts from 'echarts-for-react';
 import * as echarts from 'echarts';
 import { money } from '../utils/format';
+import { TOOLTIP } from '../utils/chartTheme';
 
 export function Sources() {
   const [activeTab, setActiveTab] = useState<'bank' | 'card'>('bank');
@@ -456,10 +457,8 @@ export function Sources() {
                           option={{
                             backgroundColor: 'transparent',
                             tooltip: {
+                              ...TOOLTIP,
                               trigger: 'axis',
-                              backgroundColor: '#18181b',
-                              borderColor: '#27272a',
-                              textStyle: { color: '#ffffff' },
                               padding: [10, 14],
                               formatter: (params: any[]) => {
                                 if (!params || !params.length) return '';
@@ -579,10 +578,8 @@ export function Sources() {
                                 option={{
                                   backgroundColor: 'transparent',
                                   tooltip: {
+                                    ...TOOLTIP,
                                     trigger: 'item',
-                                    backgroundColor: '#18181b',
-                                    borderColor: '#27272a',
-                                    textStyle: { color: '#ffffff' },
                                     padding: [8, 12],
                                     formatter: (params: any) => {
                                       const d = params.data;
@@ -770,10 +767,8 @@ export function Sources() {
                                     option={{
                                       backgroundColor: 'transparent',
                                       tooltip: {
+                                        ...TOOLTIP,
                                         trigger: 'axis',
-                                        backgroundColor: '#18181b',
-                                        borderColor: '#27272a',
-                                        textStyle: { color: '#ffffff' },
                                         padding: [8, 12],
                                         formatter: (params: any[]) => {
                                           if (!params || !params.length) return '';
@@ -919,10 +914,8 @@ export function Sources() {
                                     option={{
                                         backgroundColor: 'transparent',
                                         tooltip: {
+                                            ...TOOLTIP,
                                             trigger: 'axis',
-                                            backgroundColor: '#18181b',
-                                            borderColor: '#27272a',
-                                            textStyle: { color: '#ffffff' },
                                             padding: [10, 15]
                                         },
                                         grid: { top: 20, right: 30, bottom: 30, left: 60, containLabel: true },

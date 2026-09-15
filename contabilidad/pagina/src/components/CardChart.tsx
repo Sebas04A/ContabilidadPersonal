@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import ReactECharts from 'echarts-for-react';
 import * as echarts from 'echarts';
 import { money } from '../utils/format';
+import { TOOLTIP } from '../utils/chartTheme';
 
 export interface Period {
   start_date: string;
@@ -85,11 +86,9 @@ const CardChart: React.FC<CardChartProps> = ({ data, isLoading }) => {
 
     return {
       tooltip: {
+        ...TOOLTIP,
         trigger: 'axis',
         axisPointer: { type: 'cross', label: { backgroundColor: '#18181b' }, snap: true },
-        backgroundColor: 'rgba(9, 9, 11, 0.95)', // Surface-950
-        borderColor: '#27272a', // Surface-800
-        textStyle: { color: '#fafafa', fontFamily: 'Outfit, sans-serif' },
         padding: [16, 20],
         extraCssText: 'backdrop-filter: blur(8px); box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1); border-radius: 12px;',
         formatter: (params: any) => {

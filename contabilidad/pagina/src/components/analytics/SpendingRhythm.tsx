@@ -3,6 +3,7 @@ import ReactECharts from 'echarts-for-react';
 import { Clock, Sunrise, Sun, Sunset, Moon, Info, AlertCircle } from 'lucide-react';
 import { api, HourlyAnalysis } from '../../services/api';
 import { money } from '../../utils/format';
+import { TOOLTIP } from '../../utils/chartTheme';
 
 /**
  * Ritmo de Gasto — when the money actually leaves, by time of day.
@@ -104,11 +105,9 @@ export const SpendingRhythm: React.FC = () => {
         backgroundColor: 'transparent',
         grid: { left: 8, right: 16, top: 24, bottom: 8, containLabel: true },
         tooltip: {
+            ...TOOLTIP,
             trigger: 'axis',
             axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(255,255,255,0.04)' } },
-            backgroundColor: 'rgba(9, 9, 11, 0.95)',
-            borderColor: 'rgba(255,255,255,0.1)',
-            textStyle: { color: '#e4e4e7', fontSize: 12 },
             formatter: (params: any) => {
                 const p = params[0];
                 const b = por_hora[p.dataIndex];
@@ -148,9 +147,7 @@ export const SpendingRhythm: React.FC = () => {
         backgroundColor: 'transparent',
         grid: { left: 8, right: 16, top: 12, bottom: 56, containLabel: true },
         tooltip: {
-            backgroundColor: 'rgba(9, 9, 11, 0.95)',
-            borderColor: 'rgba(255,255,255,0.1)',
-            textStyle: { color: '#e4e4e7', fontSize: 12 },
+            ...TOOLTIP,
             formatter: (p: any) => {
                 const [hora, dia, total] = p.data;
                 const celda = heatmap.find((c) => c.hora === hora && c.dia === dia);

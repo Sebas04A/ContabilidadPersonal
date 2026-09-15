@@ -5,6 +5,7 @@ import { DashboardFilters, FILTROS_VACIOS, hayFiltroActivo } from '../hooks/useD
 import { Loader2, AlertCircle, MousePointerClick, Activity, TrendingUp, Layers } from 'lucide-react';
 import { ChartAnalysis, Curve } from './ChartAnalysis';
 import type { EChartsOption } from 'echarts';
+import { TOOLTIP } from '../utils/chartTheme';
 
 interface DashboardChartProps {
   /** Si el patrimonio suma el capital que está dentro de una posición de inversión. */
@@ -145,10 +146,8 @@ export function DashboardChart({
     backgroundColor: 'transparent',
     textStyle: { fontFamily: 'Inter, sans-serif' },
     tooltip: {
+      ...TOOLTIP,
       trigger: 'axis',
-      backgroundColor: 'rgba(15, 23, 42, 0.9)',
-      borderColor: '#334155',
-      textStyle: { color: '#f8fafc' },
       axisPointer: { 
         type: 'cross', 
         label: { backgroundColor: '#334155' },

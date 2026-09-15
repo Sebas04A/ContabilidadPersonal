@@ -1,5 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import * as echarts from 'echarts';
+import { TOOLTIP } from '../utils/chartTheme';
+import { useEChart } from '../hooks/useEChart';
 
 interface ExplorerChartProps {
   data: {
@@ -11,15 +13,10 @@ interface ExplorerChartProps {
 }
 
 const ExplorerChart: React.FC<ExplorerChartProps> = ({ data, loading }) => {
-  const chartRef = useRef<HTMLDivElement>(null);
-  const chartInstance = useRef<echarts.ECharts | null>(null);
+  const { ref: chartRef, chart: chartInstance } = useEChart();
 
   useEffect(() => {
-    if (!chartRef.current) return;
-
-    if (!chartInstance.current) {
-      chartInstance.current = echarts.init(chartRef.current);
-    }
+    if (!chartInstance.current) return;
 
     const { actual, reference } = data;
 
@@ -55,10 +52,8 @@ const ExplorerChart: React.FC<ExplorerChartProps> = ({ data, loading }) => {
       const options: echarts.EChartsOption = { // Renamed option to options
       backgroundColor: 'transparent',
       tooltip: {
+        ...TOOLTIP,
         trigger: 'axis',
-        backgroundColor: '#1e293b',
-        borderColor: '#334155',
-        textStyle: { color: '#f8fafc' },
         formatter: (params: any) => {
            let date = '';
            let actual = '';
@@ -178,27 +173,9 @@ const ExplorerChart: React.FC<ExplorerChartProps> = ({ data, loading }) => {
       ]
     };
 
-    chartInstance.current.setOption(options);
-
-    const handleResize = () => {
-      chartInstance.current?.resize();
-    };
-
-    window.addEventListener('resize', handleResize);
-
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      chartInstance.current?.dispose();
-      chartInstance.current = null;
-    };
+    // Antes se creaba un gráfico nuevo en cada cambio de datos; ahora se reemplaza la opción.
+    chartInstance.current.setOption(options, true);
   }, [data]);
-
-    // Handle Resize separately to avoid disposing if just resizing
-    useEffect(() => {
-        if(chartInstance.current) {
-            chartInstance.current.resize();
-        }
-    });
 
 
   return (

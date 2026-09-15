@@ -1,5 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import * as echarts from 'echarts';
+import { TOOLTIP } from '../utils/chartTheme';
+import { useEChart } from '../hooks/useEChart';
 
 export interface MonthlyIssuePoint {
   month: string;           // 'YYYY-MM'
@@ -41,14 +43,10 @@ export function VerificationChart({
   data, activeIssue, selectedMonth, onSelectMonth,
   mode = 'issues', reviewUnit = 'pct',
 }: VerificationChartProps) {
-  const chartRef = useRef<HTMLDivElement>(null);
-  const chartInstance = useRef<echarts.ECharts | null>(null);
+  const { ref: chartRef, chart: chartInstance } = useEChart();
 
   useEffect(() => {
-    if (!chartRef.current) return;
-    if (!chartInstance.current) {
-      chartInstance.current = echarts.init(chartRef.current);
-    }
+    if (!chartInstance.current) return;
 
     const months = data.map(d => d.month);
     const dim = (month: string) => (selectedMonth && month !== selectedMonth ? 0.3 : 0.95);
@@ -83,11 +81,9 @@ export function VerificationChart({
     const options: echarts.EChartsOption = {
       backgroundColor: 'transparent',
       tooltip: {
+        ...TOOLTIP,
         trigger: 'axis',
         axisPointer: { type: 'shadow' },
-        backgroundColor: '#0f172a',
-        borderColor: '#334155',
-        textStyle: { color: '#f8fafc' },
         valueFormatter: (v: any) => `${v}${suffix}`,
       },
       legend: {
@@ -140,18 +136,7 @@ export function VerificationChart({
     };
     chartInstance.current.off('click');
     chartInstance.current.on('click', clickHandler);
-
-    const handleResize = () => chartInstance.current?.resize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
   }, [data, activeIssue, selectedMonth, onSelectMonth, mode, reviewUnit]);
-
-  useEffect(() => {
-    return () => {
-      chartInstance.current?.dispose();
-      chartInstance.current = null;
-    };
-  }, []);
 
   return (
     <div className="relative w-full h-full min-h-[280px]">

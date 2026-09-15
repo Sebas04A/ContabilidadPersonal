@@ -1,7 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import * as echarts from 'echarts';
 import { ChartData } from '../services/investments';
 import { money } from '../utils/format';
+import { TOOLTIP } from '../utils/chartTheme';
+import { useEChart } from '../hooks/useEChart';
 
 interface InvestmentChartProps {
   data: ChartData | null;
@@ -9,32 +11,7 @@ interface InvestmentChartProps {
 }
 
 export default function InvestmentChart({ data, loading }: InvestmentChartProps) {
-  const chartRef = useRef<HTMLDivElement>(null);
-  const chartInstance = useRef<echarts.ECharts | null>(null);
-
-  // Initialize chart once
-  useEffect(() => {
-    if (!chartRef.current) return;
-
-    // Initialize chart instance
-    chartInstance.current = echarts.init(chartRef.current);
-
-    // Handle resize
-    const handleResize = () => {
-      chartInstance.current?.resize();
-    };
-
-    window.addEventListener('resize', handleResize);
-
-    // Cleanup on unmount
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      if (chartInstance.current) {
-        chartInstance.current.dispose();
-        chartInstance.current = null;
-      }
-    };
-  }, []); // Only run once on mount
+  const { ref: chartRef, chart: chartInstance } = useEChart();
 
   // Update chart when data or loading changes
   useEffect(() => {
@@ -188,6 +165,7 @@ export default function InvestmentChart({ data, loading }: InvestmentChartProps)
     const option: echarts.EChartsOption = {
       backgroundColor: 'transparent',
       tooltip: {
+        ...TOOLTIP,
         trigger: 'axis',
         axisPointer: {
           type: 'cross',
@@ -205,9 +183,6 @@ export default function InvestmentChart({ data, loading }: InvestmentChartProps)
             fontWeight: 600,
           },
         },
-        backgroundColor: 'rgba(15, 23, 42, 0.95)',
-        borderColor: 'rgba(139, 92, 246, 0.2)',
-        borderWidth: 1,
         textStyle: {
           color: '#fafafa',
           fontSize: 13,

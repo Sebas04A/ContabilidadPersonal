@@ -2,6 +2,7 @@ import React from 'react';
 import ReactECharts from 'echarts-for-react';
 import { Smile, TrendingDown, Clock } from 'lucide-react';
 import { money } from '../../utils/format';
+import { TOOLTIP } from '../../utils/chartTheme';
 
 export const EmotionalRoiAnalyzer: React.FC = () => {
     // Shared Data
@@ -17,6 +18,7 @@ export const EmotionalRoiAnalyzer: React.FC = () => {
     const happinessOption = {
         backgroundColor: 'transparent',
         tooltip: {
+            ...TOOLTIP,
             trigger: 'axis',
             axisPointer: { type: 'shadow' }
         },
@@ -64,6 +66,7 @@ export const EmotionalRoiAnalyzer: React.FC = () => {
     const opportunityOption = {
         backgroundColor: 'transparent',
         tooltip: {
+            ...TOOLTIP,
             trigger: 'axis',
             formatter: (params: any) => {
                 const val = params[0];

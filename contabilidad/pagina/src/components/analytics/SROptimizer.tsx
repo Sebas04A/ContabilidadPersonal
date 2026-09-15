@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import ReactECharts from 'echarts-for-react';
 import { Landmark, Users, Info } from 'lucide-react';
 import { money } from '../../utils/format';
+import { TOOLTIP } from '../../utils/chartTheme';
 
 export const SROptimizer: React.FC = () => {
     // SRI Ecuador 2025 Constants
@@ -38,7 +39,7 @@ export const SROptimizer: React.FC = () => {
 
     const radarOption = {
         backgroundColor: 'transparent',
-        tooltip: { trigger: 'item' },
+        tooltip: { ...TOOLTIP, trigger: 'item' },
         radar: {
             indicator: categories.map(c => ({ name: c.name, max: maxDeductible / 3 })), // Simplified scale for radar
             shape: 'polygon',

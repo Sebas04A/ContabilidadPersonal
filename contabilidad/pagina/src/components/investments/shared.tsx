@@ -2,18 +2,9 @@ import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import * as echarts from 'echarts';
 import { fmt, money, pct } from '../../utils/format';
+import { useEChart } from '../../hooks/useEChart';
 
-/** El lenguaje visual de los gráficos de Inversiones, en un solo sitio. */
-export const GRID = { top: 40, right: 60, bottom: 50, left: 70 };
-export const EJE = {
-  axisLine: { lineStyle: { color: '#3f3f46' } },
-  axisLabel: { color: '#a1a1aa', fontSize: 11 },
-};
-export const TOOLTIP = {
-  backgroundColor: 'rgba(9,9,11,0.92)',
-  borderColor: 'rgba(255,255,255,0.1)',
-  textStyle: { color: '#e4e4e7', fontSize: 12 },
-};
+export { GRID, EJE, TOOLTIP } from '../../utils/chartTheme';
 
 /** An echarts canvas that rebuilds its option whenever `option` changes. */
 export function Chart({ option, height = 340, onEvento }: {
@@ -22,31 +13,26 @@ export function Chart({ option, height = 340, onEvento }: {
   /** Handlers de echarts por nombre de evento («click», «dblclick»…). */
   onEvento?: Record<string, (params: any) => void>;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const instance = useRef<echarts.ECharts | null>(null);
+  const { ref, chart: instance } = useEChart();
   // En una ref y no en la dependencia del efecto: así cambiar el handler no obliga a
   // destruir y reconstruir el gráfico entero en cada render.
   const handlers = useRef(onEvento);
   handlers.current = onEvento;
 
   useEffect(() => {
-    if (!ref.current) return;
-    instance.current = echarts.init(ref.current);
+    const chart = instance.current;
+    if (!chart) return;
     const nombres = Object.keys(handlers.current ?? {});
     for (const nombre of nombres) {
-      instance.current.on(nombre, (params: any) => handlers.current?.[nombre]?.(params));
+      chart.on(nombre, (params: any) => handlers.current?.[nombre]?.(params));
     }
     if (nombres.includes('click')) {
-      instance.current.getZr().setCursorStyle('default');
+      chart.getZr().setCursorStyle('default');
     }
-    const onResize = () => instance.current?.resize();
-    window.addEventListener('resize', onResize);
     return () => {
-      window.removeEventListener('resize', onResize);
-      instance.current?.dispose();
-      instance.current = null;
+      for (const nombre of nombres) chart.off(nombre);
     };
-  }, []);
+  }, [instance]);
 
   useEffect(() => {
     // `true` replaces the option instead of merging: series that disappear must not
