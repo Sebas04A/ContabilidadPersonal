@@ -5,6 +5,7 @@ import { Transaction } from '../../services/api';
 import { money } from '../../utils/format';
 import { TOOLTIP } from '../../utils/chartTheme';
 import { parseTags } from '../../utils/tags';
+import { gastosPor } from '../../utils/aggregations';
 
 interface CategoriesTagsTabProps {
   transactions: Transaction[];
@@ -19,18 +20,7 @@ export function CategoriesTagsTab({ transactions, CATEGORIES, availableTags, for
   const [selectedAnalyticsTags, setSelectedAnalyticsTags] = useState<string[]>([]);
 
   const topCategoriesOptions = useMemo(() => {
-     const expenses = transactions.filter(t => t.MONTO < 0);
-     const entities: Record<string, { name: string, value: number, count: number }> = {};
-     
-     expenses.forEach(t => {
-         const amt = Math.abs(t.MONTO);
-         const key = (!t.categoria || t.categoria === '---') ? 'Sin Categoría' : t.categoria;
-         if (!entities[key]) entities[key] = { name: key, value: 0, count: 0 };
-         entities[key].value += amt;
-         entities[key].count += 1;
-     });
-
-     let sorted = Object.values(entities).sort((a,b) => b.value - a.value).slice(0, 10);
+     let sorted = gastosPor(transactions, 'categoria').slice(0, 10);
      sorted.reverse();
 
      if (sorted.length === 0) return null;
@@ -64,28 +54,7 @@ export function CategoriesTagsTab({ transactions, CATEGORIES, availableTags, for
   }, [transactions]);
 
   const topTagsOptions = useMemo(() => {
-     const expenses = transactions.filter(t => t.MONTO < 0);
-     const entities: Record<string, { name: string, value: number, count: number }> = {};
-     
-     expenses.forEach(t => {
-         const amt = Math.abs(t.MONTO);
-         if (!t.tags || t.tags.trim() === '') {
-             const key = 'Sin Etiqueta';
-             if (!entities[key]) entities[key] = { name: key, value: 0, count: 0 };
-             entities[key].value += amt;
-             entities[key].count += 1;
-         } else {
-             const tTags = parseTags(t.tags);
-             tTags.forEach(tag => {
-                 const key = tag;
-                 if (!entities[key]) entities[key] = { name: tag, value: 0, count: 0 };
-                 entities[key].value += amt;
-                 entities[key].count += 1;
-             });
-         }
-     });
-
-     let sorted = Object.values(entities).sort((a,b) => b.value - a.value).slice(0, 10);
+     let sorted = gastosPor(transactions, 'tag', 'full').slice(0, 10);
      sorted.reverse();
 
      if (sorted.length === 0) return null;

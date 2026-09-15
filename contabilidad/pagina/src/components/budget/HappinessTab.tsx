@@ -4,7 +4,7 @@ import { Heart, Meh, Frown, AlertCircle } from 'lucide-react';
 import { Transaction } from '../../services/api';
 import { money } from '../../utils/format';
 import { TOOLTIP } from '../../utils/chartTheme';
-import { parseTags } from '../../utils/tags';
+import { txCategory, txTags } from '../../utils/transactionFilters';
 
 interface HappinessTabProps {
   transactions: Transaction[];
@@ -459,7 +459,7 @@ export function HappinessTab({ transactions, formatCurrency, openLocalModal }: H
   // 1. Agrupamiento de Categorías (una transacción pertenece a una sola)
   const categoriesStats = useMemo(() => buildGroupStats(
     ratedExpenses.map(t => ({
-      key: (!t.categoria || t.categoria === '---') ? 'Sin Categoría' : t.categoria,
+      key: txCategory(t),
       tx: t,
     }))
   ), [ratedExpenses]);
@@ -469,12 +469,7 @@ export function HappinessTab({ transactions, formatCurrency, openLocalModal }: H
   const tagsStats = useMemo(() => {
     const entries: GroupEntry[] = [];
     ratedExpenses.forEach(t => {
-      const tTags = parseTags(t.tags);
-      if (tTags.length === 0) {
-        entries.push({ key: 'Sin Etiqueta', tx: t });
-      } else {
-        tTags.forEach(tag => entries.push({ key: tag, tx: t }));
-      }
+      txTags(t).forEach(tag => entries.push({ key: tag, tx: t }));
     });
     return buildGroupStats(entries);
   }, [ratedExpenses]);

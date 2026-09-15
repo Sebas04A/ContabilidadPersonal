@@ -23,6 +23,7 @@ import { NeedsWantsTab } from '../components/budget/NeedsWantsTab';
 import { CategoriesTagsTab } from '../components/budget/CategoriesTagsTab';
 import { TOOLTIP } from '../utils/chartTheme';
 import { parseTags } from '../utils/tags';
+import { gastosPor } from '../utils/aggregations';
 
 const CATEGORIES = ['Alimentación', 'Transporte', 'Ocio', 'Salud', 'Subscripciones', 'Mensual', 'Inversion', 'Regalo', 'Mujeres', 'Aseo', 'Deudas', 'Tarjeta', 'Ropa', 'Viajes', 'Otro'];
 
@@ -460,37 +461,10 @@ export function MonthlyBudget() {
           .slice(0, 10);
 
       // 2. Tags con distribución según tagCountMode (proporcional vs monto completo)
-      const groupedTags: Record<string, number> = {};
-      expenses.forEach(t => {
-          if (!t.tags || t.tags.trim() === '') {
-              groupedTags['Sin Etiqueta'] = (groupedTags['Sin Etiqueta'] || 0) + Math.abs(t.MONTO);
-          } else {
-              const tTags = parseTags(t.tags);
-              if (tTags.length === 0) {
-                  groupedTags['Sin Etiqueta'] = (groupedTags['Sin Etiqueta'] || 0) + Math.abs(t.MONTO);
-              } else {
-                  const tagAmount = tagCountMode === 'proportional' 
-                      ? Math.abs(t.MONTO) / tTags.length 
-                      : Math.abs(t.MONTO);
-                  tTags.forEach(tag => {
-                      groupedTags[tag] = (groupedTags[tag] || 0) + tagAmount;
-                  });
-              }
-          }
-      });
-      const sortedTags = Object.entries(groupedTags)
-          .map(([name, value]) => ({ name, value }))
-          .sort((a, b) => b.value - a.value);
+      const sortedTags = gastosPor(expenses, 'tag', tagCountMode);
 
       // 3. Categorías
-      const groupedCategories: Record<string, number> = {};
-      expenses.forEach(t => {
-          const cat = (!t.categoria || t.categoria === '---') ? 'Sin Categoría' : t.categoria;
-          groupedCategories[cat] = (groupedCategories[cat] || 0) + Math.abs(t.MONTO);
-      });
-      const sortedCategories = Object.entries(groupedCategories)
-          .map(([name, value]) => ({ name, value }))
-          .sort((a, b) => b.value - a.value);
+      const sortedCategories = gastosPor(expenses, 'categoria');
 
       // Bar Chart for Top Comercios
       let barChartOption = null;

@@ -5,7 +5,7 @@ import { Transaction } from '../../services/api';
 import { useFunds } from '../../hooks/useTransactions';
 import { money } from '../../utils/format';
 import { TOOLTIP } from '../../utils/chartTheme';
-import { parseTags } from '../../utils/tags';
+import { gastosPor } from '../../utils/aggregations';
 
 interface GeneralBudgetTabProps {
   transactions: Transaction[];
@@ -108,21 +108,7 @@ export function GeneralBudgetTab({
      };
 
      // Category expenses
-     const groupedCategories: Record<string, { value: number, txs: Transaction[] }> = {};
-     expenses.forEach(t => {
-         const key = (!t.categoria || t.categoria === '---') ? 'Sin Categoría' : t.categoria;
-         if (!groupedCategories[key]) groupedCategories[key] = { value: 0, txs: [] };
-         groupedCategories[key].value += Math.abs(t.MONTO);
-         groupedCategories[key].txs.push(t);
-     });
-
-     const sortedCategories = Object.keys(groupedCategories)
-         .map(key => ({
-            name: key,
-            value: groupedCategories[key].value,
-            txs: groupedCategories[key].txs
-         }))
-         .sort((a,b) => b.value - a.value);
+     const sortedCategories = gastosPor(expenses, 'categoria');
 
      const top5Categories = sortedCategories.slice(0, 5);
      const pieCategoriesData = sortedCategories.map(item => ({ value: item.value, name: item.name, txs: item.txs }));
@@ -161,40 +147,8 @@ export function GeneralBudgetTab({
          ]
      };
 
-     // Tag expenses
-     const groupedTags: Record<string, { value: number, txs: Transaction[] }> = {};
-     expenses.forEach(t => {
-         if (!t.tags || t.tags.trim() === '') {
-             const key = 'Sin Etiqueta';
-             if (!groupedTags[key]) groupedTags[key] = { value: 0, txs: [] };
-             groupedTags[key].value += Math.abs(t.MONTO);
-             groupedTags[key].txs.push(t);
-         } else {
-             const tTags = parseTags(t.tags);
-             if (tTags.length === 0) {
-                 const key = 'Sin Etiqueta';
-                 if (!groupedTags[key]) groupedTags[key] = { value: 0, txs: [] };
-                 groupedTags[key].value += Math.abs(t.MONTO);
-                 groupedTags[key].txs.push(t);
-             } else {
-                 const propVal = Math.abs(t.MONTO) / tTags.length;
-                 tTags.forEach(tag => {
-                     const key = tag;
-                     if (!groupedTags[key]) groupedTags[key] = { value: 0, txs: [] };
-                     groupedTags[key].value += propVal;
-                     groupedTags[key].txs.push(t);
-                 });
-             }
-         }
-     });
-
-     const sortedTags = Object.keys(groupedTags)
-         .map(key => ({
-            name: key,
-            value: groupedTags[key].value,
-            txs: groupedTags[key].txs
-         }))
-         .sort((a,b) => b.value - a.value);
+     // Tag expenses, repartidas entre los tags de cada gasto
+     const sortedTags = gastosPor(expenses, 'tag', 'proportional');
 
      const top5Tags = sortedTags.slice(0, 5);
      const pieTagsData = sortedTags.map(item => ({ value: item.value, name: item.name, txs: item.txs }));

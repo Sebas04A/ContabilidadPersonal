@@ -8,7 +8,8 @@ import {
 import { Transaction, FundListItem } from '../services/api';
 import { money } from '../utils/format';
 import { TOOLTIP } from '../utils/chartTheme';
-import { parseTags } from '../utils/tags';
+import { gastosPor } from '../utils/aggregations';
+import { SIN_ETIQUETA } from '../utils/transactionFilters';
 
 export interface ExplorerAnalyticsContentProps {
   transactions: Transaction[];
@@ -146,17 +147,7 @@ export function ExplorerAnalyticsContent({
   // CHARTS: CATEGORIES & MERCHANTS
   // -------------------------------------------------------------
   const topCategoriesBarOption = useMemo(() => {
-    const expenses = transactions.filter(t => t.MONTO < 0);
-    const catMap: Record<string, { name: string; value: number; count: number }> = {};
-
-    expenses.forEach(t => {
-      const key = (!t.categoria || t.categoria === '---') ? 'Sin Categoría' : t.categoria;
-      if (!catMap[key]) catMap[key] = { name: key, value: 0, count: 0 };
-      catMap[key].value += Math.abs(t.MONTO);
-      catMap[key].count += 1;
-    });
-
-    const sorted = Object.values(catMap).sort((a, b) => b.value - a.value).slice(0, 10);
+    const sorted = gastosPor(transactions, 'categoria').slice(0, 10);
     sorted.reverse();
 
     if (sorted.length === 0) return null;
@@ -198,17 +189,7 @@ export function ExplorerAnalyticsContent({
   }, [transactions]);
 
   const categoriesPieOption = useMemo(() => {
-    const expenses = transactions.filter(t => t.MONTO < 0);
-    const catMap: Record<string, number> = {};
-
-    expenses.forEach(t => {
-      const key = (!t.categoria || t.categoria === '---') ? 'Sin Categoría' : t.categoria;
-      catMap[key] = (catMap[key] || 0) + Math.abs(t.MONTO);
-    });
-
-    const data = Object.entries(catMap)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value);
+    const data = gastosPor(transactions, 'categoria').map(({ name, value }) => ({ name, value }));
 
     if (data.length === 0) return null;
 
@@ -301,28 +282,9 @@ export function ExplorerAnalyticsContent({
   }, [transactions]);
 
   const tagsBarOption = useMemo(() => {
-    const expenses = transactions.filter(t => t.MONTO < 0);
-    const tagMap: Record<string, { name: string; value: number; count: number }> = {};
-
-    expenses.forEach(t => {
-      const amt = Math.abs(t.MONTO);
-      if (!t.tags || t.tags.trim() === '' || t.tags === '---') {
-        const key = 'Sin Etiqueta';
-        if (!tagMap[key]) tagMap[key] = { name: key, value: 0, count: 0 };
-        tagMap[key].value += amt;
-        tagMap[key].count += 1;
-      } else {
-        const rawTags = parseTags(t.tags);
-        const factor = tagCountMode === 'proportional' ? (rawTags.length > 0 ? 1 / rawTags.length : 1) : 1;
-        rawTags.forEach(tg => {
-          if (!tagMap[tg]) tagMap[tg] = { name: `#${tg}`, value: 0, count: 0 };
-          tagMap[tg].value += amt * factor;
-          tagMap[tg].count += 1;
-        });
-      }
-    });
-
-    const sorted = Object.values(tagMap).sort((a, b) => b.value - a.value).slice(0, 10);
+    const sorted = gastosPor(transactions, 'tag', tagCountMode)
+      .slice(0, 10)
+      .map(g => ({ ...g, name: g.name === SIN_ETIQUETA ? g.name : `#${g.name}` }));
     sorted.reverse();
 
     if (sorted.length === 0) return null;
