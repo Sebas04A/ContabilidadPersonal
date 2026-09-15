@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import * as echarts from 'echarts';
+import { money } from '../utils/format';
 
 interface FundFlattenChartProps {
   dates: string[];
@@ -78,7 +79,7 @@ const FundFlattenChart: React.FC<FundFlattenChartProps> = ({ dates, raw, offset,
         backgroundColor: 'rgba(15,17,26,0.95)',
         borderColor: 'rgba(255,255,255,0.1)',
         textStyle: { color: '#e5e7eb', fontSize: 12 },
-        valueFormatter: (v: any) => (v == null ? '' : `$${Number(v).toFixed(2)}`),
+        valueFormatter: (v: any) => (v == null ? '' : `${money(Number(v))}`),
       },
       xAxis: {
         type: 'category',
@@ -89,7 +90,7 @@ const FundFlattenChart: React.FC<FundFlattenChartProps> = ({ dates, raw, offset,
       },
       yAxis: {
         type: 'value',
-        axisLabel: { color: '#6b7280', fontSize: 10, formatter: (v: number) => `$${v.toFixed(0)}` },
+        axisLabel: { color: '#6b7280', fontSize: 10, formatter: (v: number) => `${money(v, 0)}` },
         splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } },
       },
       series,

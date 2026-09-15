@@ -30,6 +30,7 @@ import {
   Undo2,
   X,
 } from 'lucide-react';
+import { money } from '../../utils/format';
 
 // ── Field definitions ────────────────────────────────────────────────────────
 // Each field the bulk panel can write. `key` matches TransactionUpdate.
@@ -302,7 +303,7 @@ export function BulkLabeling() {
                 <div className="text-white font-bold">
                   {selected.length} <span className="text-gray-500 font-medium">de {transactions.length}</span>
                 </div>
-                <div className="text-gray-500 font-mono">${selectedTotal.toFixed(2)}</div>
+                <div className="text-gray-500 font-mono">{money(selectedTotal)}</div>
               </div>
 
               <button
@@ -495,7 +496,7 @@ export function BulkLabeling() {
                           t.MONTO >= 0 ? 'text-emerald-400' : 'text-gray-300'
                         }`}
                       >
-                        ${t.MONTO?.toFixed(2)}
+                        {money(t.MONTO)}
                       </td>
                       <td className="px-3 py-2.5 text-gray-400">{t.categoria || '—'}</td>
                       <td className="px-3 py-2.5">
@@ -542,7 +543,7 @@ export function BulkLabeling() {
                 <div>
                   <h3 className="text-lg font-bold text-white tracking-tight">Aplicar etiquetas</h3>
                   <p className="text-xs text-gray-500">
-                    {selected.length} transacciones · ${selectedTotal.toFixed(2)}
+                    {selected.length} transacciones · {money(selectedTotal)}
                   </p>
                 </div>
               </div>

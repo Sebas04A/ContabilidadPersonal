@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactECharts from 'echarts-for-react';
 import { Smile, TrendingDown, Clock } from 'lucide-react';
+import { money } from '../../utils/format';
 
 export const EmotionalRoiAnalyzer: React.FC = () => {
     // Shared Data
@@ -66,7 +67,7 @@ export const EmotionalRoiAnalyzer: React.FC = () => {
             trigger: 'axis',
             formatter: (params: any) => {
                 const val = params[0];
-                return `En ${val.name}:<br/><strong style="color: #c084fc">$${val.value.toLocaleString('en-US', {maximumFractionDigits:0})}</strong>`;
+                return `En ${val.name}:<br/><strong style="color: #c084fc">${money(val.value, 0)}</strong>`;
             }
         },
         grid: { left: '3%', right: '4%', bottom: '3%', top: '15%', containLabel: true },
@@ -121,7 +122,7 @@ export const EmotionalRoiAnalyzer: React.FC = () => {
                 <div className="bg-red-500/10 border border-red-500/20 px-4 py-2 rounded-xl flex items-center gap-3">
                     <div className="flex flex-col items-end">
                        <span className="text-xs text-red-300 uppercase tracking-wider font-semibold">Gasto Ineficiente</span>
-                       <span className="text-red-400 font-bold text-lg">${totalWasted.toFixed(2)} / mes</span>
+                       <span className="text-red-400 font-bold text-lg">{money(totalWasted)} / mes</span>
                     </div>
                     <TrendingDown className="text-red-400" size={24} />
                 </div>
@@ -153,7 +154,7 @@ export const EmotionalRoiAnalyzer: React.FC = () => {
                     
                     <div className="mt-4 p-4 bg-purple-500/10 border border-purple-500/20 rounded-xl text-center">
                         <p className="text-slate-300 text-sm">
-                            Invirtiendo este monto ineficiente, acumularías <strong className="text-white text-base">${futureValues[2].toLocaleString('en-US', {maximumFractionDigits:0})}</strong> en 30 años.
+                            Invirtiendo este monto ineficiente, acumularías <strong className="text-white text-base">{money(futureValues[2], 0)}</strong> en 30 años.
                         </p>
                     </div>
                 </div>

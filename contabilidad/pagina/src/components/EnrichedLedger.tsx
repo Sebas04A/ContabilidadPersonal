@@ -5,6 +5,7 @@ import { matchFund } from '../utils/matchFund';
 import {
   Calendar, HandCoins, PiggyBank, TrendingUp, ArrowRight, CheckCircle2, Clock, AlertTriangle, Banknote,
 } from 'lucide-react';
+import { signedMoney, money } from '../utils/format';
 
 /**
  * PROTOTYPE (read-only): an enriched ledger. Each transaction is shown with cross
@@ -27,7 +28,7 @@ function dayOf(value: string | null | undefined): string {
 }
 
 function fmtSigned(v: number): string {
-  return `${v >= 0 ? '+' : '−'}$${Math.abs(v).toLocaleString('es-CO', { minimumFractionDigits: 2 })}`;
+  return signedMoney(v);
 }
 
 /** Splits a fixed-payment driver description "note (group)" into its parts. */
@@ -418,7 +419,7 @@ export default function EnrichedLedger({ transactions, dayDrivers, variant = 'fu
           <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-surface-950/60 px-4 py-2 shadow-inner">
             <span className="text-[10px] font-bold uppercase tracking-widest text-surface-500">Total del día</span>
             <span className={`font-mono font-bold text-lg tabular-nums ${globalTotal >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-              {globalTotal >= 0 ? '+' : '−'}${Math.abs(globalTotal).toLocaleString('es-CO', { minimumFractionDigits: 2 })}
+              {signedMoney(globalTotal)}
             </span>
           </div>
         )}
@@ -473,7 +474,7 @@ export default function EnrichedLedger({ transactions, dayDrivers, variant = 'fu
 
                   {/* Amount */}
                   <td className={`px-5 py-4 text-right text-sm font-mono font-bold tabular-nums whitespace-nowrap ${t.MONTO >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {t.MONTO >= 0 ? '+' : '−'}${Math.abs(t.MONTO).toLocaleString('es-CO', { minimumFractionDigits: 2 })}
+                    {signedMoney(t.MONTO)}
                   </td>
 
                   {/* Context */}
@@ -643,7 +644,7 @@ export default function EnrichedLedger({ transactions, dayDrivers, variant = 'fu
                     </td>
                     <td className="px-5 pt-3.5 pb-1 text-right whitespace-nowrap border-l border-white/5 bg-white/[0.02]">
                       <span className={`font-mono font-semibold text-sm tabular-nums ${totalFundNet >= 0 ? 'text-emerald-400/80' : 'text-rose-400/80'}`}>
-                        {totalFundNet >= 0 ? '+' : '−'}${Math.abs(totalFundNet).toLocaleString('es-CO', { minimumFractionDigits: 2 })}
+                        {signedMoney(totalFundNet)}
                       </span>
                     </td>
                   </tr>
@@ -654,7 +655,7 @@ export default function EnrichedLedger({ transactions, dayDrivers, variant = 'fu
                   </td>
                   <td className="px-5 pt-1 pb-4 text-right whitespace-nowrap border-l border-white/5 bg-white/[0.03]">
                     <span className={`font-mono font-bold text-lg tabular-nums ${globalTotal >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                      {globalTotal >= 0 ? '+' : '−'}${Math.abs(globalTotal).toLocaleString('es-CO', { minimumFractionDigits: 2 })}
+                      {signedMoney(globalTotal)}
                     </span>
                   </td>
                 </tr>
@@ -679,11 +680,11 @@ function DebtContext({ tx, debt }: { tx: Transaction; debt: SupabaseDebt }) {
         <span className="text-surface-400 truncate max-w-[180px]" title={debt.DESCRIPCION}>{debt.DESCRIPCION}</span>
       </div>
       <div className="flex items-center gap-3 font-mono text-surface-300">
-        <span title="Monto de la transacción">tx ${Math.abs(tx.MONTO).toFixed(2)}</span>
+        <span title="Monto de la transacción">tx {money(Math.abs(tx.MONTO))}</span>
         <ArrowRight size={11} className="text-surface-600" />
-        <span title="Monto de la deuda">deuda ${debt.MONTO.toFixed(2)}</span>
+        <span title="Monto de la deuda">deuda {money(debt.MONTO)}</span>
         <span className={`${Math.abs(net) < 0.01 ? 'text-emerald-400' : 'text-amber-400'}`} title="Diferencia entre ambos">
-          neto {net >= 0 ? '+' : '−'}${Math.abs(net).toFixed(2)}
+          neto {net >= 0 ? '+' : '−'}{money(Math.abs(net))}
         </span>
       </div>
       <div className="flex items-center gap-1.5">
@@ -704,7 +705,7 @@ function pagoTitulo(p: SupabasePayment): string {
 
 /** The debts a payment settled, e.g. "Cena $12.00 · Taxi $8.00". */
 function pagoDetalle(p: SupabasePayment): string {
-  const deudas = (p.deudas ?? []).map(d => `${d.titulo} $${d.monto_asignado.toFixed(2)}`).join(' · ');
+  const deudas = (p.deudas ?? []).map(d => `${d.titulo} ${money(d.monto_asignado)}`).join(' · ');
   return deudas || 'Sin deudas abonadas';
 }
 
@@ -720,15 +721,15 @@ function PaymentContext({ tx, pago }: { tx: Transaction; pago: SupabasePayment }
         </span>
       </div>
       <div className="flex items-center gap-3 font-mono text-surface-300">
-        <span title="Monto de la transacción">tx ${Math.abs(tx.MONTO).toFixed(2)}</span>
+        <span title="Monto de la transacción">tx {money(Math.abs(tx.MONTO))}</span>
         <ArrowRight size={11} className="text-surface-600" />
-        <span title="Monto del pago">pago ${pago.monto_total.toFixed(2)}</span>
+        <span title="Monto del pago">pago {money(pago.monto_total)}</span>
         <span className={`${Math.abs(net) < 0.01 ? 'text-emerald-400' : 'text-amber-400'}`} title="Diferencia entre ambos">
-          neto {net >= 0 ? '+' : '−'}${Math.abs(net).toFixed(2)}
+          neto {net >= 0 ? '+' : '−'}{money(Math.abs(net))}
         </span>
       </div>
       <div className="text-surface-400 truncate" title={pagoDetalle(pago)}>{pagoDetalle(pago)}</div>
-      {sobrante > 0.01 && <div className="text-sky-300">Saldo a favor ${sobrante.toFixed(2)}</div>}
+      {sobrante > 0.01 && <div className="text-sky-300">Saldo a favor {money(sobrante)}</div>}
     </div>
   );
 }

@@ -8,6 +8,7 @@ import {
   Link2, Plus, CheckCircle2, Loader2, Search, Users,
   HandCoins, Wallet, Unlink, Ban, Scissors, Settings2, Clock, Banknote
 } from 'lucide-react';
+import { money } from '../utils/format';
 
 interface EditModalProps {
   transaction: Transaction | null;
@@ -144,8 +145,6 @@ interface VinculoDeudas { deuda_id: string; pago_id: string }
 const SIN_VINCULO: VinculoDeudas = { deuda_id: '', pago_id: '' };
 
 // --- Subcomponents for "Control Console" Look ---
-
-const money = (n: number) => `$${(Math.round((n || 0) * 100) / 100).toFixed(2)}`;
 
 /** Encabezado numerado de los pasos de la sección de reembolso. */
 const StepLabel = ({ n, title, hint }: { n: number; title: string; hint?: string }) => (
@@ -1137,7 +1136,7 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
              <div className="text-right">
                 <div className="text-[10px] font-bold uppercase tracking-wider text-surface-500 mb-0.5">Monto Total</div>
                 <div className={`text-4xl font-mono font-medium tracking-tighter ${isExpense ? 'text-white' : 'text-emerald-400'}`}>
-                  {isExpense ? '-' : '+'}${Math.abs(transaction.MONTO).toFixed(2)}
+                  {isExpense ? '-' : '+'}{money(Math.abs(transaction.MONTO))}
                 </div>
              </div>
              <button onClick={handleClose} className="p-2.5 rounded-xl bg-surface-800 hover:bg-surface-700 text-surface-400 hover:text-white transition-colors border border-white/5">
@@ -1156,7 +1155,7 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
                         <div className="flex justify-between items-center mb-2">
                              <div className="text-xs font-bold uppercase tracking-wider text-surface-400">Items</div>
                              <div className={`text-xs font-mono font-bold px-2 py-0.5 rounded ${isRemainingZero ? 'text-emerald-400 bg-emerald-500/10' : 'text-rose-400 bg-rose-500/10'}`}>
-                                 Restan: ${remainingAmount.toFixed(2)}
+                                 Restan: {money(remainingAmount)}
                              </div>
                         </div>
                     </div>
@@ -1192,7 +1191,7 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
                                     {/* Actually, amount is critical, lets allow editing here OR show it big on right. */}
                                     {/* Let's show it here as display but editable on right */}
                                     <div className="font-mono text-sm font-bold text-surface-200">
-                                        ${(split.monto || 0).toFixed(2)}
+                                        {money((split.monto || 0))}
                                     </div>
                                 </div>
                             </div>

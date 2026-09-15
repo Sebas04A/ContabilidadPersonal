@@ -3,6 +3,7 @@ import { DollarSign, Calendar, CheckCircle2, Clock, BarChart3 } from 'lucide-rea
 import { investmentsApi, AccountInvestment, ChartData } from '../services/investments';
 import PaymentCRUD from '../components/PaymentCRUD';
 import InvestmentChart from '../components/InvestmentChart';
+import { money } from '../utils/format';
 
 interface InvestmentAnalysisProps {
   onBack: () => void;
@@ -51,9 +52,6 @@ export default function InvestmentAnalysis({}: InvestmentAnalysisProps) {
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
-  };
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -153,7 +151,7 @@ export default function InvestmentAnalysis({}: InvestmentAnalysisProps) {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="font-mono text-base font-semibold text-white">
-                        {formatCurrency(Math.abs(inv.monto))}
+                        {money(Math.abs(inv.monto))}
                       </div>
                       <div className="flex items-center gap-1.5 text-xs text-surface-400 mt-0.5">
                         <Calendar className="w-3 h-3" />
@@ -168,19 +166,19 @@ export default function InvestmentAnalysis({}: InvestmentAnalysisProps) {
                       <div className="flex justify-between text-xs">
                         <span className="text-surface-500">Interés</span>
                         <span className="font-mono font-medium text-emerald-400">
-                          +{formatCurrency(inv.interes || 0)}
+                          +{money(inv.interes || 0)}
                         </span>
                       </div>
                       <div className="flex justify-between text-xs">
                         <span className="text-surface-500">Impuesto</span>
                         <span className="font-mono font-medium text-surface-400">
-                          -{formatCurrency(inv.impuesto || 0)}
+                          -{money(inv.impuesto || 0)}
                         </span>
                       </div>
                       <div className="flex justify-between text-xs pt-1.5 border-t border-white/[0.05]">
                         <span className="text-surface-300 font-medium">Total</span>
                         <span className="font-mono font-semibold text-primary-400">
-                          {formatCurrency(inv.total || 0)}
+                          {money(inv.total || 0)}
                         </span>
                       </div>
                     </div>

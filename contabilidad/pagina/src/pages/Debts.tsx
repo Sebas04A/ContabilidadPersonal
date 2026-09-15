@@ -6,9 +6,7 @@ import { EditModal } from '../components/EditModal';
 import { AccountStatementModal } from '../components/AccountStatementModal';
 import type { Transaction, SupabaseDebt, SupabasePayment, TransactionUpdate } from '../services/api';
 import { buildTimeline, localKind, type DebtItem, type Granularity, type ItemKind } from '../utils/debtTimeline';
-
-const fmt = (n: number) =>
-  n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+import { fmt, money } from '../utils/format';
 
 export function Debts() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -601,7 +599,7 @@ function DebtCard({ item, hoveredMatch, onHover, selected, onToggleSelect, onOpe
         </div>
         <div className="text-right shrink-0">
           <div className={`text-base font-mono font-bold ${paidDebt ? 'text-surface-500' : 'text-white'}`}>
-            ${item.amount.toFixed(2)}
+            {money(item.amount)}
           </div>
           {isPago ? (
             <span className="text-[10px] font-bold text-sky-300 bg-sky-500/10 px-1.5 py-0.5 rounded mt-1 inline-block">

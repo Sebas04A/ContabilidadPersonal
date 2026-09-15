@@ -3,6 +3,7 @@ import { Filter, PiggyBank, X, Info, CreditCard } from 'lucide-react';
 import { api } from '../services/api';
 import { useFunds } from '../hooks/useTransactions';
 import { DashboardFilters, contarFiltros, hayFiltroActivo } from '../hooks/useDashboardFilters';
+import { money } from '../utils/format';
 
 // La misma lista que usa el presupuesto (MonthlyBudget.tsx). 'Sin Categoría' se
 // agrega aparte porque no es una categoría sino su ausencia.
@@ -285,7 +286,7 @@ export function DashboardFilterBar({ filters, onChange, onClear, resumen }: Prop
           {!!resumen?.pagos_tarjeta_excluidos && (
             <span className='flex items-center gap-1.5 text-slate-500'>
               <CreditCard size={12} className='flex-shrink-0' />
-              Incluye ${resumen.pagos_tarjeta_excluidos.toLocaleString('es-EC', { minimumFractionDigits: 2 })} en
+              Incluye {money(resumen.pagos_tarjeta_excluidos)} en
               pagos de tarjeta: al excluirlos sube el saldo y sube la deuda por igual, así que el
               patrimonio no se mueve.
             </span>

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import ReactECharts from 'echarts-for-react';
 import { Clock, Sunrise, Sun, Sunset, Moon, Info, AlertCircle } from 'lucide-react';
 import { api, HourlyAnalysis } from '../../services/api';
+import { money } from '../../utils/format';
 
 /**
  * Ritmo de Gasto — when the money actually leaves, by time of day.
@@ -28,9 +29,6 @@ const ICONO_FRANJA: Record<string, React.ReactNode> = {
     Tarde: <Sun size={16} />,
     Noche: <Sunset size={16} />,
 };
-
-const money = (n: number) =>
-    `$${n.toLocaleString('es-EC', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export const SpendingRhythm: React.FC = () => {
     const [data, setData] = useState<HourlyAnalysis | null>(null);

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import * as echarts from 'echarts';
 import type { FundMovement } from '../services/api';
+import { money } from '../utils/format';
 
 interface FundBalanceChartProps {
   movements: FundMovement[];
@@ -48,9 +49,9 @@ const FundBalanceChart: React.FC<FundBalanceChartProps> = ({ movements, startBal
           const color = m.amount >= 0 ? '#34d399' : '#fb7185';
           return `
             <div style="font-weight:600;margin-bottom:4px">${m.date}</div>
-            <div style="color:${color}">${sign}$${m.amount.toFixed(2)} · ${m.source === 'manual' ? 'manual' : 'transacción'}</div>
+            <div style="color:${color}">${sign}${money(m.amount)} · ${m.source === 'manual' ? 'manual' : 'transacción'}</div>
             <div style="color:#9ca3af;font-size:11px;max-width:220px;white-space:normal">${m.note || ''}</div>
-            <div style="margin-top:4px;font-weight:600">Saldo: $${m.running_balance.toFixed(2)}</div>
+            <div style="margin-top:4px;font-weight:600">Saldo: ${money(m.running_balance)}</div>
           `;
         },
       },
@@ -65,7 +66,7 @@ const FundBalanceChart: React.FC<FundBalanceChartProps> = ({ movements, startBal
         type: 'value',
         min: minVal < 0 ? minVal * 1.1 : 0,
         max: maxVal > 0 ? maxVal * 1.1 : 0,
-        axisLabel: { color: '#6b7280', fontSize: 10, formatter: (v: number) => `$${v.toFixed(0)}` },
+        axisLabel: { color: '#6b7280', fontSize: 10, formatter: (v: number) => `${money(v, 0)}` },
         splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } },
       },
       series: [

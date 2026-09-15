@@ -3,9 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { X, RefreshCw, AlertTriangle, Undo2, Calendar, Info } from 'lucide-react';
 import { api } from '../services/api';
 import type { EdicionCruce, EstadoCuentaMovimiento } from '../services/api';
-
-const fmt = (n: number) =>
-  n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+import { fmt } from '../utils/format';
 
 const fecha = (s: string | null) =>
   s ? new Date(`${s.slice(0, 10)}T00:00:00`).toLocaleDateString('es-EC', { day: '2-digit', month: 'short' }) : '—';

@@ -2,9 +2,7 @@ import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { X, Pencil, AlertTriangle, Info, Calendar, StickyNote } from 'lucide-react';
 import { api } from '../services/api';
-
-const fmt = (n: number) =>
-  n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+import { fmt } from '../utils/format';
 
 const nuevaIdemKey = () =>
   typeof crypto !== 'undefined' && 'randomUUID' in crypto

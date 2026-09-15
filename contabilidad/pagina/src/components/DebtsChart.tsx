@@ -3,6 +3,7 @@ import ReactECharts from 'echarts-for-react';
 import * as echarts from 'echarts';
 import { X, Loader2, Users, TrendingUp, Activity, BarChart3 } from 'lucide-react';
 import { useSupabaseDebts, useSupabasePayments } from '../hooks/useTransactions';
+import { money } from '../utils/format';
 
 interface DebtsChartProps {
   onClose: () => void;
@@ -54,7 +55,7 @@ export function DebtsChart({ onClose }: DebtsChartProps) {
               if (value > 0) {
                  tooltip += `<div style="display:flex; justify-content:space-between; width:160px; margin-top:4px;">
                    <span style="color:${p.color}; font-size:12px;">● ${p.seriesName}</span>
-                   <span style="font-family:monospace; font-weight:600;">$${value.toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
+                   <span style="font-family:monospace; font-weight:600;">${money(value)}</span>
                  </div>`;
               }
            });
@@ -94,7 +95,7 @@ export function DebtsChart({ onClose }: DebtsChartProps) {
           label: { 
             show: true, 
             position: 'insideRight',
-            formatter: (params: any) => params.value > 0 ? `$${params.value.toLocaleString('en-US', {maximumFractionDigits:0})}` : ''
+            formatter: (params: any) => params.value > 0 ? `${money(params.value, 0)}` : ''
           },
           emphasis: { focus: 'series' },
           data: pendingData,
@@ -107,7 +108,7 @@ export function DebtsChart({ onClose }: DebtsChartProps) {
           label: { 
              show: true, 
              position: 'insideRight',
-             formatter: (params: any) => params.value > 0 ? `$${params.value.toLocaleString('en-US', {maximumFractionDigits:0})}` : '',
+             formatter: (params: any) => params.value > 0 ? `${money(params.value, 0)}` : '',
              color: '#064e3b'
           },
           emphasis: { focus: 'series' },
@@ -170,14 +171,14 @@ export function DebtsChart({ onClose }: DebtsChartProps) {
              total += value;
              tooltip += `<div style="display:flex; justify-content:space-between; width:180px; margin-top:2px;">
                <span style="color:${p.color}">● ${p.seriesName}</span>
-               <span style="font-family:monospace;">$${value.toLocaleString('en-US', {minimumFractionDigits: 0})}</span>
+               <span style="font-family:monospace;">${money(value, 0)}</span>
              </div>`;
           });
           
           if (activeParams.length > 0) {
               tooltip += `<div style="border-top:1px solid #3f3f46; margin-top:6px; padding-top:4px; display:flex; justify-content:space-between; font-weight:700; color:#e4e4e7;">
                 <span>Total</span>
-                <span>$${total.toLocaleString('en-US', {minimumFractionDigits: 0})}</span>
+                <span>${money(total, 0)}</span>
               </div>`;
           }
           return tooltip;
@@ -284,7 +285,7 @@ export function DebtsChart({ onClose }: DebtsChartProps) {
            return `<div style="font-weight:700; margin-bottom:6px;">${p.name}</div>
                    <div style="display:flex; justify-content:space-between; width:220px; margin-bottom:6px; border-bottom:1px solid #3f3f46; padding-bottom:4px;">
                       <span style="color:${p.color}">● Acumulado</span>
-                      <span style="font-family:monospace; font-weight:700;">$${(p.value as number).toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
+                      <span style="font-family:monospace; font-weight:700;">${money((p.value as number))}</span>
                    </div>
                    ${meta.debt > 0 ? 
                      `<div style="display:flex; justify-content:space-between; width:220px; font-size:12px; margin-bottom:2px;">

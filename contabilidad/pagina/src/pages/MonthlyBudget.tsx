@@ -502,7 +502,7 @@ export function MonthlyBudget() {
                   position: (pos: any) => [pos[0] + 15, Math.max(10, pos[1] - 30)],
                   formatter: (params: any) => {
                       const d = params[0].data;
-                      return `<strong class="text-white">${d.name}</strong><br/>Monto: $${d.value.toLocaleString('es-CO')}`;
+                      return `<strong class="text-white">${d.name}</strong><br/>Monto: ${money(d.value)}`;
                   },
                   backgroundColor: '#1f2937', borderColor: '#374151', textStyle: { color: '#f3f4f6' }
               },
@@ -555,7 +555,7 @@ export function MonthlyBudget() {
                   trigger: 'item',
                   formatter: (params: any) => {
                       const percentage = totalNegative > 0 ? (params.value / totalNegative) * 100 : 0;
-                      return `<strong class="text-white">${params.name}</strong><br/>Monto Distribuido: $${params.value.toLocaleString('es-CO')}<br/>Proporción: ${percentage.toFixed(1)}%`;
+                      return `<strong class="text-white">${params.name}</strong><br/>Monto Distribuido: ${money(params.value)}<br/>Proporción: ${percentage.toFixed(1)}%`;
                   },
                   backgroundColor: '#1f2937', borderColor: '#374151', textStyle: { color: '#f3f4f6' }
               },
@@ -590,7 +590,7 @@ export function MonthlyBudget() {
               tooltip: {
                   trigger: 'item',
                   formatter: (params: any) => {
-                      return `<strong class="text-white">${params.data.name}</strong><br/>Monto: $${params.data.value.toLocaleString('es-CO')} (${params.percent.toFixed(1)}%)`;
+                      return `<strong class="text-white">${params.data.name}</strong><br/>Monto: ${money(params.data.value)} (${params.percent.toFixed(1)}%)`;
                   },
                   backgroundColor: '#1f2937', borderColor: '#374151', textStyle: { color: '#f3f4f6' }
               },
@@ -615,7 +615,7 @@ export function MonthlyBudget() {
               tooltip: {
                   trigger: 'item',
                   formatter: (params: any) => {
-                      return `<strong class="text-white">${params.data.name}</strong><br/>Monto: $${params.data.value.toLocaleString('es-CO')} (${params.percent.toFixed(1)}%)`;
+                      return `<strong class="text-white">${params.data.name}</strong><br/>Monto: ${money(params.data.value)} (${params.percent.toFixed(1)}%)`;
                   },
                   backgroundColor: '#1f2937', borderColor: '#374151', textStyle: { color: '#f3f4f6' }
               },

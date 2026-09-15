@@ -6,6 +6,7 @@ import {
   CreditCard, ThumbsUp, ThumbsDown, HelpCircle
 } from 'lucide-react';
 import { Transaction, FundListItem } from '../services/api';
+import { money } from '../utils/format';
 
 export interface ExplorerAnalyticsContentProps {
   transactions: Transaction[];
@@ -19,14 +20,6 @@ export function ExplorerAnalyticsContent({
 }: ExplorerAnalyticsContentProps) {
   const [activeTab, setActiveTab] = useState<'categories' | 'happiness' | 'needs_wants' | 'timeline'>('categories');
   const [tagCountMode, setTagCountMode] = useState<'proportional' | 'full'>('proportional');
-
-  const formatCOP = (val: number) => {
-    return val.toLocaleString('es-CO', {
-      style: 'currency',
-      currency: 'COP',
-      maximumFractionDigits: 0
-    });
-  };
 
   // 1. General Financial & Happiness Metrics
   const metrics = useMemo(() => {
@@ -175,7 +168,7 @@ export function ExplorerAnalyticsContent({
         textStyle: { color: '#f8fafc' },
         formatter: (params: any) => {
           const d = params[0].data;
-          return `<strong class="text-white">${d.name}</strong><br/>Total: <span class="text-indigo-400 font-bold">$${d.value.toLocaleString('es-CO')}</span><br/>Transacciones: ${d.count}`;
+          return `<strong class="text-white">${d.name}</strong><br/>Total: <span class="text-indigo-400 font-bold">${money(d.value)}</span><br/>Transacciones: ${d.count}`;
         }
       },
       grid: { left: '3%', right: '5%', bottom: '3%', top: '4%', containLabel: true },
@@ -282,7 +275,7 @@ export function ExplorerAnalyticsContent({
         textStyle: { color: '#f8fafc' },
         formatter: (params: any) => {
           const d = params[0].data;
-          return `<strong class="text-white">${d.name}</strong><br/>Total: <span class="text-rose-400 font-bold">$${d.value.toLocaleString('es-CO')}</span><br/>Transacciones: ${d.count}`;
+          return `<strong class="text-white">${d.name}</strong><br/>Total: <span class="text-rose-400 font-bold">${money(d.value)}</span><br/>Transacciones: ${d.count}`;
         }
       },
       grid: { left: '3%', right: '5%', bottom: '3%', top: '4%', containLabel: true },
@@ -347,7 +340,7 @@ export function ExplorerAnalyticsContent({
         textStyle: { color: '#f8fafc' },
         formatter: (params: any) => {
           const d = params[0].data;
-          return `<strong class="text-white">${d.name}</strong><br/>Total: <span class="text-violet-400 font-bold">$${Math.round(d.value).toLocaleString('es-CO')}</span><br/>Apariciones: ${d.count}`;
+          return `<strong class="text-white">${d.name}</strong><br/>Total: <span class="text-violet-400 font-bold">${money(Math.round(d.value))}</span><br/>Apariciones: ${d.count}`;
         }
       },
       grid: { left: '3%', right: '5%', bottom: '3%', top: '4%', containLabel: true },
@@ -417,7 +410,7 @@ export function ExplorerAnalyticsContent({
         formatter: (params: any) => {
           const d = params[0].data;
           const label = d.level >= 8 ? 'Gran Satisfacción' : d.level >= 6 ? 'Buena Satisfacción' : d.level === 5 ? 'Neutro' : d.level >= 3 ? 'Bajo Valor / Decepción' : 'Arrepentimiento / Quema de dinero';
-          return `<strong class="text-white">Nivel ${d.level} — ${label}</strong><br/>Total gastado: <span class="text-pink-400 font-bold">$${d.amount.toLocaleString('es-CO')}</span><br/>Transacciones: ${d.count}`;
+          return `<strong class="text-white">Nivel ${d.level} — ${label}</strong><br/>Total gastado: <span class="text-pink-400 font-bold">${money(d.amount)}</span><br/>Transacciones: ${d.count}`;
         }
       },
       grid: { left: '3%', right: '4%', bottom: '5%', top: '6%', containLabel: true },
@@ -562,7 +555,7 @@ export function ExplorerAnalyticsContent({
             const color = p.seriesName === 'Ingresos' ? '#34d399' : '#f87171';
             res += `<div class="flex items-center justify-between gap-4 text-xs">
               <span style="color:${color}">${p.seriesName}:</span>
-              <strong class="font-mono">$${p.value.toLocaleString('es-CO')}</strong>
+              <strong class="font-mono">${money(p.value)}</strong>
             </div>`;
           });
           return res;
@@ -679,7 +672,7 @@ export function ExplorerAnalyticsContent({
             <ArrowDownRight size={14} className="text-rose-400" /> Total Gastos
           </span>
           <p className="text-lg md:text-2xl font-bold font-mono text-rose-400 truncate">
-            {formatCOP(metrics.totalExpense)}
+            {money(metrics.totalExpense)}
           </p>
           <p className="text-[11px] text-surface-500">{metrics.expenseCount} transacciones de salida</p>
         </div>
@@ -690,7 +683,7 @@ export function ExplorerAnalyticsContent({
             <ArrowUpRight size={14} className="text-emerald-400" /> Total Ingresos
           </span>
           <p className="text-lg md:text-2xl font-bold font-mono text-emerald-400 truncate">
-            {formatCOP(metrics.totalIncome)}
+            {money(metrics.totalIncome)}
           </p>
           <p className="text-[11px] text-surface-500">{metrics.incomeCount} transacciones de entrada</p>
         </div>
@@ -722,7 +715,7 @@ export function ExplorerAnalyticsContent({
             {metrics.classifiedPriorityRatio.toFixed(0)}% evaluado
           </p>
           <p className="text-[11px] text-surface-500">
-            Nec: {formatCOP(metrics.needsAmount)} · Des: {formatCOP(metrics.wantsAmount)}
+            Nec: {money(metrics.needsAmount)} · Des: {money(metrics.wantsAmount)}
           </p>
         </div>
       </div>
@@ -886,10 +879,10 @@ export function ExplorerAnalyticsContent({
               </div>
               <div className="flex items-center gap-4 text-xs font-semibold">
                 <span className="flex items-center gap-1.5 text-emerald-400">
-                  <ThumbsUp size={15} /> Alta satisfacción (7-9): <strong>{formatCOP(metrics.highHappinessAmount)}</strong>
+                  <ThumbsUp size={15} /> Alta satisfacción (7-9): <strong>{money(metrics.highHappinessAmount)}</strong>
                 </span>
                 <span className="flex items-center gap-1.5 text-rose-400">
-                  <ThumbsDown size={15} /> Bajo valor / Arrepentimiento (1-4): <strong>{formatCOP(metrics.lowHappinessAmount)}</strong>
+                  <ThumbsDown size={15} /> Bajo valor / Arrepentimiento (1-4): <strong>{money(metrics.lowHappinessAmount)}</strong>
                 </span>
               </div>
             </div>
@@ -927,7 +920,7 @@ export function ExplorerAnalyticsContent({
                         <p className="text-[10px] text-surface-400">{t.FECHA?.substring(0, 10)} · {t.categoria || 'Sin categoría'}</p>
                       </div>
                       <div className="text-right shrink-0 flex items-center gap-3">
-                        <span className="text-xs font-mono font-bold text-emerald-400">{formatCOP(Math.abs(t.MONTO))}</span>
+                        <span className="text-xs font-mono font-bold text-emerald-400">{money(Math.abs(t.MONTO))}</span>
                         <span className="px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-500/30">
                           ⭐ {t.felicidad}
                         </span>
@@ -958,7 +951,7 @@ export function ExplorerAnalyticsContent({
                         <p className="text-[10px] text-surface-400">{t.FECHA?.substring(0, 10)} · {t.categoria || 'Sin categoría'}</p>
                       </div>
                       <div className="text-right shrink-0 flex items-center gap-3">
-                        <span className="text-xs font-mono font-bold text-rose-400">{formatCOP(Math.abs(t.MONTO))}</span>
+                        <span className="text-xs font-mono font-bold text-rose-400">{money(Math.abs(t.MONTO))}</span>
                         <span className="px-2 py-0.5 rounded-lg bg-rose-500/20 text-rose-300 text-xs font-bold border border-rose-500/30">
                           ⚠️ {t.felicidad}
                         </span>
@@ -987,7 +980,7 @@ export function ExplorerAnalyticsContent({
                   {metrics.totalExpense > 0 ? ((metrics.needsAmount / metrics.totalExpense) * 100).toFixed(1) : 0}%
                 </span>
               </div>
-              <p className="text-2xl font-bold font-mono text-emerald-400">{formatCOP(metrics.needsAmount)}</p>
+              <p className="text-2xl font-bold font-mono text-emerald-400">{money(metrics.needsAmount)}</p>
               <p className="text-xs text-surface-400">{metrics.needsCount} transacciones de subsistencia básica</p>
             </div>
 
@@ -1001,7 +994,7 @@ export function ExplorerAnalyticsContent({
                   {metrics.totalExpense > 0 ? ((metrics.wantsAmount / metrics.totalExpense) * 100).toFixed(1) : 0}%
                 </span>
               </div>
-              <p className="text-2xl font-bold font-mono text-amber-400">{formatCOP(metrics.wantsAmount)}</p>
+              <p className="text-2xl font-bold font-mono text-amber-400">{money(metrics.wantsAmount)}</p>
               <p className="text-xs text-surface-400">{metrics.wantsCount} transacciones de disfrute y extras</p>
             </div>
 
@@ -1015,7 +1008,7 @@ export function ExplorerAnalyticsContent({
                   {metrics.totalExpense > 0 ? ((metrics.unratedPriorityAmount / metrics.totalExpense) * 100).toFixed(1) : 0}%
                 </span>
               </div>
-              <p className="text-2xl font-bold font-mono text-surface-300">{formatCOP(metrics.unratedPriorityAmount)}</p>
+              <p className="text-2xl font-bold font-mono text-surface-300">{money(metrics.unratedPriorityAmount)}</p>
               <p className="text-xs text-surface-500">{metrics.unratedPriorityCount} transacciones pendientes</p>
             </div>
           </div>
@@ -1056,7 +1049,7 @@ export function ExplorerAnalyticsContent({
                         <p className="text-xs font-bold text-white truncate">{t.nombre_limpio || t.DESCRIPCION}</p>
                         <p className="text-[10px] text-surface-400">{t.FECHA?.substring(0, 10)} · {t.categoria || 'Sin categoría'}</p>
                       </div>
-                      <span className="text-xs font-mono font-bold text-emerald-400 shrink-0">{formatCOP(Math.abs(t.MONTO))}</span>
+                      <span className="text-xs font-mono font-bold text-emerald-400 shrink-0">{money(Math.abs(t.MONTO))}</span>
                     </div>
                   ))
                 )}
@@ -1082,7 +1075,7 @@ export function ExplorerAnalyticsContent({
                         <p className="text-xs font-bold text-white truncate">{t.nombre_limpio || t.DESCRIPCION}</p>
                         <p className="text-[10px] text-surface-400">{t.FECHA?.substring(0, 10)} · {t.categoria || 'Sin categoría'}</p>
                       </div>
-                      <span className="text-xs font-mono font-bold text-amber-400 shrink-0">{formatCOP(Math.abs(t.MONTO))}</span>
+                      <span className="text-xs font-mono font-bold text-amber-400 shrink-0">{money(Math.abs(t.MONTO))}</span>
                     </div>
                   ))
                 )}

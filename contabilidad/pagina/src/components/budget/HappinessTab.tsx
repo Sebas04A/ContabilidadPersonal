@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import ReactECharts from 'echarts-for-react';
 import { Heart, Meh, Frown, AlertCircle } from 'lucide-react';
 import { Transaction } from '../../services/api';
+import { money } from '../../utils/format';
 
 interface HappinessTabProps {
   transactions: Transaction[];
@@ -380,7 +381,7 @@ export function HappinessTab({ transactions, formatCurrency, openLocalModal }: H
           return `<div class="font-sans text-sm text-white">
                     <strong>${d[2]}</strong><br/>
                     Fecha: ${d[3]}<br/>
-                    Monto: $${d[1].toLocaleString('es-CO')}<br/>
+                    Monto: ${money(d[1])}<br/>
                     Felicidad: ${Math.round(d[0])}
                   </div>`;
         },
@@ -594,10 +595,10 @@ export function HappinessTab({ transactions, formatCurrency, openLocalModal }: H
           const d = params[0].data;
           const amountLabel = chartGroup === 'category' ? 'Gastado Total' : 'Gastado con este tag';
           const cost = d.costPerPoint !== null
-            ? `$${d.costPerPoint.toLocaleString('es-CO', { maximumFractionDigits: 2 })} por punto de felicidad`
+            ? `${money(d.costPerPoint)} por punto de felicidad`
             : 'No compra felicidad neta';
           const head = isCost
-            ? `<span style="color:${d.isHarmful ? '#fb7185' : '#c4b5fd'}">$${d.value.toFixed(2)} por punto de felicidad bruta</span>` +
+            ? `<span style="color:${d.isHarmful ? '#fb7185' : '#c4b5fd'}">${money(d.value)} por punto de felicidad bruta</span>` +
               (d.isHarmful
                 ? `<br/><span style="color:#fb7185;font-size:11px">⚠ Grupo neto NEGATIVO (${d.shrunk.toFixed(2)}); esta métrica no lo puede mostrar</span>`
                 : '') +
@@ -613,8 +614,8 @@ export function HappinessTab({ transactions, formatCurrency, openLocalModal }: H
                   ${shrinkNote}<br/>
                   <span style="color:#9ca3af">\u2500\u2500</span><br/>
                   Felicidad ponderada: \u2605 ${d.avgWeighted.toFixed(2)} / 9<br/>
-                  ${amountLabel}: $${d.totalAmount.toLocaleString('es-CO', { maximumFractionDigits: 0 })}<br/>
-                  Ticket promedio: $${d.ticket.toLocaleString('es-CO', { maximumFractionDigits: 2 })}<br/>
+                  ${amountLabel}: ${money(d.totalAmount, 0)}<br/>
+                  Ticket promedio: ${money(d.ticket)}<br/>
                   Transacciones: ${d.count}<br/>
                   Gap ponderado-simple: ${d.gap >= 0 ? '+' : ''}${d.gap.toFixed(2)}<br/>
                   <span style="color:#6b7280;font-size:11px">Tasa cruda (sensible a montos chicos): ${d.raw.toFixed(2)} pts/$100</span>`;
@@ -663,8 +664,8 @@ export function HappinessTab({ transactions, formatCurrency, openLocalModal }: H
           color: '#9ca3af',
           fontSize: 10,
           formatter: (p: any) => {
-            if (isCost) return `$${p.data.ticket.toFixed(2)} tkt`;
-            return p.data.costPerPoint !== null ? `$${p.data.costPerPoint.toFixed(2)}/pt` : '';
+            if (isCost) return `${money(p.data.ticket)} tkt`;
+            return p.data.costPerPoint !== null ? `${money(p.data.costPerPoint)}/pt` : '';
           }
         }
       }]
@@ -714,9 +715,9 @@ export function HappinessTab({ transactions, formatCurrency, openLocalModal }: H
                     Felicidad simple: \u2605 ${(d[7] as number).toFixed(2)}<br/>
                     Felicidad ponderada: \u2605 ${(d[8] as number).toFixed(2)}
                       <span style="color:${gap >= 0 ? '#34d399' : '#fb7185'}">(gap ${gap >= 0 ? '+' : ''}${gap.toFixed(2)})</span><br/>
-                    Ticket promedio: $${(d[1] as number).toLocaleString('es-CO', { maximumFractionDigits: 2 })}<br/>
+                    Ticket promedio: ${money((d[1] as number))}<br/>
                     Eficiencia: ${(d[5] as number).toFixed(2)} pts / $100<br/>
-                    Gasto total: $${(d[6] as number).toLocaleString('es-CO', { maximumFractionDigits: 0 })}<br/>
+                    Gasto total: ${money((d[6] as number), 0)}<br/>
                     Transacciones: ${d[2]}
                   </div>`;
         },

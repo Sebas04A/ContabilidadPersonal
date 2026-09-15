@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import ReactECharts from 'echarts-for-react';
 import { TrendingDown } from 'lucide-react';
 import { Transaction } from '../../services/api';
+import { money } from '../../utils/format';
 
 interface CategoriesTagsTabProps {
   transactions: Transaction[];
@@ -40,7 +41,7 @@ export function CategoriesTagsTab({ transactions, CATEGORIES, availableTags, for
             position: (pos: any) => [pos[0] + 15, Math.max(10, pos[1] - 30)],
             formatter: (params: any) => {
                 const d = params[0].data;
-                return `<strong class="text-white">${d.name}</strong><br/>Monto: $${d.value.toLocaleString('es-CO')}<br/>Transacciones: ${d.count}`;
+                return `<strong class="text-white">${d.name}</strong><br/>Monto: ${money(d.value)}<br/>Transacciones: ${d.count}`;
             },
             backgroundColor: '#1f2937', borderColor: '#374151', textStyle: { color: '#f3f4f6' }
         },
@@ -95,7 +96,7 @@ export function CategoriesTagsTab({ transactions, CATEGORIES, availableTags, for
             position: (pos: any) => [pos[0] + 15, Math.max(10, pos[1] - 30)],
             formatter: (params: any) => {
                 const d = params[0].data;
-                return `<strong class="text-white">${d.name}</strong><br/>Monto: $${d.value.toLocaleString('es-CO')}<br/>Transacciones: ${d.count}`;
+                return `<strong class="text-white">${d.name}</strong><br/>Monto: ${money(d.value)}<br/>Transacciones: ${d.count}`;
             },
             backgroundColor: '#1f2937', borderColor: '#374151', textStyle: { color: '#f3f4f6' }
         },
@@ -129,7 +130,7 @@ export function CategoriesTagsTab({ transactions, CATEGORIES, availableTags, for
             trigger: 'item',
             formatter: (params: any) => {
                 const d = params.data;
-                return `<strong class="text-white">${d.name}</strong><br/>Monto: $${d.value.toLocaleString('es-CO')}<br/>Transacciones: ${d.count}`;
+                return `<strong class="text-white">${d.name}</strong><br/>Monto: ${money(d.value)}<br/>Transacciones: ${d.count}`;
             },
             backgroundColor: '#1f2937', borderColor: '#374151', textStyle: { color: '#f3f4f6' }
         },
@@ -163,7 +164,7 @@ export function CategoriesTagsTab({ transactions, CATEGORIES, availableTags, for
             trigger: 'item',
             formatter: (params: any) => {
                 const d = params.data;
-                return `<strong class="text-white">${d.name}</strong><br/>Monto: $${d.value.toLocaleString('es-CO')}<br/>Transacciones: ${d.count}`;
+                return `<strong class="text-white">${d.name}</strong><br/>Monto: ${money(d.value)}<br/>Transacciones: ${d.count}`;
             },
             backgroundColor: '#1f2937', borderColor: '#374151', textStyle: { color: '#f3f4f6' }
         },

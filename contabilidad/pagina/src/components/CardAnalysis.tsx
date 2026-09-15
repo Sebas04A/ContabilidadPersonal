@@ -3,6 +3,7 @@ import axios from 'axios';
 import CardChart, { CardData } from './CardChart';
 import { Calendar, ChevronRight, ChevronLeft, CreditCard, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useState } from 'react';
+import { money } from '../utils/format';
 
 export default function CardAnalysis() {
     const [isPanelOpen, setIsPanelOpen] = useState(true);
@@ -114,13 +115,13 @@ export default function CardAnalysis() {
                                     <div>
                                         <span className="text-[10px] text-surface-500 uppercase tracking-wider block mb-0.5">Consumo</span>
                                         <span className="text-surface-200 font-mono text-xs font-semibold block">
-                                            ${period.consumption.toLocaleString('en-US', {minimumFractionDigits: 2})}
+                                            {money(period.consumption)}
                                         </span>
                                     </div>
                                     <div className="text-right">
                                         <span className="text-[10px] text-surface-500 uppercase tracking-wider block mb-0.5">Total a Pagar</span>
                                         <span className={`font-mono text-sm font-bold block ${period.total_to_pay > 0.1 ? 'text-white' : 'text-emerald-400'}`}>
-                                            ${period.total_to_pay.toLocaleString('en-US', {minimumFractionDigits: 2})}
+                                            {money(period.total_to_pay)}
                                         </span>
                                     </div>
                                 </div>

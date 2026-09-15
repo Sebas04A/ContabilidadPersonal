@@ -33,6 +33,7 @@ import {
   CreditCard,
   HandCoins
 } from 'lucide-react';
+import { money } from '../../utils/format';
 
 export function DailyLabeling() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -464,7 +465,7 @@ export function DailyLabeling() {
                         <div>
                            <div className="text-[9px] text-gray-500 uppercase font-bold tracking-wider mb-0.5">Monto original</div>
                            <div className="text-2xl font-mono font-bold tracking-tighter text-white">
-                             ${Math.abs(debt.MONTO).toFixed(2)}
+                             {money(Math.abs(debt.MONTO))}
                            </div>
                         </div>
                         {debt.PAGADA && debt.FECHA_PAGO && (
@@ -542,7 +543,7 @@ export function DailyLabeling() {
                             {pago.deudas!.map(d => (
                               <li key={d.deuda_id} className="flex justify-between gap-3 text-xs">
                                 <span className="text-gray-300 truncate">{d.titulo}</span>
-                                <span className="font-mono text-gray-400 shrink-0">${d.monto_asignado.toFixed(2)}</span>
+                                <span className="font-mono text-gray-400 shrink-0">{money(d.monto_asignado)}</span>
                               </li>
                             ))}
                           </ul>
@@ -552,12 +553,12 @@ export function DailyLabeling() {
                           <div>
                             <div className="text-[9px] text-gray-500 uppercase font-bold tracking-wider mb-0.5">Monto</div>
                             <div className="text-2xl font-mono font-bold tracking-tighter text-white">
-                              ${pago.monto_total.toFixed(2)}
+                              {money(pago.monto_total)}
                             </div>
                           </div>
                           <div className="text-[10px] font-medium text-gray-400 text-right min-w-0">
                             {sobrante > 0.01 && (
-                              <div>Saldo a favor <span className="text-sky-300 font-bold font-mono">${sobrante.toFixed(2)}</span></div>
+                              <div>Saldo a favor <span className="text-sky-300 font-bold font-mono">{money(sobrante)}</span></div>
                             )}
                             {vinculada && (
                               <div className="truncate max-w-[12rem]" title={vinculada.DESCRIPCION}>

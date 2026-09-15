@@ -1,5 +1,6 @@
 import { Transaction } from '../services/api';
 import { CheckCircle2, Circle, Edit2, StickyNote, Tag as TagIcon, Clock, Link2, Square, CheckSquare, Landmark, CreditCard } from 'lucide-react';
+import { money } from '../utils/format';
 
 interface TransactionRowProps {
   transaction: Transaction;
@@ -136,7 +137,7 @@ export function TransactionRow({ transaction, onEdit, onQuickReview, index, isSe
                ? 'text-rose-400 text-shadow-sm' 
                : 'text-emerald-400 text-shadow-sm'
            }`}>
-             {isExpense ? '-' : '+'}${Math.abs(transaction.MONTO).toFixed(2)}
+             {isExpense ? '-' : '+'}{money(Math.abs(transaction.MONTO))}
            </div>
 
            {transaction.es_reembolsable && (

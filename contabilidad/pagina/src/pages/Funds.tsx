@@ -15,9 +15,7 @@ import {
 } from '../services/api';
 import { createPayment } from '../services/interpolated';
 import FundFlattenChart from '../components/FundFlattenChart';
-
-const fmt = (n: number) =>
-  n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+import { fmt } from '../utils/format';
 
 // Identifies a fund member: a whole transaction, or a single split part.
 const partKey = (t: Transaction) => `${t.id}::${t.split_group_id || ''}`;

@@ -7,6 +7,7 @@ import {
   ShieldCheck, Tag, CheckCircle2, AlertCircle, RefreshCw, Settings2, Plus,
   ChevronRight, ArrowUpRight, ArrowDownLeft, Search, X, Sparkles, Scissors, Flame, Heart, Calendar, RotateCcw
 } from 'lucide-react';
+import { money } from '../utils/format';
 
 // ── Exclusion rules interface and default state ───────────────────────────────
 
@@ -1301,7 +1302,7 @@ export function Verification() {
                               </div>
 
                               <div className={`font-mono font-bold text-right shrink-0 w-24 ${isExpense ? 'text-white' : 'text-emerald-400'}`}>
-                                {isExpense ? '-' : '+'}${Math.abs(t.MONTO).toFixed(2)}
+                                {isExpense ? '-' : '+'}{money(Math.abs(t.MONTO))}
                               </div>
 
                               <ChevronRight size={18} className="text-gray-600 group-hover:text-white transition-colors shrink-0" />

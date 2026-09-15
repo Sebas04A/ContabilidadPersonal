@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import ReactECharts from 'echarts-for-react';
 import { Landmark, Users, Info } from 'lucide-react';
+import { money } from '../../utils/format';
 
 export const SROptimizer: React.FC = () => {
     // SRI Ecuador 2025 Constants
@@ -100,14 +101,14 @@ export const SROptimizer: React.FC = () => {
                 <div className="space-y-4">
                     <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50">
                         <p className="text-xs text-slate-400 font-medium uppercase tracking-widest mb-1">Tu Rebaja Estimada</p>
-                        <p className="text-3xl font-black text-emerald-400">${taxRebate.toFixed(2)}</p>
+                        <p className="text-3xl font-black text-emerald-400">{money(taxRebate)}</p>
                         <p className="text-[10px] text-slate-500 mt-1">18% de USD {effectiveDeductible.toFixed(2)}</p>
                     </div>
 
                     <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/30">
                         <div className="flex justify-between items-center mb-2">
                             <p className="text-xs text-slate-400 font-medium">Límite de Gastos (n={limitsConfig[cargas]} CFB)</p>
-                            <span className="text-white font-bold text-sm">${maxDeductible.toFixed(2)}</span>
+                            <span className="text-white font-bold text-sm">{money(maxDeductible)}</span>
                         </div>
                         <div className="h-2 w-full bg-slate-700 rounded-full overflow-hidden">
                             <div 

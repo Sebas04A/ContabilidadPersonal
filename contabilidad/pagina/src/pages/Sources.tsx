@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import ReactECharts from 'echarts-for-react';
 import * as echarts from 'echarts';
+import { money } from '../utils/format';
 
 export function Sources() {
   const [activeTab, setActiveTab] = useState<'bank' | 'card'>('bank');
@@ -472,7 +473,7 @@ export function Sources() {
                                 return `
                                   <div class="font-bold border-b border-white/10 pb-1 mb-1 text-sm">${p.name}</div>
                                   <div class="text-xs mb-1">Transacciones Totales: <span class="font-bold text-primary-400">${item.count}</span></div>
-                                  <div class="text-xs mb-2">Monto Acumulado: <span class="font-bold text-emerald-400">$${item.monto.toLocaleString('es-EC', { minimumFractionDigits: 2 })}</span></div>
+                                  <div class="text-xs mb-2">Monto Acumulado: <span class="font-bold text-emerald-400">${money(item.monto)}</span></div>
                                   <div class="text-[10px] text-surface-400 mb-1 font-bold uppercase">Archivos en esta fecha:</div>
                                   <div class="space-y-1">${fileList}</div>
                                 `;
@@ -781,7 +782,7 @@ export function Sources() {
                                           return `
                                             <div class="font-bold border-b border-white/10 pb-1 mb-1 text-xs">${p.name}</div>
                                             <div class="text-xs">Transacciones: <span class="font-bold text-primary-400">${d.count}</span></div>
-                                            <div class="text-xs">Monto Total: <span class="font-bold text-emerald-400">$${d.monto.toLocaleString('es-EC', { minimumFractionDigits: 2 })}</span></div>
+                                            <div class="text-xs">Monto Total: <span class="font-bold text-emerald-400">${money(d.monto)}</span></div>
                                           `;
                                         }
                                       },

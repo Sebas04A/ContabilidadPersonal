@@ -23,6 +23,7 @@ import {
 import AutoPaymentsModal from '../components/AutoPaymentsModal';
 import { ExplorerAnalyticsModal, ExplorerAnalyticsContent } from '../components/ExplorerAnalyticsModal';
 import { ExplorerExclusionsModal } from '../components/ExplorerExclusionsModal';
+import { money, signedMoney } from '../utils/format';
 
 export type SortByOption = 'date_desc' | 'date_asc' | 'amount_desc' | 'amount_asc';
 export type StructureFilterOption = 'all' | 'split' | 'grouped' | 'simple';
@@ -1687,19 +1688,19 @@ export function DataExplorer() {
               />
               <StatCard
                 label="Ingresos"
-                value={income.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })}
+                value={money(income)}
                 icon={<ArrowUpRight size={20} />}
                 colorClass="bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
               />
               <StatCard
                 label="Gastos"
-                value={expenses.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })}
+                value={money(expenses)}
                 icon={<ArrowDownRight size={20} />}
                 colorClass="bg-rose-500/10 text-rose-400 border-rose-500/20"
               />
               <StatCard
                 label="Neto Total"
-                value={totalAmount.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })}
+                value={money(totalAmount)}
                 icon={<Filter size={20} />}
                 colorClass={`${totalAmount >= 0 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'}`}
               />
@@ -1974,7 +1975,7 @@ export function DataExplorer() {
 
                               {/* Amount */}
                               <td className={`px-5 py-4 text-right text-sm font-mono font-bold whitespace-nowrap ${t.MONTO >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                {t.MONTO >= 0 ? '+' : '−'}${Math.abs(t.MONTO).toLocaleString('es-CO', { minimumFractionDigits: 2 })}
+                                {signedMoney(t.MONTO)}
                               </td>
 
                               {/* Status & Badges */}
@@ -2051,7 +2052,7 @@ export function DataExplorer() {
                                         <Scissors size={13} /> Partes de la división ({t.subTransactions!.length})
                                       </span>
                                       <span className="text-[11px] text-surface-400">
-                                        Total división: <strong className="text-white font-mono">{t.MONTO >= 0 ? '+' : '−'}${Math.abs(t.MONTO).toLocaleString('es-CO', { minimumFractionDigits: 2 })}</strong>
+                                        Total división: <strong className="text-white font-mono">{signedMoney(t.MONTO)}</strong>
                                       </span>
                                     </div>
                                     <div className="space-y-1.5">
@@ -2111,7 +2112,7 @@ export function DataExplorer() {
                                           </div>
                                           <div className="flex items-center gap-3 shrink-0">
                                             <span className={`text-xs font-mono font-bold ${sub.MONTO >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                              {sub.MONTO >= 0 ? '+' : '−'}${Math.abs(sub.MONTO).toLocaleString('es-CO', { minimumFractionDigits: 2 })}
+                                              {signedMoney(sub.MONTO)}
                                             </span>
                                             <Pencil size={13} className="text-surface-500 group-hover/sub:text-cyan-300 transition-colors" />
                                           </div>

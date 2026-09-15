@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import * as echarts from 'echarts';
 import { ChartData } from '../services/investments';
+import { money } from '../utils/format';
 
 interface InvestmentChartProps {
   data: ChartData | null;
@@ -338,9 +339,9 @@ export default function InvestmentChart({ data, loading }: InvestmentChartProps)
           fontFamily: 'SF Mono, Consolas, monospace',
           formatter: (value: number) => {
             if (value >= 1000) {
-              return `$${(value / 1000).toFixed(0)}k`;
+              return `${money((value / 1000), 0)}k`;
             }
-            return `$${value.toFixed(0)}`;
+            return `${money(value, 0)}`;
           },
         },
         axisLine: {

@@ -3,6 +3,7 @@ import { Search, X, Tag, Loader2, ArrowRight, Clock } from 'lucide-react';
 import { useSearchTransactions } from '../hooks/useTransactions';
 import { Transaction } from '../services/api';
 import { sortTransactions } from '../utils/groupSplits';
+import { money } from '../utils/format';
 
 interface SearchModalProps {
   isOpen: boolean;
@@ -114,7 +115,7 @@ export function SearchModal({ isOpen, onClose, onSelectDate }: SearchModalProps)
                              {tx.nombre_limpio || tx.DESCRIPCION}
                          </h4>
                          <span className={`font-mono font-bold ${tx.MONTO >= 0 ? 'text-emerald-400' : 'text-gray-300'}`}>
-                             ${tx.MONTO.toFixed(2)}
+                             {money(tx.MONTO)}
                          </span>
                     </div>
                     

@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import ReactECharts from 'echarts-for-react';
 import * as echarts from 'echarts';
+import { money } from '../utils/format';
 
 export interface Period {
   start_date: string;
@@ -118,7 +119,7 @@ const CardChart: React.FC<CardChartProps> = ({ data, isLoading }) => {
                         <span class="text-surface-400 font-medium group-hover:text-emerald-300 transition-colors">Periodo Actual</span>
                     </div>
                     <div class="text-right">
-                        <div class="font-mono font-bold text-emerald-400">$${activePeriod.total_to_pay.toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
+                        <div class="font-mono font-bold text-emerald-400">${money(activePeriod.total_to_pay)}</div>
                         <div class="text-[10px] text-surface-500 max-w-[100px] truncate">${activePeriod.period_name}</div>
                     </div>
                  </div>`;
@@ -154,7 +155,7 @@ const CardChart: React.FC<CardChartProps> = ({ data, isLoading }) => {
                            <div class="w-2 h-2 rounded-full ${iconShadow}" style="background-color:${p.color};"></div>
                            <span class="text-surface-400 font-medium">${label}</span>
                         </div>
-                        <span class="font-mono font-bold ml-auto ${valueColor}">$${Number(val).toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
+                        <span class="font-mono font-bold ml-auto ${valueColor}">${money(Number(val))}</span>
                      </div>`;
                 }
             });

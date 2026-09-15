@@ -5,6 +5,7 @@ import {
   getPayments, createPayment, updatePayment, deletePayment,
   InterpolationGroup, InterpolatedPayment 
 } from '../services/interpolated';
+import { money } from '../utils/format';
 
 
 interface PaymentCRUDProps {
@@ -211,9 +212,6 @@ const PaymentCRUD: React.FC<PaymentCRUDProps> = ({ groupType = 'interpolated', o
     setIsPaymentModalOpen(true);
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
-  };
 
   return (
     <div className="flex h-full bg-surface-950 rounded-xl overflow-hidden border border-white/[0.06]">
@@ -367,7 +365,7 @@ const PaymentCRUD: React.FC<PaymentCRUDProps> = ({ groupType = 'interpolated', o
                         <DollarSign className="w-4 h-4" />
                       </div>
                       <div className="font-mono text-sm font-bold text-white min-w-[80px]">
-                        {formatCurrency(payment.amount)}
+                        {money(payment.amount)}
                       </div>
                     </div>
 

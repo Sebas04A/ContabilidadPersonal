@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import * as echarts from 'echarts';
+import { fmt, money, pct } from '../../utils/format';
 
 /** El lenguaje visual de los gráficos de Inversiones, en un solo sitio. */
 export const GRID = { top: 40, right: 60, bottom: 50, left: 70 };
@@ -56,14 +57,7 @@ export function Chart({ option, height = 340, onEvento }: {
   return <div ref={ref} style={{ height }} className="w-full" />;
 }
 
-export const fmt = (n: number | null | undefined, decimales = 2) =>
-  n === null || n === undefined
-    ? '—'
-    : n.toLocaleString('en-US', { minimumFractionDigits: decimales, maximumFractionDigits: decimales });
-
-export const money = (n: number | null | undefined) => (n === null || n === undefined ? '—' : `$${fmt(n)}`);
-
-export const pct = (n: number | null | undefined) => (n === null || n === undefined ? '—' : `${fmt(n)} %`);
+export { fmt, money, pct };
 
 export const fecha = (iso: string | null | undefined) => iso || '—';
 

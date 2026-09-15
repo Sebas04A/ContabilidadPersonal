@@ -3,6 +3,7 @@ import ReactECharts from 'echarts-for-react';
 import { PiggyBank, TrendingDown, Check, AlertCircle, Layers, Activity, ArrowUpRight, ArrowDownRight, Tag, Info } from 'lucide-react';
 import { Transaction } from '../../services/api';
 import { useFunds } from '../../hooks/useTransactions';
+import { money } from '../../utils/format';
 
 interface GeneralBudgetTabProps {
   transactions: Transaction[];
@@ -76,7 +77,7 @@ export function GeneralBudgetTab({
              confine: true,
              position: (pos: any) => [pos[0] + 15, Math.max(10, pos[1] - 30)],
              formatter: (params: any) => {
-                 return `<strong class="text-white">${params.data.name}</strong><br/>Monto: $${params.data.value.toLocaleString('es-CO')}<br/>Transacciones: ${params.data.txs.length}`;
+                 return `<strong class="text-white">${params.data.name}</strong><br/>Monto: ${money(params.data.value)}<br/>Transacciones: ${params.data.txs.length}`;
              },
              backgroundColor: '#1f2937', borderColor: '#374151', textStyle: { color: '#f3f4f6' }
          },
@@ -130,7 +131,7 @@ export function GeneralBudgetTab({
              confine: true,
              position: (pos: any) => [pos[0] + 15, Math.max(10, pos[1] - 30)],
              formatter: (params: any) => {
-                 return `<strong class="text-white">${params.data.name}</strong><br/>Monto: $${params.data.value.toLocaleString('es-CO')}<br/>Transacciones: ${params.data.txs.length}`;
+                 return `<strong class="text-white">${params.data.name}</strong><br/>Monto: ${money(params.data.value)}<br/>Transacciones: ${params.data.txs.length}`;
              },
              backgroundColor: '#1f2937', borderColor: '#374151', textStyle: { color: '#f3f4f6' }
          },
@@ -202,7 +203,7 @@ export function GeneralBudgetTab({
              confine: true,
              position: (pos: any) => [pos[0] + 15, Math.max(10, pos[1] - 30)],
              formatter: (params: any) => {
-                 return `<strong class="text-white">${params.data.name}</strong><br/>Monto: $${params.data.value.toLocaleString('es-CO')}<br/>Transacciones: ${params.data.txs.length}`;
+                 return `<strong class="text-white">${params.data.name}</strong><br/>Monto: ${money(params.data.value)}<br/>Transacciones: ${params.data.txs.length}`;
              },
              backgroundColor: '#1f2937', borderColor: '#374151', textStyle: { color: '#f3f4f6' }
          },

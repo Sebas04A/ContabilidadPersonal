@@ -8,9 +8,7 @@ import { useDeudores, useEstadoCuenta } from '../hooks/useTransactions';
 import { EditarCruceModal } from './EditarCruceModal';
 import { EditarPagoModal } from './EditarPagoModal';
 import type { SupabaseDeudor, EstadoCuentaDeuda, EstadoCuentaPago, EstadoCuentaMovimiento, MovimientoItem, CruceSugerido } from '../services/api';
-
-const fmt = (n: number) =>
-  n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+import { fmt } from '../utils/format';
 
 const fecha = (s: string | null) => {
   if (!s) return '—';
