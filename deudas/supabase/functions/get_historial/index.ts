@@ -35,7 +35,7 @@ serve(async (req) => {
     const { data: pagosFullData, error: pagosFullError } = await supabaseClient
       .from('pagos')
       .select(`
-        id, monto_total, es_mi_pago, fecha_pago, es_compensacion, created_at, cruce_id,
+        id, monto_total, es_mi_pago, fecha_pago, es_compensacion, created_at, cruce_id, nota,
         detalle_pagos (monto_asignado, deuda_id, deudas(titulo, es_mi_deuda))
       `)
       .eq('deudor_id', deudor_id)
@@ -86,6 +86,7 @@ serve(async (req) => {
         esMiPago: p.es_mi_pago,
         esCompensacion: p.es_compensacion,
         cruceId: p.cruce_id,
+        nota: p.nota ?? null,
         detalles: p.detalle_pagos || []
       })
     })

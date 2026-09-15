@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useDeudores, useEstadoCuenta } from '../hooks/useTransactions';
 import { EditarCruceModal } from './EditarCruceModal';
+import { EditarPagoModal } from './EditarPagoModal';
 import type { SupabaseDeudor, EstadoCuentaDeuda, EstadoCuentaPago, EstadoCuentaMovimiento, MovimientoItem, CruceSugerido } from '../services/api';
 
 const fmt = (n: number) =>
@@ -239,7 +240,7 @@ export function AccountStatementModal({ onClose }: { onClose: () => void }) {
                 {tab === 'pagos' && (
                   estado.pagos.length === 0
                     ? <EmptyBox text="Sin pagos registrados" />
-                    : <div className="space-y-2">{estado.pagos.map(p => <PaymentRow key={p.id} p={p} />)}</div>
+                    : <div className="space-y-2">{estado.pagos.map(p => <PaymentRow key={p.id} p={p} nombre={selected.nombre} />)}</div>
                 )}
               </div>
             ) : (
@@ -759,6 +760,26 @@ function DeudaCard({ m, abonado, saldo = m.saldo_acumulado }: {
   );
 }
 
+/** Lápiz discreto junto al título del pago: abre el modal de fecha y nota. */
+function BotonEditarPago({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      title="Editar fecha y nota"
+      className="p-1 rounded-md text-surface-500 hover:text-white hover:bg-white/10 transition-colors"
+    >
+      <Pencil size={11} />
+    </button>
+  );
+}
+
+/** La nota del pago, en una línea que se corta si es larga (el texto entero va en el title). */
+function NotaPago({ nota }: { nota: string }) {
+  return (
+    <div className="text-[11px] text-surface-300 italic truncate max-w-md" title={nota}>“{nota}”</div>
+  );
+}
+
 /* ── Pago: mismo lenguaje visual que el cruce ──────────────────────────── */
 function PagoCard({ m, nombre, deudas = [] }: {
   m: EstadoCuentaMovimiento; nombre: string; deudas?: DeudaAdjunta[];
@@ -775,6 +796,7 @@ function PagoCard({ m, nombre, deudas = [] }: {
   const tone = entregado ? 'text-indigo-300' : 'text-emerald-300';
   const chip = entregado ? 'bg-indigo-500/15 text-indigo-300' : 'bg-emerald-500/15 text-emerald-300';
   const asignado = items.reduce((s, it) => s + it.aplicado, 0);
+  const [editando, setEditando] = useState(false);
 
   return (
     <div className="rounded-xl bg-surface-900/40 border border-white/5">
@@ -784,7 +806,10 @@ function PagoCard({ m, nombre, deudas = [] }: {
             {entregado ? <ArrowUpRight size={15} /> : <ArrowDownLeft size={15} />}
           </div>
           <div className="min-w-0">
-            <div className="text-sm font-bold text-surface-100">{m.concepto}</div>
+            <div className="text-sm font-bold text-surface-100 flex items-center gap-1.5">
+              {m.concepto}
+              <BotonEditarPago onClick={() => setEditando(true)} />
+            </div>
             <div className="text-[11px] text-surface-500 flex items-center gap-2">
               <span className="flex items-center gap-1"><Calendar size={10} />{fecha(m.fecha)}</span>
               {saldadas.length > 0 && (
@@ -798,6 +823,7 @@ function PagoCard({ m, nombre, deudas = [] }: {
                 </span>
               )}
             </div>
+            {m.nota && <NotaPago nota={m.nota} />}
           </div>
         </div>
         <div className="text-right shrink-0">
@@ -807,6 +833,13 @@ function PagoCard({ m, nombre, deudas = [] }: {
           <SaldoChip saldo={m.saldo_acumulado} />
         </div>
       </div>
+      {editando && (
+        <EditarPagoModal
+          pago={{ id: m.id, fecha: m.fecha, nota: m.nota, monto: m.monto_total ?? Math.abs(m.delta), esMiPago: entregado }}
+          nombre={nombre}
+          onClose={() => setEditando(false)}
+        />
+      )}
 
       {/* Lo abonado va primero y siempre a la vista: es el resumen de todo lo de abajo. */}
       {items.length > 0 && (
@@ -911,9 +944,10 @@ function DebtRow({ d }: { d: EstadoCuentaDeuda }) {
 }
 
 /* ── Pago con a qué deudas fue ─────────────────────────────────────────── */
-function PaymentRow({ p }: { p: EstadoCuentaPago }) {
+function PaymentRow({ p, nombre }: { p: EstadoCuentaPago; nombre: string }) {
   // Un cruce es un pago virtual (no movió dinero); un pago propio sale de tu bolsillo.
   const cruce = !!p.es_compensacion;
+  const [editando, setEditando] = useState(false);
   const label = cruce ? 'Cruce de cuentas' : p.es_mi_pago ? 'Pago entregado' : 'Pago recibido';
   const tone = cruce ? 'text-sky-300' : p.es_mi_pago ? 'text-indigo-300' : 'text-emerald-300';
   const chip = cruce ? 'bg-sky-500/15 text-sky-300' : p.es_mi_pago ? 'bg-indigo-500/15 text-indigo-300' : 'bg-emerald-500/15 text-emerald-300';
@@ -926,9 +960,14 @@ function PaymentRow({ p }: { p: EstadoCuentaPago }) {
           <div className={`p-1.5 rounded-lg ${chip}`}>
             {cruce ? <RefreshCw size={15} /> : p.es_mi_pago ? <ArrowUpRight size={15} /> : <ArrowDownLeft size={15} />}
           </div>
-          <div>
-            <div className="text-sm font-bold text-surface-100">{label}</div>
+          <div className="min-w-0">
+            <div className="text-sm font-bold text-surface-100 flex items-center gap-1.5">
+              {label}
+              {/* El cruce se mueve con el pago que lo disparó: no se edita solo. */}
+              {!cruce && <BotonEditarPago onClick={() => setEditando(true)} />}
+            </div>
             <div className="text-[11px] text-surface-500 flex items-center gap-1"><Calendar size={10} />{fecha(p.fecha_pago)}</div>
+            {p.nota && <NotaPago nota={p.nota} />}
           </div>
         </div>
         <div className="text-right">
@@ -938,6 +977,13 @@ function PaymentRow({ p }: { p: EstadoCuentaPago }) {
             : p.sobrante > 0.01 && <div className="text-[10px] text-amber-300/80">a favor ${fmt(p.sobrante)}</div>}
         </div>
       </div>
+      {editando && (
+        <EditarPagoModal
+          pago={{ id: p.id, fecha: p.fecha_pago, nota: p.nota, monto: p.monto_total, esMiPago: p.es_mi_pago }}
+          nombre={nombre}
+          onClose={() => setEditando(false)}
+        />
+      )}
       {p.deudas.length > 0 && (
         <div className="mt-2 pt-2 border-t border-white/5 space-y-1">
           {p.deudas.map((a, j) => (

@@ -346,6 +346,20 @@ def test_una_deuda_abonada_a_medias_entra_entera_con_su_pago():
     assert est['resumen']['neto'] == pytest.approx(4.0)
 
 
+def test_la_nota_del_pago_llega_al_ledger_y_a_la_lista():
+    """La nota sale limpia; vacía o ausente es None."""
+    deudas = [_deuda("cena", 20.0, False)]
+    con_nota = {**_pago("p1", 5.0, False, ts="13:00:00"), 'nota': '  en efectivo  '}
+    vacia = {**_pago("p2", 5.0, False, ts="14:00:00"), 'nota': '   '}
+    sin = _pago("p3", 5.0, False, ts="15:00:00")
+    est = _construir_flujo_cuenta(deudas, [con_nota, vacia, sin], [])
+
+    notas = {p['id']: p['nota'] for p in est['pagos']}
+    assert notas == {'p1': 'en efectivo', 'p2': None, 'p3': None}
+    mov = {m['id']: m.get('nota') for m in est['movimientos'] if m['tipo'] == 'pago'}
+    assert mov == notas
+
+
 def test_a_igual_fecha_primero_la_que_se_registro_antes():
     """El cruce sugerido usa la más antigua por fecha y, empatadas, la registrada antes."""
     deudas = [_deuda("zz_vieja", 10.0, False, fecha=HOY, ts="08:00:00"),

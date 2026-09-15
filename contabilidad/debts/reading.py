@@ -88,6 +88,13 @@ def _ec_ts(v):
     return str(v) if v is not None else ''
 
 
+def _ec_nota(v) -> Optional[str]:
+    """La nota del pago, o None si no tiene (NULL, vacía o NaN de un CSV)."""
+    if not isinstance(v, str):
+        return None
+    return v.strip() or None
+
+
 def _operaciones_de_pago(out_pagos: list) -> dict:
     """
     Agrupa los pagos que se escribieron en una misma operación: los dos pagos virtuales de
@@ -424,6 +431,7 @@ def _construir_flujo_cuenta(deudas_raw: list, pagos_raw: list, detalles: list) -
             'es_compensacion': bool(p.get('es_compensacion')),
             # Los dos pagos virtuales de un mismo cruce comparten este id.
             'cruce_id': str(p['cruce_id']) if p.get('cruce_id') else None,
+            'nota': _ec_nota(p.get('nota')),
             'deudas': [{
                 'deuda_id': str(a.get('deuda_id')),
                 'titulo': titulo_by_deuda.get(str(a.get('deuda_id')), '—'),
@@ -493,7 +501,7 @@ def _construir_flujo_cuenta(deudas_raw: list, pagos_raw: list, detalles: list) -
             'fecha': p['fecha_pago'], 'tipo': 'pago', 'id': p['id'],
             'orden': p['creado'], 'cruce_id': p['cruce_id'],
             'concepto': concepto, 'es_tu_deuda': False, 'es_mi_pago': p['es_mi_pago'],
-            'delta': delta, 'sobrante': p['sobrante'],
+            'delta': delta, 'sobrante': p['sobrante'], 'nota': p['nota'],
             'es_compensacion': p['es_compensacion'], 'monto_total': p['monto_total'],
             'detalle': [{'deuda_id': a['deuda_id'], 'titulo': a['titulo'],
                          'monto': a['monto_asignado']} for a in p['deudas']],
@@ -1112,6 +1120,7 @@ def obtener_pagos_para_analisis(
             'es_mi_pago': bool(es_mio) if pd.notna(es_mio) else False,
             'es_compensacion': es_comp,
             'cruce_id': str(p['cruce_id']) if p.get('cruce_id') and pd.notna(p.get('cruce_id')) else None,
+            'nota': _ec_nota(p.get('nota')),
             'sobrante': round(monto - asignado, 2),
             'deudas': [{
                 'deuda_id': str(a.get('deuda_id')),

@@ -130,6 +130,24 @@ idempotencia por `idem_key`. Web: botón «Editar» en el cruce del estado de cu
 icono en el detalle del deudor (solo con conexión y sin cambios pendientes de subir).
 Verificación: `scripts/probar_editar_cruce.py [--replica]`.
 
+### 3.2.3. Nota y fecha de un pago
+`pagos.nota` guarda de qué fue el pago ("transferencia del almuerzo", "en efectivo").
+`editar_pago(p_pago_id, p_fecha, p_nota, p_idem_key)` cambia la fecha y/o la nota:
+
+1. **Solo fecha y nota.** El monto y la dirección no se editan: están repartidos entre
+   deudas y un cruce se calculó encima (eso es borrar y volver a registrar).
+2. **La fecha no mueve dinero.** El reparto ya está en `detalle_pagos` y el FIFO ordena por
+   la fecha de las deudas. Cambia dónde se ve el pago y qué día cuenta en el dashboard.
+3. **El cruce acompaña al pago.** Los dos pagos virtuales del cruce que disparó (misma fecha,
+   `created_at` a menos de 2 s) pasan a la fecha nueva; si no, el bloque «cruce + pago» se
+   partiría. Un pago virtual no se edita solo.
+4. `p_fecha = NULL` deja la fecha; `p_nota = NULL` deja la nota y `''` la borra (máx. 500).
+
+Cada edición queda en `pagos_editados` (antes y después), que da la idempotencia por
+`idem_key`. Web: lápiz junto al pago en el estado de cuenta. App: lápiz en el pago del
+historial (solo con conexión y sin cambios pendientes de subir).
+Verificación: `scripts/probar_editar_pago.py [--replica]`.
+
 ### 3.3. Sincronización en la App (`SyncService`)
 Cada objeto (`Deuda`, `Pago`, etc.) tiene una bandera `synced`.
 - Cuando creas un objeto y estás desconectado, se guarda en el celular con `synced = false`.

@@ -424,3 +424,43 @@ def editar_cruce(cruce_id: str, req: EditarCruceRequest):
     out = _editar_cruce(cruce_id, req, simular=False)
     _invalidar_deudas()
     return out
+
+
+class EditarPagoRequest(BaseModel):
+    # None = no se toca. La nota vacía la borra.
+    fecha_pago: Optional[str] = None  # YYYY-MM-DD
+    nota: Optional[str] = None
+    idem_key: Optional[str] = None
+
+
+@router.post("/payments/{pago_id}/editar")
+def editar_pago(pago_id: str, req: EditarPagoRequest):
+    """Cambia la fecha y/o la nota de un pago. La fecha arrastra al cruce que disparó el
+    pago; el monto y el reparto no se tocan."""
+    from postgrest.exceptions import APIError
+    from contabilidad.debts.escritura import editar_pago as _editar
+
+    fecha = None
+    if req.fecha_pago:
+        try:
+            fecha = datetime.strptime(req.fecha_pago[:10], '%Y-%m-%d').strftime('%Y-%m-%d')
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"fecha_pago inválida: {e}")
+    if fecha is None and req.nota is None:
+        raise HTTPException(status_code=400, detail="No hay cambios que guardar")
+
+    try:
+        res = _editar(pago_id, fecha=fecha, nota=req.nota, idem_key=req.idem_key or None) or {}
+    except APIError as e:
+        # Las validaciones del RPC (cruce, sin cambios, nota larga) son errores del pedido.
+        if e.code == 'P0001':
+            raise HTTPException(status_code=400, detail=e.message)
+        logger.error("Error al editar pago %s: %s", pago_id, e)
+        raise HTTPException(status_code=500, detail=e.message or str(e))
+    except Exception as e:
+        logger.error("Error al editar pago %s: %s", pago_id, e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+    # La fecha mueve el día en que el pago cuenta en DEUDA_ACUMULADA.
+    _invalidar_deudas()
+    return res

@@ -524,6 +524,9 @@ export function DailyLabeling() {
                             <div className="text-[10px] uppercase font-bold tracking-wider text-purple-300 bg-purple-500/10 px-2 py-0.5 rounded-md border border-purple-500/20 inline-block truncate max-w-full">
                               {pago.deudor_nombre}
                             </div>
+                            {pago.nota && (
+                              <div className="text-[11px] text-gray-300 italic truncate mt-1" title={pago.nota}>“{pago.nota}”</div>
+                            )}
                           </div>
                           <div className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider shrink-0 border flex items-center gap-1 ${
                             vinculada

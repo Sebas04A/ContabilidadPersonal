@@ -237,6 +237,26 @@ def editar_cruce(
     }).execute().data
 
 
+def editar_pago(
+    pago_id: str,
+    fecha: Optional[str] = None,
+    nota: Optional[str] = None,
+    idem_key: Optional[str] = None,
+) -> Dict:
+    """
+    Cambia la fecha y/o la nota de un pago real con el RPC `editar_pago`.
+
+    `fecha` None deja la fecha; `nota` None deja la nota y '' la borra. La fecha arrastra
+    al cruce que disparó el pago; el monto y el reparto no se tocan.
+    """
+    return supabase.rpc('editar_pago', {
+        'p_pago_id': pago_id,
+        'p_fecha': fecha,
+        'p_nota': nota,
+        'p_idem_key': idem_key,
+    }).execute().data
+
+
 def eliminar_deuda(deuda_id: str) -> bool:
     response = supabase.table('deudas').delete().eq('id', deuda_id).execute()
     return True

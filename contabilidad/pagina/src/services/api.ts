@@ -203,6 +203,7 @@ export interface SupabasePayment {
   /** Pago virtual de un cruce: no es dinero que se movió. */
   es_compensacion?: boolean;
   cruce_id?: string | null;
+  nota?: string | null;
   /** Lo que no se asignó a ninguna deuda: saldo a favor de quien pagó. */
   sobrante?: number;
   deudas?: { deuda_id: string; titulo: string; monto_asignado: number }[];
@@ -290,7 +291,20 @@ export interface EstadoCuentaPago {
   es_compensacion: boolean;
   /** Los dos pagos virtuales de un mismo cruce comparten este id. */
   cruce_id?: string | null;
+  /** Texto libre del pago: de qué fue, cómo se entregó. */
+  nota?: string | null;
   deudas: { deuda_id: string; titulo: string; monto_asignado: number }[];
+}
+
+/** Resultado de editar la fecha y/o la nota de un pago. */
+export interface EdicionPago {
+  pago_id: string;
+  deudor_id: string;
+  fecha: string;
+  nota: string | null;
+  /** El pago real más los dos del cruce que lo acompañaron, si la fecha cambió. */
+  pagos_movidos: number;
+  repetido: boolean;
 }
 
 /** Una deuda tocada por un pago o un cruce: con cuánto llegaba y con cuánto queda. */
@@ -325,6 +339,8 @@ export interface EstadoCuentaMovimiento {
   delta: number;
   saldo_acumulado: number;
   sobrante?: number;
+  /** Solo en pagos: la nota que se le puso. */
+  nota?: string | null;
   es_mi_pago?: boolean;
   es_compensacion?: boolean;
   monto_total?: number;
@@ -643,6 +659,16 @@ export const api = {
   /** Saca deudas del cruce de la última operación; el pago real no se toca. */
   editarCruce: async (cruceId: string, excluir: string[], idemKey: string): Promise<EdicionCruce> => {
     const res = await axios.post(`${API_BASE}/supabase-debts/cruces/${cruceId}/editar`, { excluir, idem_key: idemKey });
+    return res.data;
+  },
+
+  /** Cambia la fecha y/o la nota de un pago. `undefined` no toca el campo; nota '' la borra. */
+  editarPago: async (
+    pagoId: string,
+    cambios: { fecha_pago?: string; nota?: string },
+    idemKey: string,
+  ): Promise<EdicionPago> => {
+    const res = await axios.post(`${API_BASE}/supabase-debts/payments/${pagoId}/editar`, { ...cambios, idem_key: idemKey });
     return res.data;
   },
 
