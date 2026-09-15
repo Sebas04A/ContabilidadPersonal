@@ -24,6 +24,7 @@ import AutoPaymentsModal from '../components/AutoPaymentsModal';
 import { ExplorerAnalyticsModal, ExplorerAnalyticsContent } from '../components/ExplorerAnalyticsModal';
 import { ExplorerExclusionsModal } from '../components/ExplorerExclusionsModal';
 import { money, signedMoney } from '../utils/format';
+import { parseTags } from '../utils/tags';
 
 export type SortByOption = 'date_desc' | 'date_asc' | 'amount_desc' | 'amount_asc';
 export type StructureFilterOption = 'all' | 'split' | 'grouped' | 'simple';
@@ -433,11 +434,11 @@ export function DataExplorer() {
     if (!bulkTagInput.trim() || selectedIds.size === 0) return;
     setBulkLoading(true);
     try {
-      const newTagList = bulkTagInput.split(',').map(t => t.trim()).filter(Boolean);
+      const newTagList = parseTags(bulkTagInput);
       for (const id of selectedIds) {
         const tx = results.find(r => r.id === id);
         if (!tx) continue;
-        const current = tx.tags ? tx.tags.split(',').map(t => t.trim()) : [];
+        const current = parseTags(tx.tags);
         const merged = Array.from(new Set([...current, ...newTagList])).join(',');
         await api.updateTransaction(id, { tags: merged });
       }
@@ -1962,7 +1963,7 @@ export function DataExplorer() {
                               <td className="px-5 py-4">
                                 <div className="flex flex-wrap gap-1.5 max-w-xs">
                                   {t.tags ? (
-                                    t.tags.split(',').map((tg, i) => (
+                                    parseTags(t.tags).map((tg, i) => (
                                       <span key={i} className="px-2 py-0.5 bg-violet-500/10 border border-violet-500/20 rounded-md text-[11px] font-semibold text-violet-300">
                                         #{tg.trim()}
                                       </span>
@@ -2096,7 +2097,7 @@ export function DataExplorer() {
                                               </div>
                                               {sub.tags && (
                                                 <div className="flex flex-wrap gap-1 mt-0.5">
-                                                  {sub.tags.split(',').map((tg, i) => (
+                                                  {parseTags(sub.tags).map((tg, i) => (
                                                     <span key={i} className="text-[10px] text-violet-300/80 font-mono">
                                                       #{tg.trim()}
                                                     </span>

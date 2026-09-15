@@ -8,6 +8,7 @@ import {
 import { Transaction, FundListItem } from '../services/api';
 import { money } from '../utils/format';
 import { TOOLTIP } from '../utils/chartTheme';
+import { parseTags } from '../utils/tags';
 
 export interface ExplorerAnalyticsContentProps {
   transactions: Transaction[];
@@ -311,7 +312,7 @@ export function ExplorerAnalyticsContent({
         tagMap[key].value += amt;
         tagMap[key].count += 1;
       } else {
-        const rawTags = t.tags.split(',').map(tg => tg.trim()).filter(Boolean);
+        const rawTags = parseTags(t.tags);
         const factor = tagCountMode === 'proportional' ? (rawTags.length > 0 ? 1 / rawTags.length : 1) : 1;
         rawTags.forEach(tg => {
           if (!tagMap[tg]) tagMap[tg] = { name: `#${tg}`, value: 0, count: 0 };

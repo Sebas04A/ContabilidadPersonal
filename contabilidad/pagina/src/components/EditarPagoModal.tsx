@@ -3,18 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { X, Pencil, AlertTriangle, Info, Calendar, StickyNote } from 'lucide-react';
 import { api } from '../services/api';
 import { fmt } from '../utils/format';
-
-const nuevaIdemKey = () =>
-  typeof crypto !== 'undefined' && 'randomUUID' in crypto
-    ? crypto.randomUUID()
-    : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-        const r = (Math.random() * 16) | 0;
-        return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
-      });
-
-const detalleError = (e: unknown) =>
-  (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-  ?? (e instanceof Error ? e.message : 'Error desconocido');
+import { nuevaIdemKey, detalleError } from '../utils/requests';
 
 const MAX_NOTA = 500;
 

@@ -6,6 +6,7 @@ import {
   Calendar, HandCoins, PiggyBank, TrendingUp, ArrowRight, CheckCircle2, Clock, AlertTriangle, Banknote,
 } from 'lucide-react';
 import { signedMoney, money } from '../utils/format';
+import { normalizeText } from '../utils/text';
 
 /**
  * PROTOTYPE (read-only): an enriched ledger. Each transaction is shown with cross
@@ -16,10 +17,6 @@ import { signedMoney, money } from '../utils/format';
 
 // --- helpers ---------------------------------------------------------------
 
-function normalize(s: string | null | undefined): string {
-  if (!s) return '';
-  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
-}
 
 const AMOUNT_TOL_FRAC = 0.10; // a debt matches if amounts are within 10%
 
@@ -79,15 +76,15 @@ function AporteValue({ nb, fundName, size = 'sm', showTag = true }: {
 }
 
 function hasInvestmentMark(t: Transaction): boolean {
-  const cat = normalize(t.categoria);
-  const tags = normalize(t.tags);
+  const cat = normalizeText(t.categoria);
+  const tags = normalizeText(t.tags);
   return cat.includes('inversion') || tags.includes('inversion');
 }
 
 /** Card payment (categoría "Tarjeta"): an internal transfer bank→card, not a real
  *  income/expense, so it's excluded from the ledger and the total. */
 function isCardPayment(t: Transaction): boolean {
-  return normalize(t.categoria) === 'tarjeta';
+  return normalizeText(t.categoria) === 'tarjeta';
 }
 
 interface DebtMatch {
@@ -149,7 +146,7 @@ function investmentPayments(drivers: TransactionDriver[]): number {
   for (const d of drivers) {
     if (d.source !== ComponentType.PAGOS_FIJO) continue;
     if (d.description.startsWith('Fin')) continue;
-    if (normalize(d.description).includes('inversion')) sum += d.amount; // negative
+    if (normalizeText(d.description).includes('inversion')) sum += d.amount; // negative
   }
   return sum;
 }
@@ -278,7 +275,7 @@ export default function EnrichedLedger({ transactions, dayDrivers, variant = 'fu
     return drivers.filter(d =>
       d.source === ComponentType.PAGOS_FIJO &&
       !isFundPago(d.description) &&
-      !normalize(d.description).includes('inversion'),
+      !normalizeText(d.description).includes('inversion'),
     );
   }, [dayDrivers, funds]);
 

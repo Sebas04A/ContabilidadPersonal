@@ -5,6 +5,7 @@ import { Transaction } from '../../services/api';
 import { useFunds } from '../../hooks/useTransactions';
 import { money } from '../../utils/format';
 import { TOOLTIP } from '../../utils/chartTheme';
+import { parseTags } from '../../utils/tags';
 
 interface GeneralBudgetTabProps {
   transactions: Transaction[];
@@ -169,7 +170,7 @@ export function GeneralBudgetTab({
              groupedTags[key].value += Math.abs(t.MONTO);
              groupedTags[key].txs.push(t);
          } else {
-             const tTags = t.tags.split(',').map(tag => tag.trim()).filter(Boolean);
+             const tTags = parseTags(t.tags);
              if (tTags.length === 0) {
                  const key = 'Sin Etiqueta';
                  if (!groupedTags[key]) groupedTags[key] = { value: 0, txs: [] };

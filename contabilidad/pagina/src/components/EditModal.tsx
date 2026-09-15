@@ -9,6 +9,8 @@ import {
   HandCoins, Wallet, Unlink, Ban, Scissors, Settings2, Clock, Banknote
 } from 'lucide-react';
 import { money } from '../utils/format';
+import { parseTags } from '../utils/tags';
+import { nuevaIdemKey } from '../utils/requests';
 
 interface EditModalProps {
   transaction: Transaction | null;
@@ -107,14 +109,6 @@ interface DebtDraft {
   /** Idempotencia: el mismo borrador guardado dos veces no registra dos pagos. */
   idemKey: string;
 }
-
-const nuevaIdemKey = () =>
-  typeof crypto !== 'undefined' && 'randomUUID' in crypto
-    ? crypto.randomUUID()
-    : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-        const r = (Math.random() * 16) | 0;
-        return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
-      });
 
 /**
  * `esIngreso` sugiere el tipo cuando no hay vínculo: a un ingreso casi siempre lo
@@ -422,7 +416,7 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
                   
                   // If the rule auto-populates a tag, let's fetch its tag rule to cascade
                   if (rule.tags) {
-                      const tagsList = rule.tags.split(',').map((t: string) => t.trim()).filter(Boolean);
+                      const tagsList = parseTags(rule.tags);
                       for (const tag of tagsList) {
                           try {
                               const tr = await api.getTagRule(tag);
@@ -864,7 +858,7 @@ export function EditModal({ transaction, isOpen, onClose, onSave, existingTags }
 
   // Helpers
   const isExpense = transaction.MONTO < 0;
-  const currentTags = formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
+  const currentTags = parseTags(formData.tags);
   const perteneceOptions = Array.from(new Set([
     ...PERTENECE_BASE,
     ...deudores.map(d => d.nombre),

@@ -1,6 +1,7 @@
 import { Transaction } from '../services/api';
 import { CheckCircle2, Circle, Edit2, StickyNote, Tag as TagIcon, Clock, Link2, Square, CheckSquare, Landmark, CreditCard } from 'lucide-react';
 import { money } from '../utils/format';
+import { parseTags } from '../utils/tags';
 
 interface TransactionRowProps {
   transaction: Transaction;
@@ -118,7 +119,7 @@ export function TransactionRow({ transaction, onEdit, onQuickReview, index, isSe
                {transaction.categoria}
              </span>
            )}
-           {transaction.tags ? transaction.tags.split(',').map((tag, i) => (
+           {transaction.tags ? parseTags(transaction.tags).map((tag, i) => (
              <span key={i} className="px-2 py-1 rounded-lg bg-surface-800 border border-white/5 text-[10px] uppercase font-bold tracking-wider text-surface-400 flex items-center gap-1 hover:bg-surface-700 hover:text-surface-200 transition-colors cursor-default">
                <TagIcon size={10} />
                {tag.trim()}

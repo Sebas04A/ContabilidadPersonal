@@ -4,6 +4,7 @@ import { Heart, Meh, Frown, AlertCircle } from 'lucide-react';
 import { Transaction } from '../../services/api';
 import { money } from '../../utils/format';
 import { TOOLTIP } from '../../utils/chartTheme';
+import { parseTags } from '../../utils/tags';
 
 interface HappinessTabProps {
   transactions: Transaction[];
@@ -468,7 +469,7 @@ export function HappinessTab({ transactions, formatCurrency, openLocalModal }: H
   const tagsStats = useMemo(() => {
     const entries: GroupEntry[] = [];
     ratedExpenses.forEach(t => {
-      const tTags = t.tags ? t.tags.split(',').map(tag => tag.trim()).filter(Boolean) : [];
+      const tTags = parseTags(t.tags);
       if (tTags.length === 0) {
         entries.push({ key: 'Sin Etiqueta', tx: t });
       } else {

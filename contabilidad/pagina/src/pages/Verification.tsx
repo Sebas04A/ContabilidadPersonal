@@ -8,8 +8,8 @@ import {
   ChevronRight, ArrowUpRight, ArrowDownLeft, Search, X, Sparkles, Scissors, Flame, Heart, Calendar, RotateCcw
 } from 'lucide-react';
 import { money } from '../utils/format';
-
-// ── Exclusion rules interface and default state ───────────────────────────────
+import { groupSplits } from '../utils/groupSplits';
+import { parseTags } from '../utils/tags';
 
 // ── Exclusion rules interface and default state ───────────────────────────────
 
@@ -87,7 +87,7 @@ const isCategoryExcluded = (catRaw: string | undefined, excludedList: string[]) 
 // Helper to check if a transaction's tags match any excluded tag (case-insensitive)
 const hasExcludedTag = (tagsRaw: string | undefined, excludedTags: string[]) => {
   if (!tagsRaw || !excludedTags.length) return false;
-  const itemTags = tagsRaw.split(',').map(tag => tag.trim().toLowerCase()).filter(Boolean);
+  const itemTags = parseTags(tagsRaw).map(tag => tag.toLowerCase());
   return excludedTags.some(ex => itemTags.includes(ex.trim().toLowerCase()));
 };
 
@@ -160,25 +160,6 @@ function activeIssuesFor(t: Transaction, rules: VerificationExclusionRules): Iss
     return ISSUES.filter(i => i.key === 'sin_revisar');
   }
   return ISSUES.filter(i => i.key !== 'sin_revisar' && txFails(t, i.test, rules));
-}
-
-// Group split parts into a single "master" display transaction (mirrors Labeling).
-function groupSplits(txs: Transaction[]): Transaction[] {
-  const map = new Map<string, Transaction[]>();
-  txs.forEach(t => {
-    if (!map.has(t.id)) map.set(t.id, []);
-    map.get(t.id)!.push(t);
-  });
-  const result: Transaction[] = [];
-  map.forEach(parts => {
-    if (parts.length === 1) {
-      result.push(parts[0]);
-    } else {
-      const total = parts.reduce((s, p) => s + p.MONTO, 0);
-      result.push({ ...parts[0], MONTO: total, subTransactions: parts });
-    }
-  });
-  return result;
 }
 
 // ── Small SVG donut ring ────────────────────────────────────────────────────

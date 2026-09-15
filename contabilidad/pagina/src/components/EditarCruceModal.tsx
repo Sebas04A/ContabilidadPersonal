@@ -4,21 +4,10 @@ import { X, RefreshCw, AlertTriangle, Undo2, Calendar, Info } from 'lucide-react
 import { api } from '../services/api';
 import type { EdicionCruce, EstadoCuentaMovimiento } from '../services/api';
 import { fmt } from '../utils/format';
+import { nuevaIdemKey, detalleError } from '../utils/requests';
 
 const fecha = (s: string | null) =>
   s ? new Date(`${s.slice(0, 10)}T00:00:00`).toLocaleDateString('es-EC', { day: '2-digit', month: 'short' }) : '—';
-
-const nuevaIdemKey = () =>
-  typeof crypto !== 'undefined' && 'randomUUID' in crypto
-    ? crypto.randomUUID()
-    : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-        const r = (Math.random() * 16) | 0;
-        return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
-      });
-
-const detalleError = (e: unknown) =>
-  (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-  ?? (e instanceof Error ? e.message : 'Error desconocido');
 
 /**
  * Sacar deudas del cruce de la última operación.

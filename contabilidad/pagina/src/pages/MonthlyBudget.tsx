@@ -22,6 +22,7 @@ import { HappinessTab } from '../components/budget/HappinessTab';
 import { NeedsWantsTab } from '../components/budget/NeedsWantsTab';
 import { CategoriesTagsTab } from '../components/budget/CategoriesTagsTab';
 import { TOOLTIP } from '../utils/chartTheme';
+import { parseTags } from '../utils/tags';
 
 const CATEGORIES = ['Alimentación', 'Transporte', 'Ocio', 'Salud', 'Subscripciones', 'Mensual', 'Inversion', 'Regalo', 'Mujeres', 'Aseo', 'Deudas', 'Tarjeta', 'Ropa', 'Viajes', 'Otro'];
 
@@ -309,7 +310,7 @@ export function MonthlyBudget() {
     
     transactions.forEach(t => {
       if (t.tags) {
-        const tTags = t.tags.split(',').map(tag => tag.trim());
+        const tTags = parseTags(t.tags);
         tTags.forEach(tag => {
           if (!expenses[tag]) expenses[tag] = 0;
           expenses[tag] += (t.MONTO * -1); // Summing negative amounts as positive expenses, and positive amounts as deductions
@@ -331,7 +332,7 @@ export function MonthlyBudget() {
     
     budgetConfig.tracked_tags.forEach(tag => {
        const sum = allTimeFiltered
-          .filter(t => t.tags && t.tags.split(',').map(tg => tg.trim()).includes(tag) && t.MONTO > 0)
+          .filter(t => t.tags && parseTags(t.tags).includes(tag) && t.MONTO > 0)
           .reduce((acc, t) => acc + t.MONTO, 0);
        balances[tag] = sum;
     });
@@ -369,7 +370,7 @@ export function MonthlyBudget() {
     setModalTitle(`Ingresos Presupuestados: ${tag}`);
     setModalDescription('Todas las transacciones de ingreso (positivas) para este tag en todo el tiempo, con los filtros actuales aplicados.');
     
-    const txs = allTimeFiltered.filter(t => t.tags && t.tags.split(',').map(tg => tg.trim()).includes(tag) && t.MONTO > 0);
+    const txs = allTimeFiltered.filter(t => t.tags && parseTags(t.tags).includes(tag) && t.MONTO > 0);
     setModalTransactions(txs);
     setModalSortBy('amount');
     setModalViewMode('list');
@@ -464,7 +465,7 @@ export function MonthlyBudget() {
           if (!t.tags || t.tags.trim() === '') {
               groupedTags['Sin Etiqueta'] = (groupedTags['Sin Etiqueta'] || 0) + Math.abs(t.MONTO);
           } else {
-              const tTags = t.tags.split(',').map(tag => tag.trim()).filter(Boolean);
+              const tTags = parseTags(t.tags);
               if (tTags.length === 0) {
                   groupedTags['Sin Etiqueta'] = (groupedTags['Sin Etiqueta'] || 0) + Math.abs(t.MONTO);
               } else {
@@ -1140,7 +1141,7 @@ export function MonthlyBudget() {
                                                                   filtered = modalTransactions.filter(t => {
                                                                       if (name === 'Sin Etiqueta') return !t.tags || t.tags.trim() === '';
                                                                       if (!t.tags) return false;
-                                                                      return t.tags.split(',').map((tag: string) => tag.trim()).filter(Boolean).includes(name);
+                                                                      return parseTags(t.tags).includes(name);
                                                                   });
                                                                   if (filtered.length > 0) {
                                                                       openLocalModal(

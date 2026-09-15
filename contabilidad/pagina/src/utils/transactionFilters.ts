@@ -1,5 +1,6 @@
 import { Transaction, FundListItem } from '../services/api';
 import { matchFund } from './matchFund';
+import { parseTags } from './tags';
 
 /**
  * Filtros de transacciones compartidos por Presupuesto y el Explorador.
@@ -70,7 +71,7 @@ export function txCategory(t: Transaction): string {
 
 /** Tags de una transacción; sin tags cuenta como la pseudo-etiqueta SIN_ETIQUETA. */
 export function txTags(t: Transaction): string[] {
-  const tags = (t.tags || '').split(',').map(tg => tg.trim()).filter(tg => !isBlank(tg));
+  const tags = parseTags(t.tags);
   return tags.length > 0 ? tags : [SIN_ETIQUETA];
 }
 

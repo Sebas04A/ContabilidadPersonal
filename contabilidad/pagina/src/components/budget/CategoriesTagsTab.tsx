@@ -4,6 +4,7 @@ import { TrendingDown } from 'lucide-react';
 import { Transaction } from '../../services/api';
 import { money } from '../../utils/format';
 import { TOOLTIP } from '../../utils/chartTheme';
+import { parseTags } from '../../utils/tags';
 
 interface CategoriesTagsTabProps {
   transactions: Transaction[];
@@ -74,7 +75,7 @@ export function CategoriesTagsTab({ transactions, CATEGORIES, availableTags, for
              entities[key].value += amt;
              entities[key].count += 1;
          } else {
-             const tTags = t.tags.split(',').map(tag => tag.trim()).filter(Boolean);
+             const tTags = parseTags(t.tags);
              tTags.forEach(tag => {
                  const key = tag;
                  if (!entities[key]) entities[key] = { name: tag, value: 0, count: 0 };
@@ -155,7 +156,7 @@ export function CategoriesTagsTab({ transactions, CATEGORIES, availableTags, for
      if (selectedAnalyticsTags.length === 0) return null;
      
      const data = selectedAnalyticsTags.map(tag => {
-         const tagTxs = transactions.filter(t => t.MONTO < 0 && (tag === 'Sin Etiqueta' ? (!t.tags || t.tags.trim() === '') : (t.tags && t.tags.split(',').map(tg => tg.trim()).includes(tag))));
+         const tagTxs = transactions.filter(t => t.MONTO < 0 && (tag === 'Sin Etiqueta' ? (!t.tags || t.tags.trim() === '') : (t.tags && parseTags(t.tags).includes(tag))));
          const amount = tagTxs.reduce((acc, t) => acc + Math.abs(t.MONTO), 0);
          return { name: tag, value: amount, count: tagTxs.length };
      }).filter(d => d.value > 0).sort((a,b) => b.value - a.value);
@@ -397,7 +398,7 @@ export function CategoriesTagsTab({ transactions, CATEGORIES, availableTags, for
                             <div 
                                 key={d.name} 
                                 className="flex justify-between items-center p-4 bg-surface-900/80 rounded-xl border border-white/5 cursor-pointer hover:bg-surface-800 transition-colors group"
-                                onClick={() => openLocalModal(`Etiqueta: ${d.name}`, "Transacciones de esta etiqueta.", transactions.filter(t => t.MONTO < 0 && (d.name === 'Sin Etiqueta' ? (!t.tags || t.tags.trim() === '') : (t.tags && t.tags.split(',').map(tg => tg.trim()).includes(d.name)))).sort((a,b) => a.MONTO - b.MONTO))}
+                                onClick={() => openLocalModal(`Etiqueta: ${d.name}`, "Transacciones de esta etiqueta.", transactions.filter(t => t.MONTO < 0 && (d.name === 'Sin Etiqueta' ? (!t.tags || t.tags.trim() === '') : (t.tags && parseTags(t.tags).includes(d.name)))).sort((a,b) => a.MONTO - b.MONTO))}
                             >
                                 <div className="flex items-center gap-3">
                                     <div className="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-xs">{i+1}</div>

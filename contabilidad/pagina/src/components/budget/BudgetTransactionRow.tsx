@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ChevronRight, StickyNote, Scissors, ArrowLeftRight, Pin, Pencil, Heart, PiggyBank } from 'lucide-react';
 import { Transaction, FundListItem } from '../../services/api';
+import { parseTags } from '../../utils/tags';
 
 interface BudgetTransactionRowProps {
   /** Fila a mostrar. En un split parcial su MONTO puede ser solo el de las partes visibles. */
@@ -20,15 +21,12 @@ const happinessColor = (n: number) => {
   return 'bg-rose-500/15 text-rose-300 border-rose-500/25';
 };
 
-const splitTags = (tags?: string) =>
-  tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : [];
-
 export function BudgetTransactionRow({ tx, parts, onClick, formatCurrency, fund }: BudgetTransactionRowProps) {
   const [expanded, setExpanded] = useState(false);
 
   const allParts = parts && parts.length > 1 ? parts : (tx.subTransactions || []);
   const isSplit = allParts.length > 1;
-  const tags = splitTags(tx.tags);
+  const tags = parseTags(tx.tags);
   const hasDetail = !!tx.nota || isSplit;
 
   return (
@@ -164,7 +162,7 @@ export function BudgetTransactionRow({ tx, parts, onClick, formatCurrency, fund 
                     <span className="text-surface-500">
                       {p.categoria && p.categoria !== '---' ? p.categoria : 'Sin categoría'}
                     </span>
-                    {splitTags(p.tags).map((tg, j) => (
+                    {parseTags(p.tags).map((tg, j) => (
                       <span key={j} className="text-violet-300/80">#{tg}</span>
                     ))}
                   </div>
