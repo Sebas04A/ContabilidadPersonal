@@ -669,7 +669,7 @@ c4d4a573e09def3e45d670d0c31ea545,TARJETA,AIRALO ECUECU A CONSUMO NLD,Viajes,Viaj
 02e3edd6155f37014d17fc08d4829ed8,TARJETA,LIMA AIRPORT PARTNERS C CONSUMO PER,Viajes,Viaje_RIO,Deseo,False,---,False,,0.0,True,Lima Tasa Interconexion,,,,,,
 ee99f8b025888c58d4a7c7307e164280,BANCA,TRANSF. DIRECTA DE VERKADE MONTIEL DOMINIQUE LOURDES,Viajes,"Viaje_RIO, Airbnb_Rio",Deseo,False,---,True,rubia,0.0,True,,,,,,c2930572-f831-4e19-8494-820c2d031702,
 1e1665cdcab2c990c8692d58173811d7,BANCA,Certificado De Deposito,Inversion,,---,False,---,False,,0.0,True,,,,,,,
-676d32e314370f76b33d6daae302efd3,BANCA,Hermana,Regalo,"Transporte Noah, Viaje_RIO",Deseo,False,---,False,,0.0,True,Regalo de Viaje,,,,,,
+676d32e314370f76b33d6daae302efd3,BANCA,Hermana,Regalo,,Deseo,True,---,False,,0.0,True,Regalo de Viaje,,,,,,
 ebd56b6abff4bf46e95f65045d1896ab,TARJETA,GRAN COFFEE*VMT*GRAN C C CONSUMO BRA,Alimentación,Viaje_RIO,Necesidad,False,---,False,,0.0,True,Aguas Aeropuerto,,398cadb1-3470-4d2a-a1c7-f192656feb90,,,,
 833c597f36935d3d7d8f86e72b56344d,TARJETA,GRAN COFFEE*VMT*GRAN C C CONSUMO BRA,Alimentación,Viaje_RIO,Necesidad,False,---,False,,0.0,True,Aguas Aeropuerto,,398cadb1-3470-4d2a-a1c7-f192656feb90,,,,
 42da960e7d858169a5446a8746d0c095,TARJETA,GRAN COFFEE*VMT*GRAN C C CONSUMO BRA,Alimentación,Viaje_RIO,Necesidad,False,---,False,,0.0,True,Aguas Aeropuerto,,398cadb1-3470-4d2a-a1c7-f192656feb90,,,,
