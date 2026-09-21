@@ -9,9 +9,10 @@ tags, prioridad y felicidad, en su fecha real, sin mover el patrimonio ni un cen
 > que estaba mal. Si una decisión cambia, se edita la §3 y se anota por qué en la bitácora.
 > Nada se da por hecho hasta que su verificación pasó.
 
-Estado: **fases 0 a 4 hechas.** El interruptor funciona de punta a punta y el dashboard no
-se movió. Falta el **backfill de las 16 deudas** (decisión del usuario) y la fase 5
-(fondos), que sigue sin decidirse a propósito.
+Estado: **fases 0 a 4 hechas, backfill cerrado.** El interruptor funciona de punta a punta y
+el dashboard no se movió. Se devengaron las **13 del viaje** ($215,75); las tres restantes
+($6,24) quedaron fuera por decisión, no por olvido. La fase 5 (fondos) sigue sin decidirse
+a propósito.
 Última revisión: 2026-09-20.
 
 ---
@@ -193,6 +194,14 @@ La fila sintética que se construye desde Supabase:
 | `MONTO` | `-deudas.monto` ← **negativo**: en este sistema gasto es negativo |
 | `TIPO` | `'DEUDA'` |
 | `deudor` | `deudores.nombre` (ya normalizado, ver `scripts/normalizar_deudores.py`) |
+| `SALDO_DEUDA` | `deudas.saldo_pendiente` ← **solo en estas filas**; `>0` = todavía la debo |
+
+`SALDO_DEUDA` es lo que permite leer un gasto devengado sin confundirlo con uno de caja:
+dice que esa plata **no salió de mis cuentas** y que sigue contada como deuda en el
+patrimonio. Va en la fila y **no** en `etiquetas.csv`, por la misma razón que `deudor`: es
+estado vivo que cambia con cada pago y con cada cruce. Una columna en el CSV sería una copia
+que envejece, y envejecería enseguida — de las 13 deudas devengadas hoy, 12 están pendientes
+y una (`Uber aeropuerto`) ya está saldada.
 
 **Qué significa que exista la fila de etiqueta:** que esa deuda es consumo mío y se devenga.
 Si una deuda mía **no** es consumo (me prestaron efectivo, por ejemplo — ahí el gasto es en
@@ -328,9 +337,18 @@ endpoint nuevo y nada más.
 - [x] `pages/Debts.tsx`: una tarjeta de deuda mía ahora es clicable y trae distintivo
       **ES GASTO** / **SIN CONTAR**
 - [x] `utils/categorias.ts` para no escribir la lista de categorías por quinta vez
-- [ ] **Backfill a mano de las 16 de §1.3** ← lo único que falta de esta fase
-      (las 14 del viaje primero: son las que le devuelven el costo real a
-      `ETIQUETADO_VIAJE_BRASIL_2026.md`)
+- [x] **La fila nueva trae los valores estructurales del resto del CSV**
+      (`es_fijo=False`, `pertenece_a='---'`, `es_reembolsable=False`): el modal no los
+      pregunta y quedaban en blanco, así que una deuda devengada se leía distinta de una
+      transacción etiquetada aunque signifiquen lo mismo. `DEFECTOS_DEVENGO` se aplica
+      **solo al alta**; una edición posterior no pisa lo que haya en el archivo. `deudor`
+      sigue en blanco a propósito: lo manda Supabase
+- [x] **Backfill a mano de las 16 de §1.3** — cerrado en **13** (2026-09-20)
+      Devengadas las 13 del viaje, todas con tag `Viaje_RIO`: **$215,75**.
+      `Aguas` (0,74 · Ale), `Shawar.a` (2,50 · rubia) y `Almuerzo` (3,00 · rubia) quedan
+      **fuera por decisión**: $6,24 que no vale la pena etiquetar
+- [x] **La fila devengada dice si la deuda sigue viva** (`SALDO_DEUDA`, §4): mirando el
+      gasto se sabe que esa plata no salió de mis cuentas y que ya está contada como deuda
 
 **Por qué un modal propio y no `EditModal`.** El plan decía "ver si se adapta". Se miró:
 `EditModal` son ~1.500 líneas de dividir transacciones, vincular deudas, vincular pagos y
@@ -625,3 +643,86 @@ preguntarse qué pasa cuando alguien la trata como a una transacción normal.
 
 **Pendiente de verdad:** nadie ha visto esto en el navegador todavía.
 
+
+### 2026-09-20 — Backfill del viaje y las columnas que faltaban
+Etiquetadas **13 de las 16**, todas las del viaje a Río, con tag `Viaje_RIO`: **$215,75**.
+Quedan tres de $6,24 (`Aguas`, `Shawar.a`, `Almuerzo`).
+
+Al mirar el CSV se vio que las filas `DEUDA` tenían **huecos donde las de banca y tarjeta
+llevan su valor "apagado"**: `es_fijo`, `pertenece_a` y `es_reembolsable` en blanco, porque
+`DevengoModal` manda solo los siete campos que pregunta y `save_transaction_labels` rellena
+el resto con `None`. Funcionaba igual —`is_empty_label` trata `''`, `'---'` y `'False'`
+como lo mismo—, pero eran dos escrituras distintas para un mismo significado.
+
+Arreglado en los dos lados: `DEFECTOS_DEVENGO` en la ruta `PUT`, aplicado **solo al alta**
+(una edición posterior no pisa lo que haya en el archivo), y las 13 filas ya escritas
+normalizadas con un script que toca esas tres columnas y copia el resto línea por línea.
+`git diff` sigue mostrando **13 inserciones y ninguna otra línea movida**. Dos tests nuevos:
+el alta trae los defectos, la reedición no los reinyecta.
+
+**Verificación — pasó.**
+```
+pytest tests/test_routes_devengo.py tests/test_debt_expenses.py
+       tests/test_devengo_switch.py tests/test_routes_supabase_debts.py  → 61 passed
+snapshot_dashboard.py comparar --nombre pre_devengo_ordenado --via http
+       → IDÉNTICO (ya con las 13 deudas devengadas en el CSV)
+GET /api/transactions/devengo/resumen  → 13 deudas, $215,75
+GET .../devengo/pendientes?solo_pendientes=true → 3, $6,24
+```
+El ledger en modo devengo trae **13 filas `TIPO=DEUDA`** y $215,75 más de gasto que en modo
+caja — la diferencia exacta, sin liquidaciones ajustadas (ninguno de esos pagos se hizo aún).
+
+**Dónde se ven, que era la pregunta:** en **Presupuesto** y **Explorador**, con el
+interruptor «Lo que consumí». En **Etiquetado** no aparecen —`DailyLabeling` llama a
+`useTransactions` sin devengo— y se etiquetan desde el tab **Deudas**, que es donde vive el
+modal. En **Fondos** tampoco, por la decisión abierta de la fase 5.
+
+### 2026-09-20 — Saber, mirando el gasto, que sigue siendo una deuda
+Pedido: marcar las devengadas «como reembolsable o algo así» para saber que eso ya está
+contado en las deudas de Supabase.
+
+**`es_reembolsable` no, y por un motivo concreto:** en este sistema significa lo contrario
+—*me van a devolver esta plata*— y tiene consecuencias. `dashboard_filters._pasa_reembolsable`
+con `excluded` saca esas filas del gasto, y `fund_service` las excluye siempre
+(«Refundable parts belong to the Debts module»). Marcar las 13 habría **anulado el devengo**:
+se sacarían del gasto justo las que el plan mete.
+
+**Lo que se hizo:** la fila devengada lleva `SALDO_DEUDA` (§4), leído de
+`deudas.saldo_pendiente` en cada lectura. `>0` ⇒ esa plata todavía la debo y ya pesa en
+`DEUDA_ACUMULADA`; `0` ⇒ la deuda se saldó, con plata o por cruce. En el Explorador, el
+distintivo `DEUDA` ahora tiene color propio y al lado va **«Debo $X»** o **«Saldada»**, con
+el detalle en el tooltip.
+
+**Por qué derivado y no una columna en el CSV:** sería una copia que envejece con cada pago
+y cada cruce, y envejecería enseguida — **hoy mismo** 12 de las 13 están pendientes y
+`Uber aeropuerto` ($5,00) ya está saldada. Una etiqueta fija ya estaría mintiendo sobre una
+de trece el día que se escribe. Es la misma regla que `deudor`: lo vivo lo manda Supabase.
+
+**Dos cosas que aparecieron al hacerlo, las dos con test:**
+
+1. **El `concat` se comía la columna.** `aplicar_devengo` concatenaba con `devengadas[df.columns]`,
+   o sea seleccionando por las columnas del ledger de caja — que no tiene `SALDO_DEUDA`. Se
+   abre también del otro lado, con vacío en banca: ahí no hay deuda detrás, y un 0 se leería
+   como "saldada".
+2. **`json.dumps` rechaza NaN con un 500.** Con la columna vacía en 227 filas de banca, el
+   Explorador **no cargaba ni una vez** en modo devengo. Saneado en `json_utils` a `null`,
+   no a 0, por lo mismo del punto anterior.
+
+**Verificación — pasó.**
+```
+pytest tests/                                                 → 15433 passed, 3 failed (previos y ajenos)
+snapshot_dashboard.py comparar --nombre pre_devengo_ordenado  → IDÉNTICO
+npx tsc --noEmit / npm test -- --run                          → limpio / 25 passed
+GET /api/transactions/?...&devengo=true                       → 200; 13 filas DEUDA con saldo,
+                                                                227 de banca con saldo null
+```
+
+**Aparte, de levantar la app:** había un backend viejo en `:8000` (sin `--reload`) y un Vite
+viejo en `:5173` de una sesión anterior. El script no lo dice y arranca igual: el backend
+nuevo muere con `Address already in use` y Vite se corre a `:5174`, así que el navegador
+mostraba código viejo y las pruebas por HTTP daban respuestas de un proceso que no tenía los
+cambios. Se mataron los dos y se levantó limpio. **Si algo "no se ve", mirar primero qué
+proceso está contestando.**
+
+**Decidido:** las tres deudas que faltaban del backfill ($6,24) **no se devengan**. El
+backfill queda cerrado en 13 y $215,75.
