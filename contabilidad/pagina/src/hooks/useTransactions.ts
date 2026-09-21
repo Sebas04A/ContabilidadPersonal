@@ -362,3 +362,45 @@ export function useSaveMapRule() {
 export function useDeleteMapRule() {
   return useRuleMutation((original: string) => api.deleteMapRule(original));
 }
+
+// ── Devengo: una deuda mía también es un gasto ──────────────────────────────
+// Escriben en etiquetas.csv, no en Supabase. La deuda, su monto y el cruce
+// quedan igual: lo único que cambia es si ese consumo cuenta como gasto.
+
+/** Deudas mías con el estado de su etiqueta. `soloPendientes` deja la bandeja. */
+export function useDeudasPorDevengar(soloPendientes?: boolean) {
+  return useQuery({
+    queryKey: ['deudas-devengo', soloPendientes ?? false],
+    queryFn: () => api.getDeudasPorDevengar(soloPendientes),
+  });
+}
+
+function useInvalidarDevengo() {
+  const queryClient = useQueryClient();
+  // 'transactions' porque una deuda devengada es una fila de gasto más; el
+  // patrimonio no entra acá: DEUDA_ACUMULADA no la mueve ninguna etiqueta.
+  return () => {
+    for (const key of ['deudas-devengo', 'supabase-debts', 'transactions']) {
+      queryClient.invalidateQueries({ queryKey: [key] });
+    }
+  };
+}
+
+/** Etiqueta una deuda mía: pasa a ser gasto, fechado en el consumo. */
+export function useEtiquetarDeuda() {
+  const invalidar = useInvalidarDevengo();
+  return useMutation({
+    mutationFn: ({ deudaId, updates }: { deudaId: string; updates: TransactionUpdate }) =>
+      api.etiquetarDeuda(deudaId, updates),
+    onSuccess: invalidar,
+  });
+}
+
+/** Saca la deuda del gasto; en Supabase no cambia nada. */
+export function useQuitarDevengo() {
+  const invalidar = useInvalidarDevengo();
+  return useMutation({
+    mutationFn: (deudaId: string) => api.quitarDevengo(deudaId),
+    onSuccess: invalidar,
+  });
+}

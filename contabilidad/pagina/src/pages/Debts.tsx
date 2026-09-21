@@ -1,9 +1,10 @@
 import { useMemo, useState, useEffect } from 'react';
-import { Search, Filter, Wallet, Calendar, BarChart3, User, ArrowRight, Check, CheckCircle2, Clock, Link2, Link as LinkIcon, Unlink, MousePointerClick, Scale, Layers, Scissors, X, Banknote } from 'lucide-react';
-import { useRefundableTransactions, useSupabaseDebts, useSupabasePayments, useUpdateTransaction, useTags } from '../hooks/useTransactions';
+import { Search, Filter, Wallet, Calendar, BarChart3, User, ArrowRight, Check, CheckCircle2, Clock, Link2, Link as LinkIcon, Unlink, MousePointerClick, Scale, Layers, Scissors, X, Banknote, Sparkles } from 'lucide-react';
+import { useRefundableTransactions, useSupabaseDebts, useSupabasePayments, useUpdateTransaction, useTags, useDeudasPorDevengar } from '../hooks/useTransactions';
 import { DebtsChart } from '../components/DebtsChart';
 import { EditModal } from '../components/EditModal';
 import { AccountStatementModal } from '../components/AccountStatementModal';
+import { DevengoModal } from '../components/DevengoModal';
 import type { Transaction, SupabaseDebt, SupabasePayment, TransactionUpdate } from '../services/api';
 import { buildTimeline, localKind, type DebtItem, type Granularity, type ItemKind } from '../utils/debtTimeline';
 import { fmt, money } from '../utils/format';
@@ -25,6 +26,21 @@ export function Debts() {
 
   // Modal de etiquetado (clic normal en una transacción local)
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+
+  // Devengo: una deuda mía que pagó otro también puede ser un gasto.
+  const [devengando, setDevengando] = useState<SupabaseDebt | null>(null);
+  const { data: deudasDevengo } = useDeudasPorDevengar();
+  const [showBandeja, setShowBandeja] = useState(false);
+  const sinDecidir = useMemo(() => (deudasDevengo ?? []).filter(d => !d.devengada), [deudasDevengo]);
+  // Qué deudas mías ya tienen etiqueta, para pintarlas distinto sin volver a pedirlas.
+  const devengadasPorId = useMemo(
+    () => new Map((deudasDevengo ?? []).filter(d => d.devengada).map(d => [String(d.ID), d])),
+    [deudasDevengo],
+  );
+  const conTransaccion = useMemo(
+    () => new Set((deudasDevengo ?? []).filter(d => d.tiene_transaccion).map(d => String(d.ID))),
+    [deudasDevengo],
+  );
   const { data: existingTags } = useTags();
   const handleSaveLabel = (id: string, updates: TransactionUpdate) => {
     updateTx.mutate({ id, updates });
@@ -109,7 +125,9 @@ export function Debts() {
 
   // Clic normal en el cuerpo → abrir el modal de etiquetado (solo transacciones locales)
   const handleOpenModal = (item: DebtItem) => {
-    if (item.side === 'local') setEditingTransaction(item.raw as Transaction);
+    if (item.side === 'local') { setEditingTransaction(item.raw as Transaction); return; }
+    // Una deuda mía no tiene transacción que etiquetar: se etiqueta ella misma.
+    if (item.kind === 'deuda' && item.esMiDeuda) setDevengando(item.raw as SupabaseDebt);
   };
 
   const handleUnlink = (item: DebtItem) => {
@@ -203,6 +221,62 @@ export function Debts() {
                 <Link2 size={18} />
                 <span>Solo coincidencias</span>
               </button>
+
+              {/* Bandeja: deudas mías que nadie decidió si fueron gasto */}
+              {sinDecidir.length > 0 && (
+                <div className="relative">
+                  <button
+                    onClick={() => setShowBandeja(v => !v)}
+                    title="Deudas que pagaron por ti y todavía no cuentan como gasto tuyo"
+                    className={`px-3.5 py-2.5 rounded-xl border transition-all shadow-lg active:scale-95 flex items-center gap-2 text-sm font-semibold ${
+                      showBandeja
+                        ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
+                        : 'bg-surface-900 border-white/10 text-surface-300 hover:text-white hover:border-amber-500/30'
+                    }`}
+                  >
+                    <Sparkles size={18} />
+                    <span>Sin contar</span>
+                    <span className="font-mono text-xs bg-amber-500/20 text-amber-300 px-1.5 rounded">{sinDecidir.length}</span>
+                  </button>
+
+                  {showBandeja && (
+                    <>
+                      <div className="fixed inset-0 z-30" onClick={() => setShowBandeja(false)} />
+                      <div className="absolute right-0 top-full mt-2 z-40 w-80 max-h-96 overflow-y-auto rounded-2xl border border-white/10 bg-surface-900 shadow-2xl custom-scrollbar">
+                        <div className="sticky top-0 px-4 py-3 border-b border-white/5 bg-surface-900">
+                          <p className="text-xs font-bold uppercase tracking-wider text-amber-300">Pagaron por ti</p>
+                          <p className="text-[11px] text-surface-500 mt-0.5">
+                            Todavía no cuentan como gasto tuyo. Decide una por una.
+                          </p>
+                        </div>
+                        {sinDecidir.map(d => (
+                          <button
+                            key={d.ID}
+                            onClick={() => {
+                              // La bandeja no depende del filtro de fechas del timeline, así
+                              // que la deuda puede no estar en `supabaseDebts`: se arma con
+                              // lo que ya trajo la bandeja.
+                              setDevengando(supabaseDebts?.find(x => String(x.ID) === String(d.ID)) ?? {
+                                ID: d.ID, FECHA: d.FECHA, DESCRIPCION: d.DESCRIPCION, MONTO: d.MONTO,
+                                TIPO: 'DEUDA', DEUDOR_NOMBRE: d.DEUDOR_NOMBRE, PAGADA: d.PAGADA,
+                                FECHA_PAGO: null, FECHA_CREACION: d.FECHA, ES_MI_DEUDA: true,
+                              });
+                              setShowBandeja(false);
+                            }}
+                            className="w-full px-4 py-2.5 flex items-center gap-3 text-left hover:bg-white/5 transition-colors border-b border-white/5 last:border-0"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm text-white truncate">{d.DESCRIPCION}</p>
+                              <p className="text-[11px] text-surface-500">{d.FECHA} · {d.DEUDOR_NOMBRE}</p>
+                            </div>
+                            <span className="font-mono text-sm text-surface-300 shrink-0">{money(d.MONTO)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
 
               <button
                 onClick={() => setShowAccount(true)}
@@ -386,6 +460,8 @@ export function Debts() {
                             hoveredMatch={hoveredMatch}
                             onHover={setHoveredMatch}
                             selected={selLocal?.key === item.key || selSupa?.key === item.key}
+                            devengada={item.side === 'supabase' && item.kind === 'deuda'
+                              && devengadasPorId.has(String((item.raw as SupabaseDebt).ID))}
                             onToggleSelect={() => handleToggleSelect(item)}
                             onOpen={() => handleOpenModal(item)}
                             onUnlink={() => handleUnlink(item)}
@@ -404,6 +480,8 @@ export function Debts() {
                             hoveredMatch={hoveredMatch}
                             onHover={setHoveredMatch}
                             selected={selLocal?.key === item.key || selSupa?.key === item.key}
+                            devengada={item.side === 'supabase' && item.kind === 'deuda'
+                              && devengadasPorId.has(String((item.raw as SupabaseDebt).ID))}
                             onToggleSelect={() => handleToggleSelect(item)}
                             onOpen={() => handleOpenModal(item)}
                             onUnlink={() => handleUnlink(item)}
@@ -422,6 +500,15 @@ export function Debts() {
 
       {showChart && <DebtsChart onClose={() => setShowChart(false)} />}
       {showAccount && <AccountStatementModal onClose={() => setShowAccount(false)} />}
+
+      {devengando && (
+        <DevengoModal
+          deuda={devengando}
+          devengada={devengadasPorId.get(String(devengando.ID)) ?? null}
+          tieneTransaccion={conTransaccion.has(String(devengando.ID))}
+          onClose={() => setDevengando(null)}
+        />
+      )}
 
       <EditModal
         transaction={editingTransaction}
@@ -468,11 +555,13 @@ function EmptySide() {
   );
 }
 
-function DebtCard({ item, hoveredMatch, onHover, selected, onToggleSelect, onOpen, onUnlink }: {
+function DebtCard({ item, hoveredMatch, onHover, selected, devengada, onToggleSelect, onOpen, onUnlink }: {
   item: DebtItem;
   hoveredMatch: number | null;
   onHover: (m: number | null) => void;
   selected?: boolean;
+  /** Solo deudas mías: ya está contada como gasto. */
+  devengada?: boolean;
   onToggleSelect?: () => void;
   onOpen?: () => void;
   onUnlink?: () => void;
@@ -483,7 +572,10 @@ function DebtCard({ item, hoveredMatch, onHover, selected, onToggleSelect, onOpe
   const isPago = item.kind === 'pago';
   const paidDebt = item.side === 'supabase' && !isPago && item.paid;
   const isHighlighted = matched && item.matchId === hoveredMatch;
-  const clickableBody = isLocal && !linked; // solo las locales abren el modal de etiquetado
+  // Las locales abren el etiquetado normal. Una deuda mía no tiene transacción
+  // detrás, así que abre el devengo: se etiqueta la deuda misma.
+  const esDeudaMia = item.side === 'supabase' && !isPago && !!item.esMiDeuda;
+  const clickableBody = (isLocal && !linked) || esDeudaMia;
 
   const baseClass = linked
     ? 'border-emerald-400/70 bg-emerald-500/[0.12] ring-1 ring-emerald-400/40'
@@ -504,7 +596,7 @@ function DebtCard({ item, hoveredMatch, onHover, selected, onToggleSelect, onOpe
   return (
     <div
       className={`group relative p-3.5 ${linked ? '' : 'pl-11'} rounded-2xl border transition-all overflow-hidden ${baseClass} ${clickableBody ? 'cursor-pointer' : ''}`}
-      title={clickableBody ? 'Clic para etiquetar' : undefined}
+      title={esDeudaMia ? (devengada ? 'Clic para editar el gasto' : 'Clic para contarla como gasto') : clickableBody ? 'Clic para etiquetar' : undefined}
       onClick={clickableBody ? onOpen : undefined}
       onMouseEnter={matched ? () => onHover(item.matchId!) : undefined}
       onMouseLeave={matched ? () => onHover(null) : undefined}
@@ -608,10 +700,23 @@ function DebtCard({ item, hoveredMatch, onHover, selected, onToggleSelect, onOpe
                 : item.esMiPago ? 'ENTREGADO' : 'RECIBIDO'}
             </span>
           ) : item.side === 'supabase' ? (
-            <div className={`text-[10px] font-bold px-1.5 py-0.5 rounded inline-flex items-center gap-1 mt-1 ${
-              item.paid ? 'text-emerald-400 bg-emerald-500/10' : 'text-rose-400 bg-rose-500/10'
-            }`}>
-              {item.paid ? (<><CheckCircle2 size={10} /> PAGADA</>) : 'PENDIENTE'}
+            <div className="flex flex-col items-end gap-1 mt-1">
+              <div className={`text-[10px] font-bold px-1.5 py-0.5 rounded inline-flex items-center gap-1 ${
+                item.paid ? 'text-emerald-400 bg-emerald-500/10' : 'text-rose-400 bg-rose-500/10'
+              }`}>
+                {item.paid ? (<><CheckCircle2 size={10} /> PAGADA</>) : 'PENDIENTE'}
+              </div>
+              {esDeudaMia && (
+                <div
+                  title={devengada ? 'Cuenta como gasto tuyo' : 'La pagó otro y todavía no cuenta como gasto tuyo'}
+                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded inline-flex items-center gap-1 ${
+                    devengada ? 'text-amber-300 bg-amber-500/15' : 'text-surface-500 bg-white/5'
+                  }`}
+                >
+                  <Sparkles size={10} />
+                  {devengada ? 'ES GASTO' : 'SIN CONTAR'}
+                </div>
+              )}
             </div>
           ) : (
             <span className="text-[10px] font-bold text-surface-500 bg-surface-950/50 px-1.5 py-0.5 rounded mt-1 inline-block">

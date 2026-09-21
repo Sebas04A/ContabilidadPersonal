@@ -192,6 +192,41 @@ export interface SupabaseDebt {
   SALDO_PENDIENTE?: number;
 }
 
+/**
+ * Una deuda mía, con el estado de su etiqueta.
+ *
+ * Devengar una deuda es decir "esto lo consumí yo": pasa a contar como gasto en
+ * su `FECHA`, aunque la plata la haya puesto otro. Ver PLAN_DEUDAS_COMO_GASTO.md.
+ */
+export interface DeudaDevengada {
+  ID: string;
+  FECHA: string;
+  DESCRIPCION: string;
+  MONTO: number;
+  DEUDOR_NOMBRE: string;
+  PAGADA: boolean;
+  /** true = ya se decidió que es gasto y tiene etiqueta. */
+  devengada: boolean;
+  /** Hay una transacción mía apuntando a esta deuda: su gasto ya está contado ahí. */
+  tiene_transaccion?: boolean;
+  categoria?: string | null;
+  tags?: string | null;
+  prioridad?: string | null;
+  felicidad?: number | null;
+  nombre_limpio?: string | null;
+  nota?: string | null;
+}
+
+/** Qué mueve el modo devengo, para poder explicarlo antes de encenderlo. */
+export interface ResumenDevengo {
+  deudas_devengadas: number;
+  monto_devengado: number;
+  liquidaciones_ajustadas: number;
+  monto_descontado: number;
+  /** Liquidaciones que no se pudieron ajustar por falta de detalle en Supabase. */
+  liquidaciones_sin_detalle: number;
+}
+
 export interface SupabasePayment {
   id: string | number;
   fecha_pago: string;
@@ -488,7 +523,12 @@ export interface SourcesSummaryResponse {
 
 export const api = {
   // Transactions
-  getTransactions: async (date?: string, pendingOnly?: boolean, esReembolsable?: boolean, startDate?: string, endDate?: string, debtor?: string, search?: string, category?: string, tag?: string): Promise<Transaction[]> => {
+  /**
+   * `devengo` cambia la pregunta: en vez de "qué plata se movió" responde "qué
+   * consumí". Entran las deudas mías etiquetadas y las liquidaciones pierden la
+   * parte que ya se contó. Apagado, la respuesta es la de siempre.
+   */
+  getTransactions: async (date?: string, pendingOnly?: boolean, esReembolsable?: boolean, startDate?: string, endDate?: string, debtor?: string, search?: string, category?: string, tag?: string, devengo?: boolean): Promise<Transaction[]> => {
     const params = new URLSearchParams();
     if (date) params.append('date', date);
     if (startDate) params.append('start_date', startDate);
@@ -499,7 +539,14 @@ export const api = {
     if (search) params.append('search', search);
     if (category) params.append('category', category);
     if (tag) params.append('tag', tag);
+    if (devengo) params.append('devengo', 'true');
     const res = await axios.get(`${API_BASE}/transactions?${params}`);
+    return res.data;
+  },
+
+  /** Qué cambiaría el modo devengo, sin pedir las transacciones. */
+  getResumenDevengo: async (): Promise<ResumenDevengo> => {
+    const res = await axios.get(`${API_BASE}/transactions/devengo/resumen`);
     return res.data;
   },
 
@@ -642,6 +689,29 @@ export const api = {
 
   createSupabaseDebt: async (req: CreateDebtRequest): Promise<{ id: string | number }> => {
     const res = await axios.post(`${API_BASE}/supabase-debts/`, req);
+    return res.data;
+  },
+
+  // ── Devengo: una deuda mía también es un gasto ──────────────────────────
+  // Escriben en etiquetas.csv, no en Supabase: la deuda y el cruce no se tocan.
+
+  /** Deudas mías con el estado de su etiqueta; `soloPendientes` deja la bandeja. */
+  getDeudasPorDevengar: async (soloPendientes?: boolean): Promise<DeudaDevengada[]> => {
+    const params = new URLSearchParams();
+    if (soloPendientes) params.append('solo_pendientes', 'true');
+    const res = await axios.get(`${API_BASE}/supabase-debts/devengo/pendientes?${params}`);
+    return res.data;
+  },
+
+  /** Etiqueta una deuda mía: con esto pasa a ser un gasto, fechado en el consumo. */
+  etiquetarDeuda: async (deudaId: string, updates: TransactionUpdate): Promise<{ status: string }> => {
+    const res = await axios.put(`${API_BASE}/supabase-debts/${deudaId}/etiqueta`, updates);
+    return res.data;
+  },
+
+  /** Saca la deuda del gasto. La deuda sigue viva en Supabase; deja de ser consumo. */
+  quitarDevengo: async (deudaId: string): Promise<{ status: string }> => {
+    const res = await axios.delete(`${API_BASE}/supabase-debts/${deudaId}/etiqueta`);
     return res.data;
   },
 

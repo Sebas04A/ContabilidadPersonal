@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import ReactECharts from 'echarts-for-react';
-import { api, Transaction, TransactionUpdate, BudgetConfig } from '../services/api';
-import { Wallet, X, TrendingDown, Heart, Scale, Filter, BarChart3, List, PiggyBank, Check, ArrowLeft } from 'lucide-react';
+import { api, Transaction, TransactionUpdate, BudgetConfig, ResumenDevengo } from '../services/api';
+import { Wallet, X, TrendingDown, Heart, Scale, Filter, BarChart3, List, PiggyBank, Check, ArrowLeft, Sparkles } from 'lucide-react';
 
 import { groupSplits } from '../utils/groupSplits';
 import { matchFund } from '../utils/matchFund';
@@ -37,6 +37,9 @@ export function MonthlyBudget() {
   const [labeledFilter, setLabeledFilter] = usePersistentState<LabeledFilterOption>('budget_labeledFilter', 'all');
   const [reimbursableFilter, setReimbursableFilter] = usePersistentState<ReimbursableFilterOption>('budget_reimbursableFilter', 'all');
   const [priorityFilter, setPriorityFilter] = usePersistentState<PriorityFilterOption>('budget_priorityFilter', 'all');
+  // Devengo: contar lo que consumí, no lo que se movió. Ver PLAN_DEUDAS_COMO_GASTO.md.
+  const [devengo, setDevengo] = usePersistentState<boolean>('budget_devengo', false);
+  const [resumenDevengo, setResumenDevengo] = useState<ResumenDevengo | null>(null);
 
   // Categorías y etiquetas: inclusiones (solo mostrar) y exclusiones (ocultar).
   const [excludedCategories, setExcludedCategories] = usePersistentState<string[]>('budget_excludedCategories', []);
@@ -228,6 +231,7 @@ export function MonthlyBudget() {
         setAvailableTags(tags);
         const allData = await api.getTransactions();
         setAllTimeTransactions(allData);
+        api.getResumenDevengo().then(setResumenDevengo).catch(() => setResumenDevengo(null));
       } catch (error) {
         console.error("Error loading config", error);
       }
@@ -284,7 +288,9 @@ export function MonthlyBudget() {
         const data = await api.getTransactions(
           undefined, undefined, undefined,
           firstDayStr,
-          lastDayStr
+          lastDayStr,
+          undefined, undefined, undefined, undefined,
+          devengo,
         );
         setAllPeriodTransactions(data);
         remapModalTransactions(data);
@@ -295,7 +301,7 @@ export function MonthlyBudget() {
       }
     };
     fetchPeriodTransactions();
-  }, [selectedPeriod, customStartDate, customEndDate, refreshKey, activePeriodDates]);
+  }, [selectedPeriod, customStartDate, customEndDate, refreshKey, activePeriodDates, devengo]);
 
   // Aggregations
   const totalExpenses = useMemo(() => {
@@ -683,6 +689,29 @@ export function MonthlyBudget() {
                      <option value="rated">Solo Clasificadas (Nec + Des)</option>
                      <option value="unrated">Gastos sin Clasificar</option>
                  </select>
+
+                 {/* Devengo: lo que consumí vs. lo que se movió */}
+                 <button
+                     onClick={() => setDevengo(v => !v)}
+                     title={devengo
+                       ? `Contando ${resumenDevengo?.deudas_devengadas ?? 0} deudas que pagaron por ti ($${(resumenDevengo?.monto_devengado ?? 0).toFixed(2)}) y descontando $${(resumenDevengo?.monto_descontado ?? 0).toFixed(2)} de lo que devolviste`
+                       : 'Incluir lo que otros pagaron por ti, en la fecha del consumo, y descontar lo que devolviste'}
+                     className={`border text-sm rounded-lg px-3 py-2 flex items-center gap-2 transition-all ${
+                         devengo
+                         ? 'bg-amber-500/20 border-amber-500/50 text-amber-200 hover:bg-amber-500/30 shadow-sm shadow-amber-500/10'
+                         : 'bg-surface-800/50 border-white/10 text-white hover:bg-surface-700 backdrop-blur-md'
+                     }`}
+                 >
+                     <Sparkles size={16} className={devengo ? 'text-amber-300' : 'text-surface-400'} />
+                     <span className="hidden md:inline font-medium">
+                         {devengo ? 'Lo que consumí' : 'Lo que se movió'}
+                     </span>
+                     {devengo && (resumenDevengo?.deudas_devengadas ?? 0) > 0 && (
+                         <span className="font-mono text-xs bg-amber-500/20 px-1.5 rounded">
+                             +{resumenDevengo!.deudas_devengadas}
+                         </span>
+                     )}
+                 </button>
 
                  {/* Filtro de fondos */}
                  <div className="relative">

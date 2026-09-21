@@ -16,7 +16,7 @@ import { FundFilterPanel, fundFilterLabel } from '../components/FundFilterPanel'
 
 import {
   Search, Tag, Filter, ArrowUpRight, ArrowDownRight, Calendar, Info, ChevronDown, ChevronUp, Check,
-  List as ListIcon, TrendingUp, Calculator, Pencil, X,
+  List as ListIcon, TrendingUp, Calculator, Pencil, X, Sparkles,
   CheckCircle2, RotateCcw, SlidersHorizontal, Sliders, CheckSquare, Square,
   ArrowUpDown, Scissors, PiggyBank, BarChart3, Layers, Scale, Ban, HandCoins
 } from 'lucide-react';
@@ -148,6 +148,8 @@ export function DataExplorer() {
   const { data: categories } = useCategories();
   const { data: tags } = useTags();
   const { data: funds } = useFunds();
+  // Devengo: contar lo que consumí, no lo que se movió. Ver PLAN_DEUDAS_COMO_GASTO.md.
+  const [devengo, setDevengo] = useState(false);
   const { data: supabaseDebts } = useSupabaseDebts();
   const { data: supabasePayments } = useSupabasePayments();
   const { data: deudores } = useDeudores();
@@ -166,7 +168,10 @@ export function DataExplorer() {
         startDate || undefined,
         endDate || undefined,
         undefined, // debtor
-        searchText.trim() || undefined
+        searchText.trim() || undefined,
+        undefined, // category
+        undefined, // tag
+        devengo,
       );
 
       setRawTransactions(data);
@@ -175,7 +180,7 @@ export function DataExplorer() {
     } finally {
       setLoading(false);
     }
-  }, [searchText, startDate, endDate]);
+  }, [searchText, startDate, endDate, devengo]);
 
   useEffect(() => {
     loadData();
@@ -1225,6 +1230,22 @@ export function DataExplorer() {
 
                 {/* Fondos Popover */}
                 <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-surface-400 mb-1">Qué contar</label>
+                  <button
+                    onClick={() => setDevengo(v => !v)}
+                    title={devengo
+                      ? 'Incluye lo que otros pagaron por ti, en la fecha del consumo, y descuenta lo que devolviste'
+                      : 'Solo la plata que se movió en tus cuentas'}
+                    className={`w-full mb-3 flex items-center gap-1.5 py-2 px-3 rounded-xl border text-xs font-medium transition-all ${
+                      devengo
+                        ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
+                        : 'bg-surface-900 border-white/10 text-surface-300 hover:text-white'
+                    }`}
+                  >
+                    <Sparkles size={14} className={devengo ? 'text-amber-400' : 'text-surface-500'} />
+                    <span className="truncate">{devengo ? 'Lo que consumí' : 'Lo que se movió'}</span>
+                  </button>
+
                   <label className="block text-[10px] font-bold uppercase tracking-wider text-surface-400 mb-1">Fondo Asignado</label>
                   <div className="relative">
                     <button

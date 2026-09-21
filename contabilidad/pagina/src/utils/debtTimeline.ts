@@ -22,6 +22,8 @@ export interface DebtItem {
   isSplitPart?: boolean; // true when this row is one part of a split transaction
   /** Solo pagos de Supabase: true = pagaste tú. */
   esMiPago?: boolean;
+  /** Solo deudas de Supabase: true = yo debo. Son las únicas que se pueden devengar. */
+  esMiDeuda?: boolean;
   raw: Transaction | SupabaseDebt | SupabasePayment;
 }
 
@@ -173,6 +175,7 @@ export function toDebtItems(
       debtor: d.DEUDOR_NOMBRE || '',
       paid: !!d.PAGADA,
       paidDate: d.FECHA_PAGO,
+      esMiDeuda: !!d.ES_MI_DEUDA,
       raw: d,
     });
   }
