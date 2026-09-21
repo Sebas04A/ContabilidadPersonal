@@ -87,8 +87,9 @@ def test_solo_pendientes_esconde_las_ya_decididas():
 # ── Alta ─────────────────────────────────────────────────────────────────────
 
 def test_etiquetar_una_deuda_mia_escribe_con_source_type_deuda():
+    """La fila nueva trae además los valores estructurales del resto del CSV."""
     guardar = MagicMock()
-    with con_supabase(), \
+    with con_supabase(), con_etiquetas(etiquetas_df()), \
          patch("contabilidad.backend.services.transaction_service.save_transaction_labels", guardar):
         r = client.put(f"{BASE}/{MIA}/etiqueta", json={"categoria": "Alimentación", "felicidad": 8})
 
@@ -96,8 +97,28 @@ def test_etiquetar_una_deuda_mia_escribe_con_source_type_deuda():
     guardar.assert_called_once()
     args = guardar.call_args[0]
     assert args[0] == MIA
-    assert args[1] == {"categoria": "Alimentación", "felicidad": 8}
+    assert args[1] == {
+        "categoria": "Alimentación",
+        "felicidad": 8,
+        # Sin esto la fila queda con huecos donde las de banca y tarjeta tienen
+        # su valor "apagado", y dos filas equivalentes se leen distinto.
+        "es_fijo": False,
+        "pertenece_a": "---",
+        "es_reembolsable": False,
+    }
     assert args[2] == "DEUDA"
+
+
+def test_reetiquetar_no_pisa_lo_estructural_ya_guardado():
+    """Los defectos son del alta. En una edición mandan los valores del archivo."""
+    etiquetas = etiquetas_df([fila_etiqueta(MIA, categoria="Ocio", es_fijo=True, pertenece_a="Viaje")])
+    guardar = MagicMock()
+    with con_supabase(), con_etiquetas(etiquetas), \
+         patch("contabilidad.backend.services.transaction_service.save_transaction_labels", guardar):
+        r = client.put(f"{BASE}/{MIA}/etiqueta", json={"categoria": "Alimentación"})
+
+    assert r.status_code == 200
+    assert guardar.call_args[0][1] == {"categoria": "Alimentación"}
 
 
 def test_no_se_devenga_una_deuda_que_me_deben():

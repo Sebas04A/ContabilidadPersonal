@@ -584,6 +584,36 @@ def deudas_por_devengar(solo_pendientes: bool = Query(False, description="Solo l
     return salida
 
 
+# Columnas estructurales que el modal de devengo nunca pregunta, pero que el
+# resto de `etiquetas.csv` sí trae. Sin ellas la fila de una deuda queda con
+# huecos justo donde las demás tienen su valor "apagado", y dos filas que
+# significan lo mismo se leen distinto.
+#
+#   · `es_fijo`         — una deuda puntual no es un pago recurrente.
+#   · `pertenece_a`     — '---' es el centinela de "sin grupo" del CSV.
+#   · `es_reembolsable` — es plata que yo debo; nadie me la va a devolver.
+#
+# `deudor` se deja en blanco a propósito: lo manda Supabase, no la etiqueta
+# (misma regla que en `debt_expenses.cargar_deudas_devengadas`).
+DEFECTOS_DEVENGO = {
+    'es_fijo': False,
+    'pertenece_a': '---',
+    'es_reembolsable': False,
+}
+
+
+def _ya_devengada(deuda_id: str) -> bool:
+    """True si esa deuda ya tiene fila `DEUDA` en `etiquetas.csv`."""
+    from contabilidad.backend.services.debt_expenses import TIPO_DEUDA
+    from contabilidad.backend.services.transaction_service import load_labels
+
+    labels = load_labels()
+    if labels.empty:
+        return False
+    tipo = labels['source_type'].astype(str).str.strip().str.upper()
+    return bool((labels['source_id'].astype(str) == str(deuda_id))[tipo == TIPO_DEUDA].any())
+
+
 @router.put("/{deuda_id}/etiqueta")
 def etiquetar_deuda(deuda_id: str, updates: TransactionUpdate):
     """
@@ -604,6 +634,12 @@ def etiquetar_deuda(deuda_id: str, updates: TransactionUpdate):
     # El vínculo es la fila misma: `source_id` ya es el id de la deuda.
     update_dict.pop('deuda_id', None)
     update_dict.pop('pago_id', None)
+
+    # Solo al crear la fila: en una edición posterior estos valores pueden haber
+    # sido cambiados a mano, y no hay por qué pisarlos.
+    if not _ya_devengada(deuda_id):
+        for col, valor in DEFECTOS_DEVENGO.items():
+            update_dict.setdefault(col, valor)
 
     save_transaction_labels(str(deuda_id), update_dict, TIPO_DEUDA)
     logger.info("Deuda %s etiquetada: %s", deuda_id, list(update_dict.keys()))
