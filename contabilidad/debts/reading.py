@@ -992,7 +992,17 @@ def obtener_deudas_para_analisis(
         'SALDO_PENDIENTE': df['saldo_pendiente'] if 'saldo_pendiente' in df.columns else df['monto'],
     })
     
-    return df_limpio.sort_values('FECHA', ascending=False).reset_index(drop=True)
+    # Orden determinista: `id` desempata. Sin él, dos deudas del mismo día vuelven
+    # en el orden físico que le dé la gana a Postgres (no hay ORDER BY en la
+    # consulta), y ese orden se filtra hasta los `top_drivers` del dashboard: la
+    # misma petición, dos veces, daba listas distintas. Eso hacía que
+    # `scripts/snapshot_dashboard.py` dijera DIVERGE sin que ningún número
+    # hubiera cambiado, y una red de seguridad que avisa en falso no sirve.
+    return (
+        df_limpio
+        .sort_values(['FECHA', 'ID'], ascending=[False, True])
+        .reset_index(drop=True)
+    )
 
 
 def obtener_todos_pagos() -> pd.DataFrame:
@@ -1042,7 +1052,9 @@ def obtener_todos_pagos() -> pd.DataFrame:
     df['fecha_pago'] = pd.to_datetime(df['fecha_pago'])
     df['monto_total'] = pd.to_numeric(df['monto_total'])
 
-    return df.sort_values('fecha_pago', ascending=False)
+    # Igual que en las deudas: `id` desempata para que dos pagos del mismo día
+    # vuelvan siempre en el mismo orden.
+    return df.sort_values(['fecha_pago', 'id'], ascending=[False, True])
 
 
 def obtener_pagos_para_analisis(
