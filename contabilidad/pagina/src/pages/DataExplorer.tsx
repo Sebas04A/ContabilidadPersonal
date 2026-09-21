@@ -18,11 +18,13 @@ import {
   Search, Tag, Filter, ArrowUpRight, ArrowDownRight, Calendar, Info, ChevronDown, ChevronUp, Check,
   List as ListIcon, TrendingUp, Calculator, Pencil, X, Sparkles,
   CheckCircle2, RotateCcw, SlidersHorizontal, Sliders, CheckSquare, Square,
-  ArrowUpDown, Scissors, PiggyBank, BarChart3, Layers, Scale, Ban, HandCoins
+  ArrowUpDown, Scissors, PiggyBank, BarChart3, Layers, Scale, Ban, HandCoins,
+  FileSpreadsheet, Copy
 } from 'lucide-react';
 import AutoPaymentsModal from '../components/AutoPaymentsModal';
 import { ExplorerAnalyticsModal, ExplorerAnalyticsContent } from '../components/ExplorerAnalyticsModal';
 import { ExplorerExclusionsModal } from '../components/ExplorerExclusionsModal';
+import { ExplorerExportModal } from '../components/ExplorerExportModal';
 import { money, signedMoney } from '../utils/format';
 import { parseTags } from '../utils/tags';
 
@@ -97,6 +99,7 @@ export function DataExplorer() {
   const [showFundFilter, setShowFundFilter] = useState(false);
   const [expandedSplits, setExpandedSplits] = useState<Set<string>>(new Set());
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(true);
 
   // Exclusion filters (Presupuesto-style)
@@ -302,6 +305,10 @@ export function DataExplorer() {
 
   // Bulk Selection & Operations
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const selectedTransactions = useMemo(() => {
+    if (selectedIds.size === 0) return [];
+    return results.filter(t => selectedIds.has(t.id));
+  }, [results, selectedIds]);
   const [bulkTagInput, setBulkTagInput] = useState('');
   const [showBulkTagModal, setShowBulkTagModal] = useState(false);
   const [showBulkCategoryModal, setShowBulkCategoryModal] = useState(false);
@@ -974,6 +981,15 @@ export function DataExplorer() {
                 title="Abrir modal con analíticas detalladas y KPIs de las transacciones filtradas"
               >
                 <BarChart3 size={15} /> Ver Analíticas ({results.length})
+              </button>
+
+              {/* Export / Copy Button */}
+              <button
+                onClick={() => setShowExportModal(true)}
+                className="flex items-center gap-2 px-3.5 py-2 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-emerald-950/40 hover:scale-[1.02] active:scale-[0.98]"
+                title="Exportar y copiar datos al portapapeles (Excel, CSV, Markdown, texto)"
+              >
+                <FileSpreadsheet size={15} /> Exportar / Copiar ({results.length})
               </button>
 
               {/* Exclusion Modal Button */}
@@ -1795,6 +1811,13 @@ export function DataExplorer() {
                     <CheckCircle2 size={14} /> Marcar revisadas
                   </button>
                   <button
+                    onClick={() => setShowExportModal(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-800 hover:bg-teal-500/20 text-teal-300 border border-teal-500/30 text-xs font-bold transition-all"
+                    title="Exportar y copiar filas seleccionadas"
+                  >
+                    <Copy size={14} /> Exportar ({selectedIds.size})
+                  </button>
+                  <button
                     onClick={() => setSelectedIds(new Set())}
                     className="p-1.5 rounded-lg text-surface-400 hover:text-white hover:bg-white/10"
                     title="Desmarcar todo"
@@ -1840,7 +1863,7 @@ export function DataExplorer() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
-                      {displayedResults.map((t) => {
+                      {displayedResults.map((t, index) => {
                         const isSelected = selectedIds.has(t.id);
                         const isSplit = Boolean(t.subTransactions && t.subTransactions.length > 1);
                         const isExpanded = expandedSplits.has(t.id);
@@ -1859,7 +1882,7 @@ export function DataExplorer() {
                         };
 
                         return (
-                          <Fragment key={t.id}>
+                          <Fragment key={`${t.id}-${index}`}>
                             <tr
                               onClick={() => !isSelectionMode && setEditingTransaction(t)}
                               className={`hover:bg-white/[0.03] transition-colors group cursor-pointer ${
@@ -2339,6 +2362,17 @@ export function DataExplorer() {
         onChangeFixedFilter={setFixedFilter}
         reimbursableFilter={reimbursableFilter}
         onChangeReimbursableFilter={setReimbursableFilter}
+      />
+
+      {/* Explorer Export Modal */}
+      <ExplorerExportModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        filteredTransactions={results}
+        displayedTransactions={displayedResults}
+        selectedTransactions={selectedTransactions}
+        funds={funds || []}
+        debtLookup={debtLookup}
       />
     </div>
   );
