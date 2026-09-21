@@ -253,12 +253,42 @@ def sort_transactions_by_datetime(df: pd.DataFrame, ascending: bool = True) -> p
     return df_sorted
 
 
-def load_data() -> pd.DataFrame:
+def load_data(devengo: bool = False) -> pd.DataFrame:
     """
     Return source data LEFT-JOINed with labels on id = source_id, plus the
     time-of-day enrichment (HORA) when available, sorted chronologically.
     Handles split logic (monto_asignado overrides MONTO when present).
+
+    `devengo=True` cambia la pregunta: en vez de "qué plata se movió" responde
+    "qué consumí". Entran las deudas mías etiquetadas (alguien las pagó por mí)
+    y las liquidaciones pierden la parte que salda esas mismas deudas, que ya se
+    contó. Ver `debt_expenses.aplicar_devengo` y PLAN_DEUDAS_COMO_GASTO.md.
+
+    **Por defecto es `False` y la salida es la de siempre, fila por fila.** No es
+    un detalle de estilo: `dashboard_service._descontar_filtrado` trata todo
+    `TIPO != 'BANCA'` como tarjeta, y fondos y drivers también consumen esto. Una
+    fila `DEUDA` colada acá corrompería series que nadie pidió mover.
     """
+    df = _load_data_caja()
+    if not devengo:
+        return df
+
+    from contabilidad.backend.services.debt_expenses import aplicar_devengo
+
+    df, _ = aplicar_devengo(df)
+    return sort_transactions_by_datetime(df, ascending=True)
+
+
+def load_data_devengo() -> tuple:
+    """Como `load_data(devengo=True)`, pero devuelve también el resumen de qué se movió."""
+    from contabilidad.backend.services.debt_expenses import aplicar_devengo
+
+    df, resumen = aplicar_devengo(_load_data_caja())
+    return sort_transactions_by_datetime(df, ascending=True), resumen
+
+
+def _load_data_caja() -> pd.DataFrame:
+    """El ledger de siempre: lo que se movió en banca y tarjeta."""
     source = load_source_data()
     labels = load_labels()
 

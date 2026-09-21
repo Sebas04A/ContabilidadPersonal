@@ -56,9 +56,14 @@ def get_all_transactions(
     category: Optional[str] = Query(None, description="Filter by exact category"),
     tag: Optional[str] = Query(None, description="Filter by tag presence"),
     fondo_id: Optional[str] = Query(None, description="Filter by fund id"),
+    devengo: bool = Query(False, description=(
+        "Modo devengo: suma las deudas mías etiquetadas (lo que pagó otro por mí) en la "
+        "fecha del consumo y le descuenta a cada liquidación la parte que ya se contó. "
+        "Por defecto apagado: la salida es la de caja, idéntica a la de siempre."
+    )),
 ):
     """Get all transactions, optionally filtered."""
-    df = load_data()
+    df = load_data(devengo=devengo)
     logger.debug("Data loaded")
     logger.debug(df)
     if df.empty:
@@ -86,6 +91,20 @@ def get_all_transactions(
     df['FECHA'] = df['FECHA'].dt.strftime('%Y-%m-%d %H:%M:%S')
     return df.to_dict(orient='records')
 
+
+
+@router.get("/devengo/resumen")
+def resumen_devengo():
+    """
+    Qué cambiaría el modo devengo, sin pedir las transacciones.
+
+    Sirve para que la web pueda explicar el interruptor antes de encenderlo, en vez
+    de que los números se muevan sin que nadie diga por qué.
+    """
+    from contabilidad.backend.services.transaction_service import load_data_devengo
+
+    _, resumen = load_data_devengo()
+    return resumen
 
 
 @router.get("/dates", response_model=List[str])
