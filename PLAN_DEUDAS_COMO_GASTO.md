@@ -610,3 +610,18 @@ magnitud por debajo del centavo de tolerancia; el comparador ni se inmuta.
 I2 se verifica con esa herramienta. Una red de seguridad que da IDÉNTICO o DIVERGE según la
 corrida no prueba nada — y peor, enseña a ignorarla.
 
+### 2026-09-20 — Commiteado, y un 404 que salió al revisar
+Cinco commits en `refactor/filtros-transacciones` (**sin push**): el arreglo del orden
+aparte por ser un fix independiente, el backend del devengo, la web, este plan y el
+reetiquetado a mano de ASJ Santa Teresa que estaba sin commitear desde antes.
+
+Revisando qué faltaba apareció un hueco que ningún test cubría porque cruzaba dos módulos:
+en modo devengo la fila de la deuda viaja **en la misma lista** que las transacciones, así
+que en Presupuesto y Explorador se le hace clic para editarla — y `update_transaction`
+respondía **404**, porque solo buscaba el id en banca y tarjeta. Arreglado y con dos tests.
+
+La lección se repite: cada vez que una fila `DEUDA` entra en un sitio nuevo, hay que
+preguntarse qué pasa cuando alguien la trata como a una transacción normal.
+
+**Pendiente de verdad:** nadie ha visto esto en el navegador todavía.
+
