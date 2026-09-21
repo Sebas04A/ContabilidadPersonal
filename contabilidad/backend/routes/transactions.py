@@ -448,12 +448,43 @@ def get_analysis_chart_data(
 
 # ── Write endpoints ───────────────────────────────────────────────────────────
 
+def _es_deuda_devengada(transaction_id: str) -> bool:
+    """
+    ¿Este id es una deuda que ya se decidió como gasto?
+
+    En modo devengo esas filas viajan en la misma lista que las transacciones, así
+    que el usuario les hace clic para editarlas como a cualquier otra. Sin esto,
+    ese clic respondía 404: el id vive en Supabase, no en banca ni en tarjeta.
+    """
+    from contabilidad.backend.services.debt_expenses import TIPO_DEUDA
+
+    labels = load_labels()
+    if labels.empty:
+        return False
+    tipo = labels['source_type'].astype(str).str.strip().str.upper()
+    return bool(((labels['source_id'].astype(str) == str(transaction_id)) & (tipo == TIPO_DEUDA)).any())
+
+
 @router.put("/{transaction_id}")
 def update_transaction(transaction_id: str, updates: TransactionUpdate):
     """Update a specific transaction's labels by its source_id."""
+    from contabilidad.backend.services.debt_expenses import TIPO_DEUDA
+
     source = load_source_data()
     if source.empty or transaction_id not in source['id'].values:
-        raise HTTPException(status_code=404, detail=f"Transaction not found: {transaction_id}")
+        if not _es_deuda_devengada(transaction_id):
+            raise HTTPException(status_code=404, detail=f"Transaction not found: {transaction_id}")
+
+        # Una deuda devengada se edita igual, pero sin las dos cosas que solo
+        # tienen sentido sobre un movimiento real: no hay grupo que propagar, y no
+        # se guarda regla de nombre (el título de una deuda es único, una regla a
+        # partir de él ensuciaría rules.json sin volver a acertar nunca).
+        update_dict = updates.model_dump(exclude_unset=True)
+        if not update_dict:
+            raise HTTPException(status_code=400, detail="No hay cambios que guardar")
+        save_transaction_labels(transaction_id, update_dict, TIPO_DEUDA)
+        return {"status": "updated", "id": transaction_id, "group_id": None,
+                "updated_fields": list(update_dict.keys())}
 
     source_row = source[source['id'] == transaction_id].iloc[0]
     source_type = source_row.get('TIPO', 'BANCA')

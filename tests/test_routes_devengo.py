@@ -183,3 +183,31 @@ def test_sin_vinculo_la_deuda_sigue_en_la_bandeja():
         bandeja = client.get(f"{BASE}/devengo/pendientes", params={"solo_pendientes": True}).json()
     assert [d["ID"] for d in bandeja] == [MIA]
     assert bandeja[0]["tiene_transaccion"] is False
+
+
+# ── Editar una deuda devengada desde la lista normal ─────────────────────────
+
+def test_editar_una_deuda_devengada_desde_la_ruta_de_transacciones():
+    """
+    En modo devengo la fila viaja con las transacciones, así que el usuario le hace
+    clic para editarla. Antes eso daba 404: el id vive en Supabase, no en banca.
+    """
+    guardar = MagicMock()
+    with patch("contabilidad.backend.routes.transactions.load_source_data",
+               return_value=pd.DataFrame(columns=["id", "TIPO", "DESCRIPCION"])), \
+         patch("contabilidad.backend.routes.transactions.load_labels",
+               return_value=etiquetas_df([fila_etiqueta(MIA)])), \
+         patch("contabilidad.backend.routes.transactions.save_transaction_labels", guardar):
+        r = client.put(f"/api/transactions/{MIA}", json={"categoria": "Ocio"})
+
+    assert r.status_code == 200
+    assert guardar.call_args[0] == (MIA, {"categoria": "Ocio"}, "DEUDA")
+
+
+def test_un_id_que_no_es_nada_sigue_dando_404():
+    with patch("contabilidad.backend.routes.transactions.load_source_data",
+               return_value=pd.DataFrame(columns=["id", "TIPO", "DESCRIPCION"])), \
+         patch("contabilidad.backend.routes.transactions.load_labels",
+               return_value=etiquetas_df()):
+        r = client.put("/api/transactions/no-existe", json={"categoria": "Ocio"})
+    assert r.status_code == 404
