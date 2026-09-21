@@ -41,11 +41,22 @@ logger = get_logger(__name__)
 # El tercer `TIPO` del ledger, junto a 'BANCA' y 'TARJETA'.
 TIPO_DEUDA = 'DEUDA'
 
+# Cuánto queda por pagar de la deuda que originó la fila, en positivo. Es lo que
+# permite leer un gasto devengado sin confundirlo con uno de caja: `> 0` significa
+# que esa plata **todavía la debo** y ya está contada en `DEUDA_ACUMULADA`; `0`,
+# que la deuda ya se saldó (con plata o por cruce) y el gasto quedó cerrado.
+#
+# Va en la fila y no en `etiquetas.csv` por la misma razón que `deudor`: es estado
+# vivo de Supabase, que cambia cada vez que se registra un pago o se cruza una
+# cuenta. Una columna en el CSV sería una copia que envejece — hoy mismo 12 de las
+# 13 deudas devengadas están pendientes y una ya está saldada.
+COLUMNA_SALDO = 'SALDO_DEUDA'
+
 # Las columnas que produce este módulo: las del origen más las etiquetas, igual
 # que `load_data()`, para que un `concat` entre ambos no invente columnas.
 _COLUMNAS_ORIGEN = ['id', 'FECHA', 'DESCRIPCION', 'MONTO', 'TIPO', 'HORA']
 _COLUMNAS_ETIQUETA = [c for c in LABEL_COLUMNS if c not in ('source_id', 'source_type')]
-COLUMNAS = _COLUMNAS_ORIGEN + _COLUMNAS_ETIQUETA
+COLUMNAS = _COLUMNAS_ORIGEN + _COLUMNAS_ETIQUETA + [COLUMNA_SALDO]
 
 
 def _frame_vacio() -> pd.DataFrame:
@@ -130,6 +141,13 @@ def cargar_deudas_devengadas() -> pd.DataFrame:
     salida['deudor'] = unidas['DEUDOR_NOMBRE']
     # La deuda ya es el vínculo; repetirlo en `deuda_id` sería decir dos veces lo mismo.
     salida['deuda_id'] = unidas['_ID']
+
+    # Lo que todavía debo de esa deuda, derivado de Supabase en cada lectura.
+    if 'SALDO_PENDIENTE' in unidas.columns:
+        saldo = pd.to_numeric(unidas['SALDO_PENDIENTE'], errors='coerce')
+    else:
+        saldo = pd.to_numeric(unidas['MONTO'], errors='coerce')
+    salida[COLUMNA_SALDO] = saldo.fillna(0.0).abs().round(2)
 
     logger.info("Deudas devengadas: %d filas, $%.2f", len(salida), abs(salida['MONTO'].sum()))
     return salida[COLUMNAS]
@@ -245,9 +263,17 @@ def aplicar_devengo(df: pd.DataFrame) -> tuple:
     if not devengadas.empty:
         resumen['deudas_devengadas'] = int(len(devengadas))
         resumen['monto_devengado'] = float(devengadas['MONTO'].abs().sum())
-        faltan = [c for c in df.columns if c not in devengadas.columns]
-        for c in faltan:
-            devengadas[c] = None
+        for c in df.columns:
+            if c not in devengadas.columns:
+                devengadas[c] = None
+        # Y al revés: lo que solo tiene la deuda (hoy `SALDO_DEUDA`) tiene que
+        # existir en el otro lado o el `concat` lo tiraría. Vacío en una
+        # transacción de banca es la respuesta correcta: no hay deuda detrás.
+        propias = [c for c in devengadas.columns if c not in df.columns]
+        if propias:
+            df = df.copy()
+            for c in propias:
+                df[c] = None
         df = pd.concat([df, devengadas[df.columns]], ignore_index=True)
 
     resumen['monto_descontado'] = round(resumen['monto_descontado'], 2)

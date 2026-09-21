@@ -32,6 +32,13 @@ export interface Transaction {
   deuda_id?: string;
   /** Pago de deudas de Supabase al que corresponde esta transacción. */
   pago_id?: string;
+  /**
+   * Solo en filas `TIPO='DEUDA'` (modo devengo): cuánto queda por pagar de la
+   * deuda que originó el gasto, en positivo y recién leído de Supabase.
+   * `> 0` ⇒ esa plata todavía la debo y ya pesa en el patrimonio como deuda;
+   * `0` ⇒ la deuda se saldó, con plata o por cruce. Ausente en banca y tarjeta.
+   */
+  SALDO_DEUDA?: number | null;
 }
 
 export interface HourlyBucket {

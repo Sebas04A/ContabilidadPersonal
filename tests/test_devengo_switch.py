@@ -208,3 +208,53 @@ def test_el_resumen_se_puede_pedir_sin_las_transacciones():
         r = _cliente().get("/api/transactions/devengo/resumen")
     assert r.status_code == 200
     assert r.json() == resumen
+
+
+# ── El saldo de la deuda viaja con la fila ───────────────────────────────────
+
+def test_el_saldo_de_la_deuda_sobrevive_al_concat():
+    """
+    El ledger de caja no tiene `SALDO_DEUDA`, y el `concat` selecciona por las
+    columnas de `df`: sin abrirla del otro lado, la columna se perdería justo en
+    el camino que la necesita.
+    """
+    from contabilidad.backend.services.debt_expenses import COLUMNA_SALDO
+
+    df = ledger([
+        {'id': 'tx1', 'FECHA': pd.Timestamp('2026-09-10'), 'MONTO': -25.0, 'TIPO': 'BANCA'},
+    ]).drop(columns=[COLUMNA_SALDO])
+
+    dev = devengadas(CENA)
+    dev[COLUMNA_SALDO] = 10.0
+
+    out, _ = aplicar(df, dev, {})
+
+    assert out.loc[out['TIPO'] == 'DEUDA', COLUMNA_SALDO].iloc[0] == 10.0
+    # En una transacción de banca la columna existe pero está vacía: no hay deuda
+    # detrás, y un 0 ahí se leería como "deuda saldada", que es otra cosa.
+    assert pd.isna(out.loc[out['TIPO'] == 'BANCA', COLUMNA_SALDO].iloc[0])
+
+
+def test_el_saldo_ausente_se_serializa_como_null_y_no_como_nan():
+    """
+    `json.dumps` rechaza NaN con un 500, y en modo devengo toda fila de banca
+    tiene la columna vacía. Sin esto, el Explorador no cargaba ni una vez.
+    """
+    import json
+    from contabilidad.backend.services.debt_expenses import COLUMNA_SALDO
+    from contabilidad.backend.utils.json_utils import sanitize_for_json
+
+    df = ledger([
+        {'id': 'tx1', 'FECHA': pd.Timestamp('2026-09-10'), 'MONTO': -25.0, 'TIPO': 'BANCA'},
+        {'id': 'd1', 'FECHA': pd.Timestamp('2026-09-06'), 'MONTO': -10.0, 'TIPO': 'DEUDA'},
+    ])
+    df[COLUMNA_SALDO] = [float('nan'), 10.0]
+
+    limpio = sanitize_for_json(df)
+    # La ruta formatea la fecha después de sanear; acá solo estorba.
+    limpio['FECHA'] = limpio['FECHA'].dt.strftime('%Y-%m-%d')
+    filas = limpio.to_dict(orient='records')
+    json.dumps(filas, allow_nan=False)  # revienta si queda un NaN
+
+    assert filas[0][COLUMNA_SALDO] is None
+    assert filas[1][COLUMNA_SALDO] == 10.0

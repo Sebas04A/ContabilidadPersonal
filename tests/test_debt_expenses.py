@@ -129,7 +129,13 @@ def test_el_deudor_lo_manda_supabase_no_la_etiqueta():
 
 
 def test_las_columnas_encajan_con_las_del_ledger():
-    """Si no coinciden, un `concat` con `load_data()` inventaría columnas."""
+    """
+    Si no coinciden, un `concat` con `load_data()` inventaría columnas.
+
+    La única de más es `SALDO_DEUDA`, y es deliberada: una transacción de banca no
+    tiene deuda detrás. `aplicar_devengo` la abre del otro lado antes de concatenar.
+    """
+    from contabilidad.backend.services.debt_expenses import COLUMNA_SALDO
     from contabilidad.backend.services.transaction_service import load_data
 
     with patch.object(debt_expenses, "load_labels", return_value=etiquetas_df([CENA])), \
@@ -140,7 +146,18 @@ def test_las_columnas_encajan_con_las_del_ledger():
     if ledger.empty:
         pytest.skip("sin datos de origen en este entorno")
     faltan = set(out.columns) - set(ledger.columns)
-    assert not faltan, f"columnas que el ledger no tiene: {faltan}"
+    assert faltan == {COLUMNA_SALDO}, f"columnas que el ledger no tiene: {faltan}"
+
+
+def test_el_saldo_pendiente_viaja_en_la_fila():
+    """`SALDO_DEUDA` sale de Supabase en cada lectura, no del CSV."""
+    from contabilidad.backend.services.debt_expenses import COLUMNA_SALDO
+
+    with patch.object(debt_expenses, "load_labels", return_value=etiquetas_df([CENA])), \
+         con_supabase(deudas_df()):
+        out = cargar_deudas_devengadas()
+
+    assert out[COLUMNA_SALDO].iloc[0] > 0
 
 
 # ── Degradar sin caerse ──────────────────────────────────────────────────────

@@ -1909,10 +1909,29 @@ export function DataExplorer() {
                                   <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded w-fit uppercase tracking-wider ${
                                     t.TIPO?.toUpperCase() === 'TARJETA'
                                       ? 'bg-purple-500/15 text-purple-300 border border-purple-500/20'
-                                      : 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/20'
+                                      : t.TIPO?.toUpperCase() === 'DEUDA'
+                                        ? 'bg-amber-500/15 text-amber-300 border border-amber-500/20'
+                                        : 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/20'
                                   }`}>
                                     {t.TIPO || 'BANCA'}
                                   </span>
+                                  {/* Esta plata no salió de mis cuentas: la pagó otro y yo
+                                      la debo. El saldo viene de Supabase en cada lectura,
+                                      así que deja de decir "debo" en cuanto se salda. */}
+                                  {t.TIPO?.toUpperCase() === 'DEUDA' && t.SALDO_DEUDA != null && (
+                                    <span
+                                      title={(t.SALDO_DEUDA ?? 0) > 0
+                                        ? `Ya está contado en tus deudas de Supabase: le debes ${money(t.SALDO_DEUDA)} a ${t.deudor || 'esa persona'}. El gasto es de la fecha del consumo; el patrimonio ya lo descuenta como deuda.`
+                                        : `Deuda saldada (con plata o por cruce). El gasto sigue contando en su fecha; ya no debes nada por él.`}
+                                      className={`text-[9px] font-bold px-1.5 py-0.5 rounded w-fit uppercase tracking-wider ${
+                                        (t.SALDO_DEUDA ?? 0) > 0
+                                          ? 'bg-rose-500/10 text-rose-300 border border-rose-500/20'
+                                          : 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
+                                      }`}
+                                    >
+                                      {(t.SALDO_DEUDA ?? 0) > 0 ? `Debo ${money(t.SALDO_DEUDA)}` : 'Saldada'}
+                                    </span>
+                                  )}
                                 </div>
                               </td>
 
