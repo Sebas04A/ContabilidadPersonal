@@ -3,6 +3,7 @@ import {
   prepareTransactionsForExport,
   calculateExportSummary,
   generateExportData,
+  buildDefaultSummaryText,
   ExportOptions,
 } from './exportUtils';
 import { Transaction } from '../services/api';
@@ -237,4 +238,103 @@ describe('exportUtils', () => {
     expect(parsed.transacciones.length).toBe(3);
     expect(parsed.transacciones[0].nombre_limpio).toBe('Sueldo Mayo');
   });
+
+  it('exporta resumen personalizado editable (customSummaryText)', () => {
+    const customSummary = '=== MI RESUMEN EDITADO ===\nTotal a cobrar: $500\nNota: Pendiente revisar con Carlos';
+    const options: ExportOptions = {
+      format: 'markdown',
+      selectedColumnIds: ['fecha', 'nombre_limpio', 'monto'],
+      flattenSplits: false,
+      includeHeaders: true,
+      includeSummary: true,
+      summaryPosition: 'bottom',
+      customSummaryText: customSummary,
+      numberFormat: 'raw',
+    };
+    const res = generateExportData(mockTransactions, options, {});
+    expect(res.text).toContain('> === MI RESUMEN EDITADO ===');
+    expect(res.text).toContain('> Nota: Pendiente revisar con Carlos');
+  });
+
+  it('exporta únicamente el resumen cuando summaryPosition es only', () => {
+    const customSummary = 'Total gastado en viaje: $ 1.200';
+    const options: ExportOptions = {
+      format: 'excel',
+      selectedColumnIds: ['fecha', 'monto'],
+      flattenSplits: false,
+      includeHeaders: true,
+      includeSummary: true,
+      summaryPosition: 'only',
+      customSummaryText: customSummary,
+      numberFormat: 'raw',
+    };
+    const res = generateExportData(mockTransactions, options, {});
+    expect(res.text).toBe(customSummary);
+    expect(res.filename).toContain('resumen_');
+    expect(res.text).not.toContain('PAGO SUELDO EMPRESA XYZ');
+  });
+
+  it('exporta resumen al inicio cuando summaryPosition es top', () => {
+    const customSummary = 'RESUMEN AL INICIO';
+    const options: ExportOptions = {
+      format: 'markdown',
+      selectedColumnIds: ['fecha', 'monto'],
+      flattenSplits: false,
+      includeHeaders: true,
+      includeSummary: true,
+      summaryPosition: 'top',
+      customSummaryText: customSummary,
+      numberFormat: 'raw',
+    };
+    const res = generateExportData(mockTransactions, options, {});
+    const lines = res.text.split('\n');
+    expect(lines[0]).toContain('> RESUMEN AL INICIO');
+    expect(res.text).toContain('| Fecha | Monto |');
+  });
+
+  it('exporta columnas de deudas y descripción bancaria original', () => {
+    const options: ExportOptions = {
+      format: 'excel',
+      selectedColumnIds: ['fecha', 'descripcion', 'nombre_limpio', 'deudor', 'reembolsable', 'monto'],
+      flattenSplits: false,
+      includeHeaders: true,
+      includeSummary: false,
+      numberFormat: 'raw',
+    };
+    const res = generateExportData(mockTransactions, options, {});
+    expect(res.text).toContain('Fecha\tDescripción Bancaria Original\tNombre Limpio / Comercio\tPersona / Deudor\tReembolsable\tMonto');
+    expect(res.text).toContain('2026-05-12\tCENA CON AMIGOS RESTAURANTE\tRestaurante Don Julio\tCarlos\tSí\t-200');
+  });
+
+  it('soporta preset Compartir Familia con solo Fecha, Comercio, Categoría y Monto', () => {
+    const familyCols = ['fecha', 'nombre_limpio', 'categoria', 'monto'];
+    const options: ExportOptions = {
+      format: 'excel',
+      selectedColumnIds: familyCols,
+      flattenSplits: false,
+      includeHeaders: true,
+      includeSummary: false,
+      numberFormat: 'raw',
+    };
+    const res = generateExportData(mockTransactions, options, {});
+    expect(res.text).toContain('Fecha\tNombre Limpio / Comercio\tCategoría\tMonto');
+    expect(res.text).not.toContain('PAGO SUELDO EMPRESA XYZ'); // raw description not included
+    expect(res.text).not.toContain('Carlos'); // deudor not included
+  });
+
+  it('calcula y formatea estadísticas enriquecidas de tags e insights de gasto', () => {
+    const summary = calculateExportSummary(mockTransactions);
+    expect(summary.topTags.length).toBeGreaterThan(0);
+    expect(summary.highestExpense).toBeDefined();
+    expect(summary.highestExpense?.monto).toBe(-200);
+
+    const summaryText = buildDefaultSummaryText(summary, {
+      includeTags: true,
+      includeInsights: true,
+    });
+    expect(summaryText).toContain('Top Etiquetas / Tags:');
+    expect(summaryText).toContain('Récords y Ritmo de Gasto:');
+    expect(summaryText).toContain('Mayor gasto individual:');
+  });
 });
+

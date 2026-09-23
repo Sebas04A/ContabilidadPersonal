@@ -61,7 +61,7 @@ export function linkedDebtStatus(t: Transaction, lookup: DebtLookup): 'paid' | '
 }
 
 /** 'debo' si la deuda es mía o el pago lo hice yo; 'me_deben' en el caso contrario. */
-function debtDirection(t: Transaction, lookup: DebtLookup): 'me_deben' | 'debo' | null {
+export function debtDirection(t: Transaction, lookup: DebtLookup): 'me_deben' | 'debo' | null {
   const debt = t.deuda_id ? lookup.debts.get(String(t.deuda_id)) : undefined;
   if (debt) return debt.ES_MI_DEUDA ? 'debo' : 'me_deben';
   const pago = t.pago_id ? lookup.payments.get(String(t.pago_id)) : undefined;
