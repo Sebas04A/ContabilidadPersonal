@@ -8,6 +8,8 @@
 
 ## 0. Cómo usar este documento (léelo si eres un agente)
 
+> **¿Eres el dueño?** Lo que te toca, paso a paso, está en **§0.4**.
+
 1. Lee **§1 a §5 enteros** antes de tocar nada. Explican qué existe hoy, qué no se puede
    romper y qué queremos construir.
 2. Después lee **§6 (entorno)** y **solo la fase que te toca en §8**. Cada fase trae su
@@ -58,8 +60,8 @@ Estados: ⬜ pendiente · 🟨 en curso · ✅ hecha (criterio de salida cumplid
 **Hecho:**
 - v2 existe en local (`deudas/v2`) y en la nube: proyecto gratuito "Deudas v2",
   `ggzvxehcsorlbroucbkp` (§6.4).
-- Cada fila tiene dueño y el RLS lo hace cumplir. Tests pgTAP: 89 (fases 1, 4 y 5) pasan en
-  local y en la nube; con la fase 6 son 185, verdes en local.
+- Cada fila tiene dueño y el RLS lo hace cumplir. Tests pgTAP: **231** (fases 1 y 4 a 7),
+  verdes en local y en la nube (2026-09-24).
 - Los datos reales, importados, dan los mismos estados de cuenta que producción. Probado en
   local, y en la nube con un ensayo del corte que después se borró.
 - La app Flutter tiene login y datos por usuario detrás de la bandera `DEUDAS_V2`.
@@ -91,9 +93,165 @@ Play Store).
 | `deudas/flutter_app` → `Sebas04A/app_deudas` | `v2` (salió de `main`) | las fases 2 a 7, commiteadas en la rama `v2` |
 | `deudas/visor_web` → `Sebas04A/visor_deudas` (**público**) | `v2` | sin cambios nuevos: commiteado y subido (`640fc45`, 2026-09-23) |
 
-Para seguir trabajando en v2 en este repo: `git switch feat/deudas-v2` (con los cambios
-del dueño guardados antes, o en un worktree aparte). Mensajes de commit en español, con
-`Co-Authored-By` (§0.1).
+Para seguir trabajando en v2 en este repo **no** se cambia de rama: ver §0.4, bloque E
+(`scripts/v2/rama_v2.sh`). Mensajes de commit en español, con `Co-Authored-By` (§0.1).
+
+### 0.4 Guía para el dueño: lo que te toca (escrita el 2026-09-24)
+
+Todo lo que se podía hacer sin ti está hecho y en la nube de **prueba**. Tu app diaria
+(v1) no se tocó y sigue funcionando igual. Lo que falta necesita tus decisiones, un
+teléfono o tus cuentas. Va en orden: cada bloque desbloquea el siguiente. Si trabajas con
+un agente, pásale esta sección y la fase de que se trate.
+
+#### A. Decidir (sin teléfono, ~30 min)
+
+Anota cada respuesta en §9 (o dísela al agente, que la anota). Nada de esto frena la
+prueba en el teléfono (B), pero sí el corte y la publicación.
+
+1. **Decisiones 10 a 20 de §3.3**, que tomaron los agentes. Para cada una: "de acuerdo" o
+   qué cambiar. Las que más conviene mirar:
+   - 10: el título de una deuda viaja en la propuesta (el otro ve "Cena", no solo "$20").
+   - 11 y 12: al desvincular, lo pendiente vuelve a ser solo de quien lo anotó y lo
+     acordado queda como está, editable libremente.
+   - 18: lo anotado entre las dos confirmaciones de la conciliación se propone al activar.
+   - 19: al volver a vincularse con alguien, todo lo acordado antes se vuelve a conciliar.
+   - 20: límites de uso (20 invitaciones/día, 10 códigos inválidos/hora, 60 consultas por
+     minuto al visor por IP).
+2. **Política de privacidad** (`deudas/v2/POLITICA_PRIVACIDAD.md`): completa lo que está
+   entre corchetes (tu nombre como responsable, un correo de contacto, plazos, edad
+   mínima) y dime si algo no te cuadra. Conviene que alguien que sepa de la LOPDP la mire
+   antes de publicar. Todavía **no** se publica.
+3. **Nombre y dominio públicos** de la app (§9). Hace falta para el enlace de invitación
+   (4.4: `https://<dominio>/i/<código>`); mientras tanto el código se escribe a mano, lo
+   cual funciona. Puede ser el mismo `visor-deudas.vercel.app`.
+4. Opcionales: ¿revisión diaria automática de los vínculos (6.7, `verificar_vinculos.py`)
+   por GitHub Actions o `pg_cron`? ¿Login con Google (2.1, necesita que crees el cliente
+   OAuth en Google Cloud Console)?
+
+#### B. Probar la app v2 en un teléfono (fase 2.5; es lo que desbloquea el corte)
+
+**Qué necesitas:**
+- **Un teléfono Android que NO sea el tuyo de todos los días.** La v1 y la v2 tienen el
+  mismo `applicationId`: instalar la v2 en tu teléfono **borraría tu app diaria**. En esta
+  máquina no hay emulador instalado; un agente puede prepararlo (paquetes `emulator` y
+  una imagen de sistema con el `sdkmanager` del distrobox `flutter-dev`), pero un
+  teléfono viejo es más fácil.
+- La APK: `deudas/flutter_app/build/app/outputs/flutter-apk/deudas-v2-nube-debug.apk`
+  (179 MB, compilada el 2026-09-24 con todo lo de las fases 2 a 7; `build/` no se
+  versiona, solo existe en esta máquina). Si se pierde, §6.5 dice cómo recompilarla.
+- Instalar: depuración USB activada en el teléfono, conectarlo y
+  `~/dev/tools/scrcpy/scrcpy-linux-x86_64-v3.3.4/adb install -r <ruta de la APK>`
+  (o copiar la APK al teléfono y abrirla).
+- **Cuentas de prueba.** Dos formas de entrar:
+  - Enlace mágico con un correo real: el correo integrado de Supabase manda muy pocos
+    correos por hora en el plan gratuito; si no llega, espera o usa la otra forma.
+  - Con contraseña ("Entrar con contraseña" en el login): la cuenta la crea un agente con
+    `contabilidad/backend/.venv/bin/python scripts/v2/crear_usuario.py --destino nube
+    --email <correo> --clave <clave> --nombre <nombre>` (queda confirmada). Para las
+    pruebas de dos personas hacen falta **dos cuentas**.
+- La nube de prueba está **vacía** (solo el usuario técnico `pruebas@deudas.local`): lo
+  que crees ahí es de prueba y se puede borrar.
+
+**Qué probar:** la lista de 2.5 (13 pasos, en la fase 2). Para el paso 11 (visor): el
+enlace que comparte la app apunta a `visor-deudas.vercel.app`, que hasta el corte sigue
+leyendo la base **v1** y no encontrará un contacto de v2 ("enlace inválido"). Copia solo
+el `?token=…` del enlace y ábrelo sobre la preview de la rama `v2` del visor (URL en 2.3;
+tiene la protección de Vercel: ábrela con tu sesión de Vercel o desactívala en Settings →
+Deployment Protection). Anota ✅ o ❌ con lo que viste
+en la tabla de 2.5. Un ❌ no es grave: díselo a un agente con lo que pasó.
+
+**Además, si tienes dos teléfonos o dos personas** (fases 4 a 7; si solo hay un teléfono,
+casi todo se puede hacer cerrando sesión y entrando con la otra cuenta):
+1. Cuenta A: crea un contacto "B", ícono de invitar en su detalle → comparte el código.
+2. Cuenta B: menú ⋮ → "Aceptar invitación" → escribe el código → "contacto nuevo".
+3. Conciliación: a B le aparece sola al aceptar el código; A la abre desde el detalle de
+   B (ícono "Vinculado" → "Comparar cuentas"). Los dos tocan "Listo".
+4. A anota una deuda con B → en B aparece en la bandeja (ícono arriba) → B acepta. En los
+   dos debe verse 🤝 y el "saldo acordado" con el signo contrario.
+5. A anota otra → B la rechaza con un motivo → en A sale tachada con el motivo y no suma.
+6. B ya tenía anotada la misma cosa (mismo monto, fecha cercana) → al aceptar, la app
+   pregunta "¿es esta que ya tenías?" → elegirla: no se duplica.
+7. A cambia el monto de algo acordado → se propone → B acepta → cambia en los dos.
+8. A propone borrar algo acordado → B acepta → desaparece de los dos.
+9. A anota una deuda y la retira antes de que B responda (pulsación larga sobre la deuda
+   → "Retirar propuesta"; solo existe para deudas) → queda tachada en A y desaparece de
+   la bandeja de B.
+10. Sin conexión (modo avión) B acepta o rechaza → al volver la red y sincronizar, llega.
+11. El historial de A muestra PENDIENTE / 🤝 en cada fila.
+12. Menú ⋮ → "Exportar mis datos" → se puede guardar o mandar el JSON.
+13. Con una tercera cuenta de prueba: menú ⋮ → "Borrar mi cuenta" → escribir BORRAR →
+    vuelve al login y esa cuenta ya no puede entrar. (No lo hagas con A ni B si quieres
+    seguir probando con ellas.)
+
+Anota el resultado en las notas de la fase 6 (y 7 para los pasos 12-13).
+
+#### C. El corte (fase 3): tu app diaria pasa a v2
+
+Solo después de B sin fallos graves. **Tú eliges el momento** (sin pagos a medio
+registrar). Lo hace un agente contigo siguiendo la fase 3; lo que te toca a ti:
+1. En la app vieja: sincronizar, comprobar en "Estado de sincronización" que no queda
+   nada pendiente y **dejar de usarla** hasta terminar.
+2. Dar tu correo real y elegir una contraseña para tu cuenta v2 (el backend de
+   contabilidad la necesita; en la app puedes entrar con enlace mágico igual).
+3. Aprobar cada paso que publica algo: el push del visor a `main` (repo **público**), la
+   APK release en tu teléfono, y después (3.8) cerrar la escritura de la base vieja y
+   (3.9, una o dos semanas después) pausarla.
+4. Usar v2 una semana (criterio de salida de la fase 3).
+
+#### D. Publicar para otros (fase 7, cuando quieras)
+
+Solo tú puedes: crear el proyecto de Firebase para las notificaciones (7.1), decidir el
+plan de Supabase (7.4; el gratuito se queda corto de Disk IO, Pro ~$25/mes), abrir la
+cuenta de Play Console (pago único de $25), crear la clave de firma propia (hoy el release
+se firma con la clave de debug de esta máquina) y publicar la política de privacidad.
+
+#### E. Estado de git (nada se subió)
+
+| Repo | Rama | Commit | Cómo subirlo, si quieres |
+|---|---|---|---|
+| `ContabilidadPersonal` | `feat/deudas-v2` | ver `git log feat/deudas-v2` | `git push -u origin feat/deudas-v2` |
+| `app_deudas` (`deudas/flutter_app`) | `v2` | `797bdc5` | `git -C deudas/flutter_app push -u origin v2` |
+| `visor_deudas` (`deudas/visor_web`) | `v2` | `640fc45` (ya subido) | — |
+
+⚠️ **Sobre `feat/deudas-v2` en este repo** (léelo antes de cambiar de rama):
+- Sigues en `refactor/filtros-transacciones` con tus cambios sin commitear. Los archivos de
+  v2 están **también** en tu copia de trabajo, sin seguimiento en tu rama (son idénticos a
+  los de `feat/deudas-v2`). Por eso **`git switch feat/deudas-v2` falla** ("los archivos
+  sin seguimiento serían sobrescritos"). No es un problema: se puede seguir trabajando
+  así.
+- **Para commitear más trabajo de v2** sin cambiar de rama:
+  `scripts/v2/rama_v2.sh estado` (qué cambió respecto de la rama) y
+  `scripts/v2/rama_v2.sh commitear <archivo con el mensaje>`. No toca tu rama, tu índice
+  ni tu copia de trabajo.
+- **Para juntar las dos ramas** cuando termines `refactor/filtros-transacciones` (o
+  pídeselo a un agente):
+  1. Commitea tus cambios **sin** incluir `contabilidad/debts/reading.py` ni
+     `escritura.py` (esos cambios son de v2 y ya están en `feat/deudas-v2`).
+  2. `scripts/v2/rama_v2.sh estado` → no debe listar diferencias (si las hay,
+     `commitear` primero).
+  3. Quita las copias de v2 de tu copia de trabajo, que la rama ya tiene:
+     `git restore contabilidad/debts/reading.py contabilidad/debts/escritura.py` y
+     `git clean -n -- deudas/PLAN_MULTIUSUARIO.md deudas/v2 scripts/v2 contabilidad/debts/cliente.py tests/test_deudas_rechazadas.py`
+     (mira la lista: también sale `deudas/v2/supabase/snippets/`, una carpeta vacía que
+     crea el CLI; se puede borrar) y lo mismo con `-f`. `git clean` sin `-x` **no** toca lo ignorado:
+     `deudas/v2/.env`, `deudas/v2/supabase/.temp` y `backups/` se quedan.
+  4. `git merge feat/deudas-v2`. Los archivos vuelven, ahora con seguimiento.
+
+#### F. Para el agente que siga
+
+- Lee §0.1 (reglas), §0.3, esta sección y la fase que toque. El trabajo pendiente de
+  agente está en las secciones "Lo que falta" de las fases 2 y 6 y en las casillas sin
+  marcar de la fase 7; casi todo espera al dueño (bloques A a D).
+- Antes de tocar la base: `supabase start` (§6.3; si dice "already running" con el
+  contenedor de la base parado, `supabase stop` y `start`), `supabase test db` → **231/231**,
+  y apágalo al terminar (escucha en `0.0.0.0` con keys de demostración).
+- La base local tiene los datos reales importados (usuario `dueno@deudas.local`) para las
+  comparaciones de regresión; si se hace `db reset`, rehacerlos (`deudas/v2/README.md`).
+- Batería completa tras cualquier cambio de SQL o edges (en local y, con OK del dueño, en
+  la nube): `supabase test db`, `comparar_linea_base.py` (22/22),
+  `comparar_edges.py` (55/55), `probar_rpc_v2.py`, `probar_concurrencia_propuestas.py`,
+  `probar_fase7.py`. Comandos en `deudas/v2/README.md`.
+- Commits de este repo: con `scripts/v2/rama_v2.sh` (E). Nunca en la rama del dueño.
 
 ---
 
@@ -120,7 +278,7 @@ v2 está en §0.3, §6.4 y §7.
 | **Edge functions** | `deudas/supabase/functions/get_estado_cuenta/index.ts`, `…/get_historial/index.ts` | Llaman al RPC con `SUPABASE_ANON_KEY` |
 | **App Flutter** (panel del dueño) | Repo aparte `Sebas04A/app_deudas` (privado), clonado en `deudas/flutter_app/` | anon key constante en `lib/main.dart:21`. Offline-first con Hive. Sube con `upsert` directo a las 4 tablas (`lib/services/sync_service.dart`), borra con `.delete()` directo (`lib/services/database_service.dart:283`), llama a los RPC `registrar_pago`, `editar_cruce`, `editar_pago` y a las edge functions con `pov: 'owner'` (`screens/deudor_detail_screen.dart:60`, `saldar_cuentas_screen.dart:102,229`, `history_screen.dart:108,129`) |
 | **Visor web** | Repo público `Sebas04A/visor_deudas`, clonado en `deudas/visor_web/`, desplegado en `https://visor-deudas.vercel.app` | Lee `?token=` de la URL; `js/app.js:109-111` hace `GET /rest/v1/deudores?token=eq.X` y después llama a las edge functions `get_estado_cuenta` (pov `debtor`) y `get_historial` |
-| **Backend de contabilidad** (FastAPI, uso personal) | `contabilidad/debts/reading.py` (lectura) y `contabilidad/debts/escritura.py` (escritura), usados por `contabilidad/backend/routes/supabase_debts.py` y `routes/efectivo.py` | En v1, anon key constante. **Desde la fase 2.4** (sin commitear) ambos usan `contabilidad/debts/cliente.py`: v1 por defecto, v2 con `DEUDAS_SUPABASE_URL`/`_KEY`/`DEUDAS_EMAIL`/`DEUDAS_PASSWORD` |
+| **Backend de contabilidad** (FastAPI, uso personal) | `contabilidad/debts/reading.py` (lectura) y `contabilidad/debts/escritura.py` (escritura), usados por `contabilidad/backend/routes/supabase_debts.py` y `routes/efectivo.py` | En v1, anon key constante. **Desde la fase 2.4** (en `feat/deudas-v2`) ambos usan `contabilidad/debts/cliente.py`: v1 por defecto, v2 con `DEUDAS_SUPABASE_URL`/`_KEY`/`DEUDAS_EMAIL`/`DEUDAS_PASSWORD` |
 | **Web de contabilidad** (React) | `contabilidad/pagina/` | **No** habla con Supabase directo; todo pasa por el backend |
 | **Scripts** | `scripts/*.py` (backup, verificaciones, pruebas end-to-end) | anon key constante |
 | **Datos de contabilidad que referencian deudas** | `data/sistema/etiquetado/etiquetas.csv` (columnas `deuda_id`, `pago_id`) | Guardan **UUID de producción**. Por eso los UUID deben conservarse en v2 |
@@ -822,11 +980,18 @@ siguen activas, pero no hace falta usarlas.
   ⚠️ La v1 y la v2 tienen el mismo `applicationId`: instalar una **reemplaza** a la otra.
   Para probar v2 sin perder la app diaria, usar otro teléfono o un emulador.
 - `test/widget_test.dart` falla desde siempre (plantilla con `MyApp`); correr
-  `flutter test test/plan_pago_test.dart test/resumen_whatsapp_test.dart`.
-- `flutter analyze lib` da **167 avisos, todos previos** (mismo número en `main`); ningún
-  error.
+  `flutter test test/plan_pago_test.dart test/resumen_whatsapp_test.dart
+  test/pull_incremental_test.dart test/vinculos_test.dart test/propuestas_test.dart`
+  (29/29 el 2026-09-24).
+- `flutter analyze lib` da **171 avisos, todos de estilo** (167 previos en `main` + 4
+  `withOpacity` de la fase 6); ningún error.
+- Sin entrar al distrobox (útil para agentes): `podman start flutter-dev` y
+  `podman exec -u sebas -w <ruta de la app> -e HOME=$H -e PATH=$H/flutter/bin:/usr/bin:/bin
+  flutter-dev bash -c 'flutter …'` con `H=~/dev/projects/distroboxes/flutter-dev`. Para
+  compilar, agregar `-e ANDROID_HOME=$H/android-sdk -e JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64`.
+- No hay emulador instalado (§0.4 B).
 - El repo Flutter es **otro repo git** (`deudas/flutter_app/` → `Sebas04A/app_deudas`).
-  Rama `v2`, **sin commits ni push** (ver §7).
+  Rama `v2`, commiteada (`797bdc5`, 2026-09-24) y **sin push** (§0.4 E).
 
 ---
 
@@ -1149,7 +1314,7 @@ de la fase, en "Lo que falta".
             `client_id = "…"`, `secret = "env(GOOGLE_SECRET)"` en `config.toml`, más
             `config push`. En la app: `signInWithOAuth(OAuthProvider.google,
             redirectTo: Entorno.redireccionLogin)`.
-- [~] **2.2 Flutter** (repo `app_deudas`, rama `v2`, **sin commitear**):
+- [~] **2.2 Flutter** (repo `app_deudas`, rama `v2`; commiteado el 2026-09-24):
       - [x] Configuración por entorno: `lib/config.dart` (`Entorno.esV2`, `supabaseUrl`,
             `supabaseAnonKey`, todo por `--dart-define`). **Sin defines = build v1 idéntica
             a la de antes**: la app diaria del dueño no cambia.
@@ -1233,6 +1398,24 @@ de la fase, en "Lo que falta".
       12. entrar en un segundo dispositivo y ver los mismos datos;
       13. cerrar sesión, entrar con **otra** cuenta y confirmar que no ve nada de la
           primera; volver a la primera y ver sus datos.
+
+      Cómo instalar, qué cuentas usar y qué hacer si falla: §0.4 B.
+
+      | Paso | Resultado (✅/❌ y qué se vio) | Fecha |
+      |---|---|---|
+      | 1 | | |
+      | 2 | | |
+      | 3 | | |
+      | 4 | | |
+      | 5 | | |
+      | 6 | | |
+      | 7 | | |
+      | 8 | | |
+      | 9 | | |
+      | 10 | | |
+      | 11 | | |
+      | 12 | | |
+      | 13 | | |
 
 **Verificación hecha en la nube (2026-09-23)**
 
@@ -1609,7 +1792,7 @@ reparto de pagos.
 
 **Pasos**
 
-- [x] **6.1** (`20260924120000_propuestas.sql`, solo local) Migración `<ts>_propuestas.sql`:
+- [x] **6.1** (`20260924120000_propuestas.sql`; en la nube de prueba desde el 2026-09-24) Migración `<ts>_propuestas.sql`:
       - triggers `_nace_propuesta`, `_nace_propuesta_post` y `_guardia_acordada`;
       - RPC `aceptar_propuesta`, `rechazar_propuesta`, `anular_propuesta`,
         `proponer_cambio` y `verificar_vinculo`;
@@ -1644,7 +1827,7 @@ reparto de pagos.
 - [x] **6.4** (`scripts/v2/probar_concurrencia_propuestas.py`, con control negativo) Prueba de concurrencia: A registra un pago mientras B acepta una deuda del
       mismo vínculo (dos sesiones a la vez, script Python con dos hilos contra local).
       Ningún error de lock sin manejar y la invariante se mantiene.
-- [x] **6.5** (rama `v2` de `app_deudas`, sin commitear; falta probarlo en celulares) Flutter:
+- [x] **6.5** (rama `v2` de `app_deudas`, commiteada; falta probarlo en celulares: §0.4 B) Flutter:
       - bandeja de propuestas (contador en el inicio; cada una con Aceptar / Rechazar,
         motivo opcional y, si hay candidatos, "Es esta que ya tengo");
       - filas `propuesta` con la marca "pendiente" y `rechazada` tachadas con su motivo;
@@ -1690,8 +1873,8 @@ reparto de pagos.
   - Flutter: `flutter analyze lib` 0 errores (171 avisos: los 167 de antes + 4
     `withOpacity`, el mismo idioma del resto del archivo); `flutter test` de
     plan_pago, resumen_whatsapp, pull_incremental, vínculos y propuestas: 28/28. La APK v2
-    compila (`deudas-v2-nube-debug.apk`, **contra la nube, que todavía no tiene esta
-    migración**: no instalarla para probar la fase 6 hasta subirla).
+    compila (`deudas-v2-nube-debug.apk`). *(2026-09-24: la migración ya está en la nube y la
+    APK se recompiló; se puede instalar.)*
   - `verificar_vinculos.py` (6.7) detecta un descuadre forzado a mano (sale con 1).
 - **Cómo se armó la migración:** `estado_cuenta`, `registrar_pago`,
   `_editar_cruce_aplicar` y `confirmar_conciliacion` son copia **exacta** de su migración
@@ -1823,7 +2006,8 @@ prueba.
 |---|---|---|
 | ~~Plan y organización del proyecto v2~~ | Fase 2 | **Decidido (2026-09-23):** todo gratuito, con la cuenta del dueño, en su única organización (la gestionada por Vercel). Para **publicar** (fase 7) conviene revisarlo: el plan gratuito con Nano ya agotó el presupuesto de Disk IO de v1 con un solo usuario; Pro cuesta ~$25/mes. **No subir de plan sin el dueño.** |
 | Proveedores de login | Fase 2 | Email (magic link y contraseña) **ya activo**. Google: **aplazado por el dueño (2026-09-23)**; el código queda escondido tras `LOGIN_GOOGLE`. En su tesis solo podía entrar él: casi seguro la pantalla de consentimiento estaba en modo *Prueba* (solo entran los "usuarios de prueba"); para abrirlo a todos hay que *Publicar app*, y con solo email/perfil no pide verificación de Google. Antes: pendiente del dueño, que tiene que crear el cliente OAuth en Google Cloud Console (ver 2.1). Apple solo si hay versión iOS. |
-| ¿Commitear el trabajo de v2 y en qué ramas? | Ya | Ver §0.3. Recomendación: rama `feat/deudas-v2` en este repo y ramas `v2` en `app_deudas` y `visor_deudas`. |
+| ~~¿Commitear el trabajo de v2 y en qué ramas?~~ | — | **Hecho (2026-09-24):** `feat/deudas-v2` aquí y `v2` en `app_deudas`, sin push. ¿Push? Lo decide el dueño (§0.4 E). |
+| Decisiones 10 a 20 de §3.3 | Antes del corte | Las tomaron los agentes; el dueño las revisa (§0.4 A). |
 | Nombre y dominio públicos | Fase 4 (enlaces de invitación) | — |
 | ¿Corregir el bug de $0.01? | Después de la fase 3 | Corregirlo con su propia verificación, nunca mezclado con una migración de v2. |
 | ¿El visor muestra "saldo acordado" a un deudor vinculado? | Fase 6 | Por defecto el visor sigue igual (decisión del dueño: "funciona tal cual"). Implementado así: el visor usa la service_role y `estado_cuenta` no le agrega nada. |

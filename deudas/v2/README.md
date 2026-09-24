@@ -2,7 +2,7 @@
 
 Proyecto Supabase nuevo de la app de deudas, multiusuario. El plan completo, con el estado
 de cada fase, está en [`../PLAN_MULTIUSUARIO.md`](../PLAN_MULTIUSUARIO.md). **Léelo antes de
-tocar nada aquí.**
+tocar nada aquí.** Qué le toca al dueño y cómo sigue un agente: §0.4 del plan.
 
 La base de producción actual (`../supabase/`, ref `rcmdzvbxerumzxvnubfo`) no se toca desde
 este directorio.
@@ -93,6 +93,7 @@ Borrador de la política de privacidad (fase 7.2, sin publicar): [`POLITICA_PRIV
 | `medir_conciliacion.py --email --clave` | Mide los pares de `candidatos_conciliacion` con un deudor real (solo local) |
 | `probar_concurrencia_propuestas.py [--destino …] [--rondas N] [--semilla S] [--conservar]` | Dos cuentas temporales vinculadas se pagan y se aceptan/rechazan propuestas a la vez; comprueba la invariante y el cuadre de las dos libretas |
 | `probar_fase7.py [--destino …]` | Fase 7 por la API real: exportar, canje con código malo (null), límite del visor y borrar la cuenta. Crea y borra dos cuentas |
+| `rama_v2.sh estado\|commitear <mensaje>` | Commitea lo de v2 en la rama `feat/deudas-v2` sin cambiar de rama (el dueño trabaja en otra). Ver `../PLAN_MULTIUSUARIO.md` §0.4 E |
 | `verificar_vinculos.py [--destino …]` | `verificar_vinculo()` sobre todos los vínculos vivos, con la key de servicio. Sale con 1 si alguno no cuadra |
 
 Los datos reales (respaldos y líneas base) viven en `backups/`, que está fuera de git.
