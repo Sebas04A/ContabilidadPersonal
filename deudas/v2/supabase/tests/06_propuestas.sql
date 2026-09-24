@@ -64,6 +64,12 @@ CREATE FUNCTION pg_temp.prop(fila text) RETURNS uuid LANGUAGE sql AS $$
     SELECT id FROM propuestas WHERE fila_origen = fila::uuid AND estado = 'pendiente'
 $$;
 
+-- Fase 8: estos tests prueban el camino de la PROPUESTA (la bandeja de la fase 6). Desde
+-- 20260924150000 lo nuevo entra solo, salvo lo que pasa el tope diario (decisión 24):
+-- con el tope en 0, todo nace propuesta como antes. La aceptación automática se prueba
+-- en 09_aceptacion_automatica.sql.
+SELECT set_config('deudas.tope_diario', '0', true);
+
 SET LOCAL ROLE authenticated;
 
 -- ====================================================================================

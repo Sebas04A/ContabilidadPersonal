@@ -1,18 +1,33 @@
 """
-Concurrencia de las propuestas (fase 6.4 de deudas/PLAN_MULTIUSUARIO.md).
+Concurrencia de las propuestas y de la aceptación automática (fases 6.4 y 8.4 de
+deudas/PLAN_MULTIUSUARIO.md).
 
     contabilidad/backend/.venv/bin/python scripts/v2/probar_concurrencia_propuestas.py \
         [--destino local] [--rondas 25] [--semilla 1]
 
 Dos cuentas temporales, A y B, se vinculan por el flujo real (invitación, canje y una
-conciliación vacía). En cada ronda cada uno anota una deuda (nace `propuesta`) y después,
-a la vez y en dos hilos, cada uno:
-  * registra un pago sobre su deudor del vínculo (registrar_pago: cruce + FIFO, que
-    reparte sobre filas que el otro puede estar rechazando en ese mismo momento);
-  * acepta o rechaza, al azar, lo que tiene pendiente en su bandeja.
+conciliación vacía). Desde la fase 8 lo nuevo entra solo en la libreta del otro (y crea su
+espejo en la misma transacción), así que en cada ronda los DOS, a la vez y en dos hilos,
+hacen primero lo mismo (registrar_pago de un pago que RECIBEN: cada uno crea el espejo
+en la libreta del otro, el choque de candados más probable; sin `_candado_vinculo` se
+traban con 40P01) y después, en orden al azar:
+  * anotar una deuda (REST, como el sync de Flutter): entra sola, o nace propuesta si ya
+    se pasó el tope diario (decisión 24);
+  * registrar un pago (registrar_pago: cruce + FIFO; si lo recibe, crea el espejo del otro
+    y reparte en SU libreta);
+  * subir un pago directo (REST), en cualquier dirección;
+  * rechazar algo que anotó el otro (rechazar_fila, §4.2 en las dos libretas);
+  * proponer un cambio de monto a algo propio acordado (proponer_cambio);
+  * responder lo pendiente: pagos por confirmar, cambios y lo que pasó el tope.
+Chocar con lo que el otro acaba de hacer (un cambio ya pendiente, una fila que el otro
+rechazó, una propuesta que se anuló) es parte del juego: esas respuestas del servidor
+(22023, 23505) se cuentan aparte, no son fallos.
 
 Al final, cada uno acepta lo que le quede y se comprueba:
-  * ningún error sin manejar (un candado mal tomado da 40P01 o un 500);
+  * ningún error sin manejar (un 500, o un 40P01 que llegue al cliente);
+  * ningún deadlock en la base (`pg_stat_database.deadlocks` antes y después): PostgREST
+    reintenta solo un 40P01, así que el cliente no lo ve; solo tarda un segundo más
+    (el `deadlock_timeout`). Así se vio que faltaba `_candado_vinculo` (fase 8);
   * verificar_vinculo().ok: lo acordado de A es lo de B con el signo cambiado;
   * en cada libreta, ningún pago virtual con sobrante, ninguna deuda ni pago con más
     repartido que su monto, y nada repartido sobre una fila rechazada;
@@ -26,17 +41,21 @@ PRUEBA: crea y borra cuentas.
 import argparse
 import os
 import random
+import re
 import sys
+import tempfile
 import threading
 import uuid
 from datetime import date, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _comun import Cliente, conexion  # noqa: E402
+from _comun import Cliente, conexion, sql  # noqa: E402
 from crear_usuario import crear_o_encontrar  # noqa: E402
 
 CUENTAS = {"A": "concurrencia-a@deudas.local", "B": "concurrencia-b@deudas.local"}
 CLAVE = "concurrencia-local-123"
+# Respuestas del servidor que son carreras normales entre los dos, no fallos.
+ESPERABLES = {"22023", "23505"}
 
 
 def sesion(destino, quien):
@@ -46,9 +65,35 @@ def sesion(destino, quien):
     return c
 
 
+def codigo_de(error):
+    m = re.search(r'"code":\s*"(\w+)"', str(error))
+    return m.group(1) if m else None
+
+
+def deadlocks(destino):
+    """Deadlocks detectados en la base desde siempre (contador de Postgres)."""
+    with tempfile.NamedTemporaryFile("w", suffix=".sql", delete=False) as f:
+        f.write("SELECT deadlocks FROM pg_stat_database WHERE datname = current_database()")
+    try:
+        return int(sql(destino, f.name)[0]["deadlocks"])
+    finally:
+        os.unlink(f.name)
+
+
 def pendientes(c):
     return c.pedir("GET", f"/rest/v1/propuestas?select=id&para_usuario=eq.{c.uid}"
                           "&estado=eq.pendiente&order=created_at,id")
+
+
+def acordadas(c, deudor, del_otro):
+    """Mis filas acordadas del vínculo: las que anotó el otro (`origen_id`) o las mías."""
+    filtro = "not.is.null" if del_otro else "is.null"
+    filas = []
+    for tabla, entidad in (("deudas", "deuda"), ("pagos", "pago")):
+        for f in c.pedir("GET", f"/rest/v1/{tabla}?select=id&deudor_id=eq.{deudor}"
+                                f"&estado_acuerdo=eq.acordada&origen_id={filtro}&order=id"):
+            filas.append((entidad, f["id"]))
+    return filas
 
 
 def revisar_libreta(c, deudor, quien):
@@ -108,44 +153,75 @@ def main():
         assert estado == "activo", estado
 
         errores = []
-        cuenta = {"aceptadas": 0, "rechazadas": 0, "pagos": 0}
+        deadlocks_antes = deadlocks(a.destino)
+        cuenta = {k: 0 for k in ("deudas", "pagos", "rechazos", "cambios", "aceptadas",
+                                 "rechazadas", "choques")}
         cerrojo = threading.Lock()
         hoy = date(2026, 9, 1)
 
-        def turno(c, quien, barrera, ronda, rng_hilo):
-            try:
-                barrera.wait()
-                acciones = ["pago", "bandeja"]
-                rng_hilo.shuffle(acciones)
-                for acc in acciones:
-                    if acc == "pago":
+        def sumar(clave):
+            with cerrojo:
+                cuenta[clave] += 1
+
+        def turno(c, quien, barrera, ronda, r):
+            fecha = (hoy + timedelta(days=ronda)).isoformat()
+            acciones = ["deuda", "pago", "pago_directo", "rechazo", "cambio", "bandeja"]
+            r.shuffle(acciones)
+            acciones.insert(0, "pago_recibido")
+            barrera.wait()
+            for acc in acciones:
+                try:
+                    if acc == "deuda":
+                        c.pedir("POST", "/rest/v1/deudas", {
+                            "deudor_id": deudor[quien], "titulo": f"{quien} ronda {ronda}",
+                            "monto": r.randint(1, 30), "es_mi_deuda": r.random() < 0.4,
+                            "fecha_gasto": fecha})
+                        sumar("deudas")
+                    elif acc in ("pago", "pago_recibido"):
                         c.rpc("registrar_pago", {
-                            "p_deudor_id": deudor[quien], "p_monto": rng_hilo.randint(1, 12),
-                            "p_es_mi_pago": rng_hilo.random() < 0.5,
-                            "p_fecha": (hoy + timedelta(days=ronda)).isoformat(),
+                            "p_deudor_id": deudor[quien], "p_monto": r.randint(1, 12),
+                            "p_es_mi_pago": acc == "pago" and r.random() < 0.5, "p_fecha": fecha,
                             "p_idem_key": str(uuid.uuid4())})
-                        with cerrojo:
-                            cuenta["pagos"] += 1
+                        sumar("pagos")
+                    elif acc == "pago_directo":
+                        c.pedir("POST", "/rest/v1/pagos", {
+                            "deudor_id": deudor[quien], "monto_total": r.randint(1, 8),
+                            "es_mi_pago": r.random() < 0.5, "fecha_pago": fecha})
+                        sumar("pagos")
+                    elif acc == "rechazo":
+                        filas = acordadas(c, deudor[quien], del_otro=True)
+                        if filas and r.random() < 0.3:
+                            entidad, fila = r.choice(filas)
+                            c.rpc("rechazar_fila", {"p_entidad": entidad, "p_fila": fila,
+                                                    "p_motivo": "prueba"})
+                            sumar("rechazos")
+                    elif acc == "cambio":
+                        filas = [f for f in acordadas(c, deudor[quien], del_otro=False) if f[0] == "deuda"]
+                        if filas and r.random() < 0.3:
+                            _, fila = r.choice(filas)
+                            actual = c.pedir("GET", f"/rest/v1/deudas?select=monto&id=eq.{fila}")
+                            if actual:
+                                c.rpc("proponer_cambio", {
+                                    "p_entidad": "deuda", "p_fila": fila, "p_tipo": "editar",
+                                    "p_payload": {"monto": actual[0]["monto"] + 1},
+                                    "p_idem_key": str(uuid.uuid4())})
+                                sumar("cambios")
                     else:
                         for p in pendientes(c):
-                            if rng_hilo.random() < 0.7:
+                            if r.random() < 0.7:
                                 c.rpc("aceptar_propuesta", {"p_id": p["id"], "p_crear_nueva": True,
                                                             "p_idem_key": str(uuid.uuid4())})
-                                clave = "aceptadas"
+                                sumar("aceptadas")
                             else:
                                 c.rpc("rechazar_propuesta", {"p_id": p["id"], "p_motivo": "prueba"})
-                                clave = "rechazadas"
-                            with cerrojo:
-                                cuenta[clave] += 1
-            except Exception as e:  # noqa: BLE001 — todo error es un fallo de la prueba
-                errores.append(f"ronda {ronda}, {quien}: {e}")
+                                sumar("rechazadas")
+                except Exception as e:  # noqa: BLE001 — lo inesperado es un fallo de la prueba
+                    if codigo_de(e) in ESPERABLES:
+                        sumar("choques")
+                    else:
+                        errores.append(f"ronda {ronda}, {quien}, {acc}: {e}")
 
         for ronda in range(a.rondas):
-            for c, quien in ((A, "A"), (B, "B")):
-                c.pedir("POST", "/rest/v1/deudas", {
-                    "deudor_id": deudor[quien], "titulo": f"{quien} ronda {ronda}",
-                    "monto": rng.randint(1, 30), "es_mi_deuda": rng.random() < 0.4,
-                    "fecha_gasto": (hoy + timedelta(days=ronda)).isoformat()})
             barrera = threading.Barrier(2)
             hilos = [threading.Thread(target=turno, args=(c, q, barrera, ronda, random.Random(rng.random())))
                      for c, q in ((A, "A"), (B, "B"))]
@@ -162,6 +238,9 @@ def main():
 
         ver = A.rpc("verificar_vinculo", {"p_vinculo_id": vinculo})
         malos = []
+        trabas = deadlocks(a.destino) - deadlocks_antes
+        if trabas:
+            malos.append(f"{trabas} deadlocks en la base (PostgREST los reintentó sin avisar)")
         for c, q in ((A, "A"), (B, "B")):
             m, deudas, _ = revisar_libreta(c, deudor[q], q)
             malos += m
@@ -175,8 +254,10 @@ def main():
             if any(it["type"] == "deuda" and it["id"] in rechazadas for it in hi):
                 malos.append(f"{q}: el historial muestra deudas rechazadas")
 
-        print(f"{a.rondas} rondas: {cuenta['pagos']} pagos, {cuenta['aceptadas']} propuestas aceptadas, "
-              f"{cuenta['rechazadas']} rechazadas")
+        print(f"{a.rondas} rondas: {cuenta['deudas']} deudas, {cuenta['pagos']} pagos, "
+              f"{cuenta['rechazos']} filas rechazadas, {cuenta['cambios']} cambios propuestos, "
+              f"{cuenta['aceptadas']} propuestas aceptadas y {cuenta['rechazadas']} rechazadas; "
+              f"{cuenta['choques']} choques esperables (22023/23505)")
         print(f"verificar_vinculo: {ver}")
         for e in errores + malos:
             print("  ✗", e)

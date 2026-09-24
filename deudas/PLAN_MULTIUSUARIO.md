@@ -51,6 +51,8 @@
 | 5 | Conciliación inicial | 🟨 adelantada: 5.1–5.4 hechas y en el proyecto v2 de prueba; hueco de las filas tardías y revincularse arreglados (2026-09-24); falta probar en celulares | 2026-09-24 | Claude |
 | 6 | Propuestas continuas | 🟨 adelantada: 6.1–6.7 hechas y **en el proyecto v2 de prueba** (2026-09-24, con OK del dueño; 231 tests pgTAP allí); menores hechos (retirar propuesta, historial con estado); falta probar en celulares y la semana de uso real | 2026-09-24 | Claude |
 | 7 | Publicación | 🟨 adelantada: 7.2 (exportar, borrar cuenta; política de privacidad en borrador) y 7.3 (límites) hechas y en la nube de prueba; faltan 7.1 (Firebase), 7.4, 7.5 y publicar la política: todo necesita al dueño | 2026-09-24 | Claude |
+| 8 | Aceptación automática y avisos | 🟨 hecha en local y commiteada; APK recompilada. Falta que el dueño corra el `db push` (notas de la fase 8), la batería en la nube y probar en dos celulares | 2026-09-24 | Claude |
+| 9 | Gastos divididos y grupos | ⬜ pendiente (diseñada el 2026-09-24, §4.8) | | |
 
 Estados: ⬜ pendiente · 🟨 en curso · ✅ hecha (criterio de salida cumplido) · ⛔ bloqueada
 (escribir el motivo).
@@ -61,7 +63,7 @@ Estados: ⬜ pendiente · 🟨 en curso · ✅ hecha (criterio de salida cumplid
 - v2 existe en local (`deudas/v2`) y en la nube: proyecto gratuito "Deudas v2",
   `ggzvxehcsorlbroucbkp` (§6.4).
 - Cada fila tiene dueño y el RLS lo hace cumplir. Tests pgTAP: **231** (fases 1 y 4 a 7),
-  verdes en local y en la nube (2026-09-24).
+  verdes en local y en la nube (2026-09-24); **398** con la fase 8, solo en local.
 - Los datos reales, importados, dan los mismos estados de cuenta que producción. Probado en
   local, y en la nube con un ensayo del corte que después se borró.
 - La app Flutter tiene login y datos por usuario detrás de la bandera `DEUDAS_V2`.
@@ -85,12 +87,27 @@ Estados: ⬜ pendiente · 🟨 en curso · ✅ hecha (criterio de salida cumplid
 el borrador de la política de privacidad, y lo que queda de la fase 7 (Firebase, plan,
 Play Store).
 
+**Fase 8 hecha en local (2026-09-24, tarde):** el dueño revisó las decisiones 21 a 24
+(cambió 21, 22 y 24) y se implementó todo: migración `20260924150000_aceptacion_automatica.sql`
+(398 tests), concurrencia, Flutter con "Novedades" y el aviso previo de duplicados, y
+`flutter build web`. Commiteada y con la APK recompilada; **el `db push` a la nube de
+prueba lo tiene que correr el dueño** (comando en las notas de la fase 8).
+
+**Fases 8 y 9**, pedidas por el dueño el 2026-09-24 (§4.7, §4.8, §5.4). Orden recomendado:
+- La fase 2.5 y el corte (fase 3) **no dependen** de 8 ni de 9: son de un solo usuario.
+- **La fase 8 va antes de probar en dos celulares las fases 4 a 7.** Cambia la bandeja por
+  la aceptación automática: probar hoy los pasos 4 a 10 del bloque B de §0.4 sería probar
+  un flujo que se va a reemplazar.
+- La fase 9 va después de la 8 (usa sus `avisos`).
+- **Todo el código nuevo de Flutter tiene que quedar listo para una futura PWA** (§6.5,
+  "Listo para web"). La PWA en sí está aplazada.
+
 **Commits (2026-09-24, pedidos por el dueño, sin push):**
 
 | Repo | Rama | Qué hay |
 |---|---|---|
 | `ContabilidadPersonal` (este) | `feat/deudas-v2` (sale de `refactor/filtros-transacciones` en `85efa91`) | solo lo de v2: `deudas/PLAN_MULTIUSUARIO.md`, `deudas/v2/` (menos `.env` y `supabase/.temp`, ignorados), `scripts/v2/`, `contabilidad/debts/cliente.py`, `reading.py`, `escritura.py` y `tests/test_deudas_rechazadas.py`. Se armó sin cambiar de rama: el dueño sigue en `refactor/filtros-transacciones` con sus cambios sin commitear, y los archivos de v2 siguen en su copia de trabajo (sin seguimiento en esa rama) |
-| `deudas/flutter_app` → `Sebas04A/app_deudas` | `v2` (salió de `main`) | las fases 2 a 7, commiteadas en la rama `v2` |
+| `deudas/flutter_app` → `Sebas04A/app_deudas` | `v2` (salió de `main`) | las fases 2 a 8, commiteadas en la rama `v2` |
 | `deudas/visor_web` → `Sebas04A/visor_deudas` (**público**) | `v2` | sin cambios nuevos: commiteado y subido (`640fc45`, 2026-09-23) |
 
 Para seguir trabajando en v2 en este repo **no** se cambia de rama: ver §0.4, bloque E
@@ -119,7 +136,9 @@ prueba en el teléfono (B), pero sí el corte y la publicación.
      minuto al visor por IP).
 2. **Política de privacidad** (`deudas/v2/POLITICA_PRIVACIDAD.md`): ✅ Completada por el dueño el 2026-09-24. Pendiente revisión legal antes de publicar en producción (fase 7.2).
 3. **Nombre y dominio públicos** de la app (§9): El dueño definió usar `visor-deudas.vercel.app` por el momento.
-4. Opcionales: ¿revisión diaria automática de los vínculos (6.7, `verificar_vinculos.py`)
+4. ~~Decisiones 21 a 24 (fase 8)~~: **revisadas el 2026-09-24** (§3.3). Faltan las 25 a
+   31 (fase 9).
+5. Opcionales: ¿revisión diaria automática de los vínculos (6.7, `verificar_vinculos.py`)
    por GitHub Actions o `pg_cron`? ¿Login con Google (2.1, necesita que crees el cliente
    OAuth en Google Cloud Console)?
 
@@ -132,7 +151,7 @@ prueba en el teléfono (B), pero sí el corte y la publicación.
   una imagen de sistema con el `sdkmanager` del distrobox `flutter-dev`), pero un
   teléfono viejo es más fácil.
 - La APK: `deudas/flutter_app/build/app/outputs/flutter-apk/deudas-v2-nube-debug.apk`
-  (179 MB, compilada el 2026-09-24 con todo lo de las fases 2 a 7; `build/` no se
+  (219 MB, compilada el 2026-09-24 con las fases 2 a 8, que necesitan la migración de la fase 8 en la nube; `build/` no se
   versiona, solo existe en esta máquina). Si se pierde, §6.5 dice cómo recompilarla.
 - Instalar: depuración USB activada en el teléfono, conectarlo y
   `~/dev/tools/scrcpy/scrcpy-linux-x86_64-v3.3.4/adb install -r <ruta de la APK>`
@@ -155,30 +174,42 @@ tiene la protección de Vercel: ábrela con tu sesión de Vercel o desactívala 
 Deployment Protection). Anota ✅ o ❌ con lo que viste
 en la tabla de 2.5. Un ❌ no es grave: díselo a un agente con lo que pasó.
 
-**Además, si tienes dos teléfonos o dos personas** (fases 4 a 7; si solo hay un teléfono,
+> ⚠️ **Esta lista es la de la fase 8** (lo nuevo entra solo; 8.7). Necesita que la
+> migración de la fase 8 esté en la nube de prueba y la APK recompilada: hasta entonces la
+> nube y la APK de §0.4 siguen con la bandeja de la fase 6.
+
+**Además, si tienes dos teléfonos o dos personas** (fases 4 a 8; si solo hay un teléfono,
 casi todo se puede hacer cerrando sesión y entrando con la otra cuenta):
 1. Cuenta A: crea un contacto "B", ícono de invitar en su detalle → comparte el código.
 2. Cuenta B: menú ⋮ → "Aceptar invitación" → escribe el código → "contacto nuevo".
 3. Conciliación: a B le aparece sola al aceptar el código; A la abre desde el detalle de
    B (ícono "Vinculado" → "Comparar cuentas"). Los dos tocan "Listo".
-4. A anota una deuda con B → en B aparece en la bandeja (ícono arriba) → B acepta. En los
-   dos debe verse 🤝 y el "saldo acordado" con el signo contrario.
-5. A anota otra → B la rechaza con un motivo → en A sale tachada con el motivo y no suma.
-6. B ya tenía anotada la misma cosa (mismo monto, fecha cercana) → al aceptar, la app
-   pregunta "¿es esta que ya tenías?" → elegirla: no se duplica.
-7. A cambia el monto de algo acordado → se propone → B acepta → cambia en los dos.
-8. A propone borrar algo acordado → B acepta → desaparece de los dos.
-9. A anota una deuda y la retira antes de que B responda (pulsación larga sobre la deuda
-   → "Retirar propuesta"; solo existe para deudas) → queda tachada en A y desaparece de
-   la bandeja de B.
-10. Sin conexión (modo avión) B acepta o rechaza → al volver la red y sincronizar, llega.
-11. El historial de A muestra PENDIENTE / 🤝 en cada fila.
-12. Menú ⋮ → "Exportar mis datos" → se puede guardar o mandar el JSON.
-13. Con una tercera cuenta de prueba: menú ⋮ → "Borrar mi cuenta" → escribir BORRAR →
+4. A anota una deuda con B → **sin que B haga nada**, en B aparece en el detalle de A con
+   la marca NUEVA y el 🤝, y el ícono de campana del inicio muestra 1. Los dos ven el
+   "saldo acordado" con el signo contrario.
+5. B abre Novedades → "Rechazar" con un motivo → en A la deuda sale tachada con el motivo y
+   no suma en ninguno de los dos.
+6. A anota que B le pagó (A recibe la plata) → entra sola en B. B anota que le pagó a A (B
+   entrega) → a A le llega "B dice que te pagó $X: ¿lo recibiste?" → "Confirmar". Otro
+   pago de B → A "No lo recibí" → en B sale rechazado con el motivo.
+7. **Duplicado avisado antes:** B anota "le debo $7 a A" y sincroniza; A sincroniza y
+   anota "B me debe $7" → la app pregunta "¿Es lo mismo?" → "Sí, es esa" → no se guarda
+   otra.
+8. **Duplicado que se cuela:** con A en modo avión, A anota "B me debe $9"; B anota lo
+   mismo. A vuelve a tener red y sincroniza → en B el aviso dice "¿Duplicada?" → "Es la
+   misma" → deja de contar dos veces en los dos.
+9. A cambia el monto de algo acordado → se propone → B lo ve en Novedades ("quiere
+   cambiar…") → Aceptar → cambia en los dos y a A le llega "aceptó tu cambio".
+10. A propone borrar algo acordado → B lo rechaza → sigue igual en los dos.
+11. Sin conexión (modo avión) B rechaza algo que entró solo o confirma un pago → al volver
+    la red y sincronizar, llega.
+12. En el historial, un pago que anotó el otro tiene el botón ⛔ (rechazar).
+13. Menú ⋮ → "Exportar mis datos" → se puede guardar o mandar el JSON (trae los avisos).
+14. Con una tercera cuenta de prueba: menú ⋮ → "Borrar mi cuenta" → escribir BORRAR →
     vuelve al login y esa cuenta ya no puede entrar. (No lo hagas con A ni B si quieres
     seguir probando con ellas.)
 
-Anota el resultado en las notas de la fase 6 (y 7 para los pasos 12-13).
+Anota el resultado en las notas de la fase 8 (y 7 para los pasos 13-14).
 
 #### C. El corte (fase 3): tu app diaria pasa a v2
 
@@ -205,7 +236,7 @@ se firma con la clave de debug de esta máquina) y publicar la política de priv
 | Repo | Rama | Commit | Cómo subirlo, si quieres |
 |---|---|---|---|
 | `ContabilidadPersonal` | `feat/deudas-v2` | ver `git log feat/deudas-v2` | `git push -u origin feat/deudas-v2` |
-| `app_deudas` (`deudas/flutter_app`) | `v2` | `797bdc5` | `git -C deudas/flutter_app push -u origin v2` |
+| `app_deudas` (`deudas/flutter_app`) | `v2` | ver `git -C deudas/flutter_app log v2` (fase 8 sobre el QR `2cba7d5`) | `git -C deudas/flutter_app push -u origin v2` |
 | `visor_deudas` (`deudas/visor_web`) | `v2` | `640fc45` (ya subido) | — |
 
 ⚠️ **Sobre `feat/deudas-v2` en este repo** (léelo antes de cambiar de rama):
@@ -238,8 +269,9 @@ se firma con la clave de debug de esta máquina) y publicar la política de priv
   agente está en las secciones "Lo que falta" de las fases 2 y 6 y en las casillas sin
   marcar de la fase 7; casi todo espera al dueño (bloques A a D).
 - Antes de tocar la base: `supabase start` (§6.3; si dice "already running" con el
-  contenedor de la base parado, `supabase stop` y `start`), `supabase test db` → **231/231**,
-  y apágalo al terminar (escucha en `0.0.0.0` con keys de demostración).
+  contenedor de la base parado, `supabase stop` y `start`), `supabase test db`
+  → **398/398** desde la fase 8 (en local; en la nube, 231 hasta que se suba) y apágalo al
+  terminar (escucha en `0.0.0.0` con keys de demostración).
 - La base local tiene los datos reales importados (usuario `dueno@deudas.local`) para las
   comparaciones de regresión; si se hace `db reset`, rehacerlos (`deudas/v2/README.md`).
 - Batería completa tras cualquier cambio de SQL o edges (en local y, con OK del dueño, en
@@ -387,6 +419,19 @@ sin perder la libertad de anotar a quien no la tiene.
 | Base | **Proyecto Supabase nuevo (v2).** La base actual no se toca hasta el corte. Los datos se importan conservando los UUID. |
 | Duplicados | Protección en capas (§4.5). La principal: al aceptar, se sugiere enlazar con una fila que ya existe en vez de crear otra. |
 
+**Decisiones del 2026-09-24 (fases 8 y 9). Cambian las filas "Propiedad", "Persona →
+Usuario" y "Aceptar" de arriba en lo que digan:**
+
+| Tema | Decisión |
+|---|---|
+| **Aceptación automática** (fase 8, §4.7) | Con el vínculo activo, lo que anota uno **aparece y cuenta de una vez** en la libreta del otro, que recibe un **aviso** de que llegó algo nuevo. Solo deja de contar si lo **rechaza**. La bandeja se va porque ahí las cosas pasaban desapercibidas. En palabras del dueño: "que siempre estén ahí y que cuenten al total siempre, a menos que se rechace, y que se alerte que llegaron nuevas deudas". |
+| **Pagos** (fases 8 y 9) | Si anota el pago **quien recibe la plata**, cuenta de una vez. Si lo anota **quien la entrega**, el que la recibe tiene que **confirmarlo**. Si no, cualquiera se marcaría "pagado" solo. |
+| **Grupos** (fase 9, §4.8) | Grupos **compartidos** (viajes, almuerzos…). Las mismas personas pueden estar en varios grupos. Los gastos del grupo se dividen solos y **quedan en el grupo**: **no** hace falta vincular a los miembros entre sí ni pasar las deudas a las libretas. |
+| **Rechazo en grupo** | Si alguien rechaza su parte de un gasto, queda **rechazada solo para esa persona**. El gasto se **reparte de nuevo** entre los demás y queda **en revisión** para ellos (cuenta con los montos nuevos y les llega un aviso). |
+| **Gasto suelto** (fase 9) | Sin crear un grupo, anotar una deuda **dividida entre varios contactos**, con opción de incluirme a mí, y que se reparta sola. |
+| **Guardar el gasto** | El gasto se guarda como un registro propio (no solo N deudas sueltas): permite editar el total y repartir de nuevo, rechazar por partes, mostrar "Cena $90 entre 3" y saber cuál fue mi parte. |
+| **PWA** | Aplazada. **Todo el código nuevo tiene que quedar fácil de pasar a web** (§6.5, "Listo para web"). |
+
 ### 3.3 Decisiones de diseño tomadas en este plan (cambiables si el dueño lo pide)
 
 1. **Los nombres se quedan.** v2 mantiene `deudores`, `deudas`, `pagos`, `detalle_pagos` y
@@ -459,6 +504,48 @@ Decisiones tomadas el 2026-09-24 (también para que el dueño las revise):
     vez de lanzar `22023` (un error desharía el registro). Superar un límite da `PT429`
     (PostgREST responde 429).
 
+Decisiones de diseño de la fase 8, **revisadas por el dueño el 2026-09-24** (21, 22 y 24
+cambiaron respecto de lo que propuso el agente; no re-litigar):
+
+21. **Posible duplicado: se avisa ANTES, a quien anota.** Al guardar una deuda o un pago
+    para un contacto vinculado, la app busca si eso ya está (el otro lo anotó y su espejo
+    ya está en mi libreta, o me lo propuso y espera mi respuesta): "Ana ya anotó $20 del
+    12-sep. ¿Es lo mismo?". **Sí** = no se anota de nuevo (y si era una propuesta, se
+    acepta). **No** = se crea normal. Si igual se crea (sin conexión, sin sync reciente),
+    el aviso que le llega al otro trae los candidatos y "Es la misma" (`fusionar_espejo`).
+    *(El agente había propuesto solo lo segundo.)*
+22. **Cambiar o borrar algo acordado sigue siendo propuesta**, como en la fase 6
+    (`proponer_cambio`, el otro acepta o rechaza). Lo que entra solo es lo **nuevo**. No
+    hay `cambiar_acordada`, `deshacer_cambio` ni `cambios_acordados`. *(El agente había
+    propuesto aplicarlo de una vez con "Deshacer".)*
+23. **La conciliación inicial (fase 5) sigue siendo explícita:** es una sola vez y se
+    revisa en pantalla con "aceptar todo". Meter todo un historial en la libreta del otro
+    sin que lo vea es demasiado. *(Confirmada por el dueño.)*
+24. **Tope contra abusos: 50 filas nuevas por persona y vínculo en 24 horas.** Lo que pase
+    del tope nace `propuesta` y espera respuesta, como en la fase 6, en vez de fallar el
+    sync. *(El agente había propuesto 100.)*
+
+Decisiones de la fase 9 (2026-09-24, **las propuso el agente; el dueño las revisa antes de
+implementar**):
+25. **Centavos al dividir:** se reparte el monto truncado a centavos y los centavos que
+    sobran se dan de a uno: primero a quien pagó (si participa) y después en el orden de
+    la lista. $100 entre 3 → 33.34 / 33.33 / 33.33. La suma cuadra siempre.
+26. **Rechazo en modo "montos" fijos:** no hay proporción para repartir de nuevo, así que
+    la parte rechazada la absorbe quien pagó y el gasto queda en revisión para quien lo
+    anotó, que lo corrige.
+27. **Si rechaza quien pagó**, el gasto entero queda `rechazado` para todos (no hay a quién
+    deberle). Lo mismo si después de los rechazos solo queda quien pagó.
+28. **Un pago del grupo por confirmar no cuenta** hasta que se confirma. Se muestra como
+    "por confirmar".
+29. **Dentro de un grupo no hay FIFO ni cruces por deuda:** el saldo es el neto de cada par
+    (gastos menos pagos). "Simplificar deudas" (menos pagos entre todos) queda para la
+    etapa 9C.
+30. **Solo se sale de un grupo con saldo 0** en él. Un grupo se archiva, no se borra, si
+    tiene gastos.
+31. **Gasto suelto que pagó un contacto:** en mi libreta queda solo "le debo mi parte a
+    quien pagó". Las partes de los demás se guardan en el gasto como información, pero no
+    son deudas mías.
+
 ### 3.4 Glosario
 
 | Término | Significado |
@@ -479,6 +566,11 @@ Decisiones tomadas el 2026-09-24 (también para que el dueño las revise):
 ## 4. Modelo v2
 
 ### 4.1 Estados de una fila
+
+> ⚠️ Esto describe la fase 6. La **fase 8** (implementada en local) cambia cuándo nace
+> cada estado: casi todo nace `acordada` y `propuesta` queda para los pagos que anota
+> quien entrega la plata, lo que pase del tope y los cambios o borrados de lo acordado.
+> Ver §4.7.
 
 Columna nueva `estado_acuerdo` en `deudas` y `pagos`:
 
@@ -584,6 +676,157 @@ Mientras el vínculo está en `conciliando`, las filas previas de ambas libretas
 4. El otro revisa el paquete como cualquier propuesta, con "aceptar todo" disponible.
 
 "Importar todo el historial" (el otro no tenía nada) es este mismo flujo con cero pares.
+
+### 4.7 Aceptación automática y avisos (fase 8; reemplaza la bandeja de la fase 6)
+
+> **Implementado** (2026-09-24) en `20260924150000_aceptacion_automatica.sql`, con las
+> decisiones 21 a 24 de §3.3 **revisadas por el dueño**. Esa migración es la referencia.
+
+Decisión del dueño del 2026-09-24 (§3.2). La bandeja obligaba a aceptar todo y las cosas
+pasaban desapercibidas. Ahora **lo nuevo que anota uno aparece y cuenta de una vez en la
+libreta del otro**, que recibe un aviso y puede rechazarlo cuando quiera.
+
+**Qué nace cómo, con el vínculo `activo`:**
+
+| Lo que anota A | En la libreta de A | En la de B, al mismo tiempo | Aviso a B |
+|---|---|---|---|
+| Una deuda (en cualquier dirección) | `acordada` | espejo `acordada` (dirección invertida, `origen_id`) + fila en `acuerdos` | `deuda_nueva` |
+| Un pago que **A recibió** (`es_mi_pago = false`) | `acordada` | espejo `acordada`, repartido con `registrar_pago` (decisión 15) | `pago_nuevo` |
+| Un pago que **A entregó** (`es_mi_pago = true`) | `propuesta` (como en la fase 6) | nada hasta que B confirme | `pago_por_confirmar` |
+| Un cruce | `local` (sin cambio) | nada | — |
+| Pasado el tope: más de 50 filas de A en el vínculo en 24 horas (decisión 24) | `propuesta` | nada hasta que B acepte | `propuesta` |
+| Un cambio o un borrado de algo acordado (decisión 22) | `proponer_cambio`, como en la fase 6 | nada cambia hasta que B acepte | `cambio` / `borrado` |
+
+- Cuenta en **mi saldo** y en el **saldo acordado** de los dos desde el primer momento. La
+  invariante (acordado de A = −acordado de B) se cumple porque las dos filas nacen en la
+  misma transacción.
+- **Mecánica:** `_nace_propuesta_post` sigue creando la propuesta (historial e
+  idempotencia: el reintento del sync es un UPDATE, no crea otro espejo) y llama a
+  `_llegada`. Si entra sola, `_llegada` **actúa como B**: pone su id en
+  `request.jwt.claim.sub` (`_suplantar`, lo primero que mira `auth.uid()`), busca
+  candidatos a duplicado en la libreta de B y llama a `aceptar_propuesta(…, p_crear_nueva
+  => true)`, que ya crea el espejo, reparte un pago y ata el acuerdo. Cero lógica nueva de
+  saldos. La variable `deudas.sin_aviso` apaga el aviso de "confirmado" de esa aceptación.
+- **Rechazar** (`rechazar_fila(p_entidad, p_fila, p_motivo, p_idem_key)`): solo sobre
+  filas **que anotó el otro** (`origen_id` no nulo; lo mío se cambia o se borra
+  proponiéndolo, decisión 22), en cualquier momento mientras haya vínculo. Las dos filas
+  pasan a `rechazada` aplicando §4.2 en las dos libretas; el acuerdo se borra; la propuesta
+  de 'crear' de la otra fila pasa de `aceptada` a `rechazada` con el motivo (de ahí lo lee
+  la app de siempre) y el trigger de avisos le manda `rechazo`.
+- **Posibles duplicados (decisión 21):** primero se avisa **a quien anota, antes de
+  guardar**: la app (`lib/dominio/duplicados.dart`, sin conexión) busca en sus espejos y en
+  las propuestas que le llegaron algo con la misma dirección, el mismo monto y la fecha a
+  ±3 días y pregunta "¿Es lo mismo?". Sí = no guarda nada (o acepta la propuesta). Si igual
+  se duplica (sin sync reciente), el aviso de B trae los candidatos
+  (`_candidatos_duplicado`, que también mira lo `acordada`) y B elige "Es la misma"
+  (`fusionar_espejo(p_entidad, p_espejo, p_existente)`):
+  - si la de B ya estaba acordada, el par nuevo sobra: sus dos filas pasan a `rechazada`
+    ("Ya estaba anotada") y A recibe el `rechazo`;
+  - si la de B era `local` o `propuesta`, ocupa el lugar del espejo en `acuerdos` y el
+    espejo se borra soltando su reparto (§4.2). La propuesta de B, si la había, queda
+    aceptada.
+- **Pagos por confirmar y lo que pasa el tope:** `aceptar_propuesta` /
+  `rechazar_propuesta`, como en la fase 6. En la app son "Confirmar" / "No lo recibí".
+- **Conciliación (fase 5):** sin cambios (decisión 23). Sus propuestas no generan un aviso
+  por fila; un rechazo sí.
+- **Desvincular:** los pagos por confirmar se anulan (decisión 11) y sus avisos sin ver se
+  borran; lo acordado queda; al otro le llega `desvinculado`.
+- **Freno de emergencia:** `deudas.tope_diario` cambia el tope; en 0 todo vuelve a nacer
+  propuesta (`ALTER DATABASE postgres SET deudas.tope_diario = 0`, sin migrar nada). Los
+  tests de la fase 6 lo usan para seguir probando el camino de la propuesta.
+- **Candados:** `registrar_pago` toma los dos candados del vínculo (`_candado_vinculo`)
+  antes que el suyo. Sin eso, dos personas que registran a la vez un pago recibido se
+  trababan (el espejo toma el candado del otro): 40P01 que PostgREST reintenta en silencio
+  (§10).
+
+**Avisos.** La tabla `avisos` (§5.4) guarda, por usuario, lo que llegó: `deuda_nueva`,
+`pago_nuevo`, `pago_por_confirmar`, `propuesta`, `cambio`, `borrado`, `confirmado`,
+`rechazo`, `desvinculado`, y en la fase 9 `gasto_nuevo`, `gasto_en_revision`,
+`pago_grupo_por_confirmar`, `gasto_rechazado`. Los datos van en el punto de vista de quien
+lo recibe. La escriben `_llegada`, el trigger `_aviso_propuesta` (al nacer un cambio o
+borrado y al responderse o anularse una propuesta) y `_aviso_vinculo`; nunca la app.
+- En la app: **Novedades** (reemplaza la bandeja) con contador en el inicio: "Por
+  responder" (las propuestas) y "Novedades" (los avisos, con "Rechazar" y "Es la misma").
+  Marca **NUEVA** en la fila y "incluye $X que anotó … y no habías visto" en el detalle del
+  contacto, que al abrirse marca esos avisos como vistos. `marcar_vistos(p_ids uuid[])`.
+- Las notificaciones push (7.1) se disparan con el `INSERT` en `avisos`, no en
+  `propuestas`.
+
+### 4.8 Gastos divididos y grupos (fase 9)
+
+Hay dos lugares donde vive un gasto dividido:
+
+| | **Gasto suelto** (`grupo_id` NULL) | **Gasto de grupo** |
+|---|---|---|
+| Participantes | contactos de **mi libreta** (+ yo) | **miembros del grupo** (usuarios o personas sin app) |
+| Dónde viven las deudas | en mi libreta: una **deuda normal** por contacto, con `gasto_id` | **en el grupo**, no en las libretas (decisión del dueño) |
+| Saldo | el de cada contacto (`estado_cuenta`, sin cambios) | `estado_grupo(grupo_id)`, aparte |
+| Contactos vinculados | cada deuda sigue §4.7 (espejo + aviso) | no hace falta ningún vínculo |
+| Quién lo ve | yo (y el espejo de cada vinculado) | todos los miembros con app |
+
+**El gasto** (`gastos` + `gasto_participantes`, §5.4) guarda por participante lo que
+**puso** (`pagado`) y lo que le **toca** (`parte`). Por ahora hay exactamente un
+participante con `pagado > 0`; la tabla ya sirve para varios pagadores (9C). Invariantes,
+que comprueba el RPC: Σ `pagado` = `monto_total` y Σ `parte` de las partes activas =
+`monto_total`.
+
+**Repartir.** Modos: `igual` (por defecto), `montos`, `porcentaje`, `partes` (el peso de
+cada uno se guarda en `peso`). Centavos: decisión 25. La función vive **dos veces**: en SQL
+(`_repartir(monto, pesos numeric[]) RETURNS numeric[]`, la que manda) y en Dart puro
+(`lib/dominio/reparto.dart`, para la vista previa sin conexión), con un test de paridad
+como el de `PlanPago`.
+
+**Gasto suelto** (`crear_gasto` con `p_grupo_id => NULL`), por ejemplo $90 entre yo, Ana y
+Beto:
+- Pagué yo → dos deudas "me debe $30" (Ana, Beto) con `gasto_id`. Mi parte de $30 queda
+  en el gasto, sin deuda (le sirve después a contabilidad: mi gasto real fue $30).
+- Pagó Ana → una deuda "le debo $30 a Ana". Lo que Beto le debe a Ana queda solo como
+  información en el gasto (decisión 31).
+- Sin incluirme → $45 cada uno.
+- Una deuda con `gasto_id` no se edita suelta: monto, fecha, dirección y borrado van por
+  `editar_gasto`/`borrar_gasto`, que reparten de nuevo (con la decisión 16 si ya tenía
+  pagos). El título sí se edita suelto. Lo hace cumplir un trigger, como `_guardia_acordada`.
+
+**Grupo:**
+- Lo crea un usuario. Los miembros son **usuarios**, que entran con un enlace
+  `…/grupo/<código>` (tabla `grupo_invitaciones`, mismo estilo que `invitaciones`), o
+  **personas sin app** (solo un nombre; las agrega cualquier miembro). Las mismas personas
+  pueden estar en varios grupos, sin restricción.
+- Cualquier miembro con app anota gastos y ve **todos** los gastos y saldos del grupo,
+  también los de pares en los que no está.
+- **Saldo de un par** (A, B) = lo que B le debe a A por gastos activos − lo que A le debe
+  a B − pagos confirmados de B a A + pagos confirmados de A a B. Sin FIFO ni cruces por
+  deuda (decisión 29). `estado_grupo` devuelve miembros con su neto, pares con saldo ≠ 0,
+  gastos con su estado y pagos por confirmar.
+- **Todo cuenta de una vez:** al anotar un gasto, cada participante con app recibe
+  `gasto_nuevo`.
+- **Rechazar mi parte** (`rechazar_parte(p_gasto_id, p_motivo, p_idem_key)`): mi fila de
+  `gasto_participantes` pasa a `rechazada` **solo para mí**. El resto se reparte de nuevo
+  con sus pesos entre las partes activas. El gasto pasa a `en_revision`: cuenta con los
+  montos nuevos y cada participante con app recibe `gasto_en_revision` ("Beto rechazó su
+  parte de 'Cena': <motivo>. Tu parte pasó de $30 a $45"). Vuelve a `activo` cuando todos
+  lo vieron o cuando quien lo anotó lo edita. Casos de borde: decisiones 26 y 27. Una
+  persona sin app no rechaza; lo que la involucra lo corrige un miembro editando el gasto.
+- **Editar o borrar un gasto:** quien lo anotó o quien lo pagó. Se aplica de una vez y
+  avisa a los participantes. Al editar se puede volver a incluir a alguien que había
+  rechazado.
+- **Pagos del grupo** (`grupo_pagos`), con la regla de §3.2: si lo anota quien recibe, o si
+  quien recibe es una persona sin app, queda `confirmado`; si lo anota quien entrega,
+  queda `por_confirmar` (no cuenta, decisión 28) y el que recibe tiene "Confirmar" / "No lo
+  recibí". Un pago lo anota una de sus dos partes; si las dos son personas sin app,
+  cualquier miembro. "Saldar" en la app propone el monto del par.
+- **Salir y archivar:** decisión 30.
+- **Inicio de la app:** total = saldo en contactos + saldo en grupos, mostrados por
+  separado.
+
+**Etapas:**
+- **9A: gasto suelto.** Se crean ya todas las tablas del gasto.
+- **9B: grupos compartidos.**
+- **9C (opcional, después):** una persona sin app que se registra reclama su lugar en el
+  grupo (código por miembro), simplificar deudas, varios pagadores en la pantalla, visor
+  por token para las personas sin app del grupo, en el detalle de un contacto vinculado
+  "además, en grupos: …", y leer mi parte de los gastos desde contabilidad
+  (`reading.py`, devengo).
 
 ---
 
@@ -846,6 +1089,125 @@ CREATE TABLE acuerdos (
 - `estado_cuenta` deja de poder ser `LANGUAGE sql` puro si hace falta una rama por
   vínculo: se puede resolver con un `LEFT JOIN` a `_vinculo_de`. Mantener `STABLE`.
 
+### 5.4 Avisos, gastos y grupos (fase 8 implementada; fase 9 en diseño)
+
+> La parte de la fase 8 está **implementada** en `20260924150000_aceptacion_automatica.sql`
+> (la referencia). No hay `cambios_acordados`: cambiar o borrar lo acordado sigue siendo
+> propuesta (decisión 22).
+
+```sql
+-- ── Fase 8 ──────────────────────────────────────────────────────────────
+CREATE TABLE avisos (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  usuario_id   uuid NOT NULL REFERENCES perfiles ON DELETE CASCADE,  -- para quién
+  tipo         text NOT NULL CHECK (tipo IN ('deuda_nueva','pago_nuevo','pago_por_confirmar',
+                 'propuesta','cambio','borrado','confirmado','rechazo','desvinculado',
+                 'gasto_nuevo','gasto_en_revision','gasto_rechazado','pago_grupo_por_confirmar')),
+  de_usuario   uuid,                 -- quién lo causó (sin FK: su cuenta se puede borrar)
+  entidad      text,  fila_id uuid,  -- la fila de MI libreta, si la hay
+  vinculo_id   uuid REFERENCES vinculos ON DELETE CASCADE,
+  propuesta_id uuid REFERENCES propuestas ON DELETE CASCADE,
+  grupo_id uuid, gasto_id uuid,      -- fase 9
+  datos        jsonb NOT NULL DEFAULT '{}',  -- monto, fecha, es_mia, texto, candidatos, antes, motivo
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  visto_at     timestamptz
+);
+-- RLS: SELECT propio. Nadie escribe directo: marcar_vistos() pone visto_at.
+
+-- ── Fase 9 ──────────────────────────────────────────────────────────────
+CREATE TABLE grupos (
+  id         uuid PRIMARY KEY,                 -- lo genera el teléfono
+  creado_por uuid NOT NULL DEFAULT auth.uid() REFERENCES perfiles,
+  nombre     text NOT NULL,
+  tipo       text NOT NULL DEFAULT 'otro',     -- viaje | comida | casa | otro (ícono)
+  moneda     text NOT NULL DEFAULT 'USD',
+  archivado  boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE grupo_miembros (
+  id           uuid PRIMARY KEY,
+  grupo_id     uuid NOT NULL REFERENCES grupos ON DELETE CASCADE,
+  usuario_id   uuid REFERENCES perfiles ON DELETE SET NULL,  -- NULL = persona sin app
+  nombre       text NOT NULL,
+  agregado_por uuid NOT NULL DEFAULT auth.uid(),
+  salio_at     timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (grupo_id, usuario_id)
+);
+
+CREATE TABLE grupo_invitaciones (      -- como `invitaciones` (§5.2), con el límite de 7.3
+  codigo     text PRIMARY KEY,
+  grupo_id   uuid NOT NULL REFERENCES grupos ON DELETE CASCADE,
+  creado_por uuid NOT NULL DEFAULT auth.uid(),
+  miembro_id uuid REFERENCES grupo_miembros,  -- 9C: reclamar el lugar de una persona sin app
+  expira     timestamptz NOT NULL DEFAULT now() + interval '7 days',
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE gastos (
+  id          uuid PRIMARY KEY,                -- lo genera el teléfono
+  grupo_id    uuid REFERENCES grupos ON DELETE CASCADE,  -- NULL = gasto suelto
+  creado_por  uuid NOT NULL DEFAULT auth.uid() REFERENCES perfiles,
+  titulo      text NOT NULL,
+  monto_total numeric(10,2) NOT NULL CHECK (monto_total > 0),
+  fecha       date NOT NULL,
+  modo        text NOT NULL DEFAULT 'igual' CHECK (modo IN ('igual','montos','porcentaje','partes')),
+  estado      text NOT NULL DEFAULT 'activo' CHECK (estado IN ('activo','en_revision','rechazado')),
+  idem_key    uuid,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (id, creado_por), UNIQUE (creado_por, idem_key)
+);
+
+CREATE TABLE gasto_participantes (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  gasto_id   uuid NOT NULL REFERENCES gastos ON DELETE CASCADE,
+  miembro_id uuid REFERENCES grupo_miembros,   -- gasto de grupo
+  deudor_id  uuid,                             -- gasto suelto: contacto de la libreta de creado_por
+                                               -- (miembro y deudor NULL = quien lo anotó)
+  pagado     numeric(10,2) NOT NULL DEFAULT 0 CHECK (pagado >= 0),
+  parte      numeric(10,2) NOT NULL DEFAULT 0 CHECK (parte >= 0),
+  peso       numeric,                          -- % o partes, para repartir de nuevo
+  estado     text NOT NULL DEFAULT 'activa' CHECK (estado IN ('activa','rechazada')),
+  motivo     text,
+  deuda_id   uuid,                             -- gasto suelto: la deuda que generó
+  UNIQUE NULLS NOT DISTINCT (gasto_id, miembro_id, deudor_id),
+  CHECK (miembro_id IS NULL OR deudor_id IS NULL)
+);
+
+ALTER TABLE deudas ADD COLUMN gasto_id uuid;  -- FK a gastos (id, creado_por) con owner_id
+
+CREATE TABLE grupo_pagos (
+  id          uuid PRIMARY KEY,
+  grupo_id    uuid NOT NULL REFERENCES grupos ON DELETE CASCADE,
+  de_miembro  uuid NOT NULL REFERENCES grupo_miembros,   -- entrega la plata
+  para_miembro uuid NOT NULL REFERENCES grupo_miembros,  -- la recibe
+  monto       numeric(10,2) NOT NULL CHECK (monto > 0),
+  fecha       date NOT NULL,
+  nota        text,
+  registrado_por uuid NOT NULL DEFAULT auth.uid(),
+  estado      text NOT NULL CHECK (estado IN ('confirmado','por_confirmar','rechazado')),
+  idem_key    uuid,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (registrado_por, idem_key),
+  CHECK (de_miembro <> para_miembro)
+);
+```
+
+- **RLS:** lo del grupo (`grupos`, `grupo_miembros`, `gastos` con `grupo_id`, sus
+  participantes, `grupo_pagos`) se puede leer si soy miembro activo (`_soy_miembro(grupo_id)`,
+  `STABLE SECURITY DEFINER`). Un gasto suelto y sus participantes, solo quien lo anotó.
+  **Nadie escribe directo: todo va por RPC**, con `idem_key`.
+- **Lápidas y pull incremental:** las tablas nuevas tienen `updated_at` y lápidas en
+  `borrados`, como las de §5.1, para que Flutter las traiga incrementales.
+- **RPC de la fase 9:** `crear_grupo`, `invitar_a_grupo`, `unirse_a_grupo(p_codigo)`,
+  `agregar_persona(p_grupo_id, p_nombre)`, `salir_de_grupo`, `archivar_grupo`,
+  `crear_gasto(p_id, p_grupo_id, p_titulo, p_monto, p_fecha, p_modo, p_participantes jsonb,
+  p_idem_key)`, `editar_gasto`, `borrar_gasto`, `rechazar_parte`, `registrar_pago_grupo`,
+  `confirmar_pago_grupo`, `rechazar_pago_grupo`, `estado_grupo(p_grupo_id) RETURNS jsonb`.
+- **Nada de esto toca `estado_cuenta`.** Un gasto suelto crea deudas normales; el grupo
+  tiene su propio `estado_grupo`.
+
 ---
 
 ## 6. Entorno y herramientas
@@ -969,16 +1331,17 @@ siguen activas, pero no hace falta usarlas.
     --dart-define=DEUDAS_V2=true --dart-define=SUPABASE_URL=$DEUDAS_V2_URL \
     --dart-define=SUPABASE_ANON_KEY=$DEUDAS_V2_ANON_KEY"
   ```
-  La última APK v2 compilada (2026-09-24, fases 2 a 7) está copiada en
+  La última APK v2 compilada (2026-09-24, fases 2 a 8) está copiada en
   `deudas/flutter_app/build/app/outputs/flutter-apk/deudas-v2-nube-debug.apk`.
 - Instalar en el celular: con el adb del host (`~/dev/tools/scrcpy/.../adb install -r <apk>`).
   ⚠️ La v1 y la v2 tienen el mismo `applicationId`: instalar una **reemplaza** a la otra.
   Para probar v2 sin perder la app diaria, usar otro teléfono o un emulador.
 - `test/widget_test.dart` falla desde siempre (plantilla con `MyApp`); correr
   `flutter test test/plan_pago_test.dart test/resumen_whatsapp_test.dart
-  test/pull_incremental_test.dart test/vinculos_test.dart test/propuestas_test.dart`
-  (29/29 el 2026-09-24).
-- `flutter analyze lib` da **171 avisos, todos de estilo** (167 previos en `main` + 4
+  test/pull_incremental_test.dart test/vinculos_test.dart test/propuestas_test.dart
+  test/duplicados_test.dart` (35/35 el 2026-09-24, con la fase 8).
+- `flutter analyze lib` da **183 avisos, todos de estilo** con la fase 8 (eran 187 con
+  el commit del QR; se fueron los de la bandeja). Antes: 171 (167 previos en `main` + 4
   `withOpacity` de la fase 6); ningún error.
 - Sin entrar al distrobox (útil para agentes): `podman start flutter-dev` y
   `podman exec -u sebas -w <ruta de la app> -e HOME=$H -e PATH=$H/flutter/bin:/usr/bin:/bin
@@ -986,7 +1349,28 @@ siguen activas, pero no hace falta usarlas.
   compilar, agregar `-e ANDROID_HOME=$H/android-sdk -e JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64`.
 - Emulador instalado (2026-09-24): AVD `deudas_test` (Pixel 6, Android 14) con aceleración NVIDIA en el host. Ver §8 (notas de la fase 2) y §0.4 B.
 - El repo Flutter es **otro repo git** (`deudas/flutter_app/` → `Sebas04A/app_deudas`).
-  Rama `v2`, commiteada (`797bdc5`, 2026-09-24) y **sin push** (§0.4 E).
+  Rama `v2`, commiteada con la fase 8 y **sin push** (§0.4 E). La APK v2 de
+  `deudas-v2-nube-debug.apk` ya trae la fase 8: necesita la migración en la nube.
+
+**Listo para web (regla desde el 2026-09-24).** El dueño quiere, más adelante, publicar la
+app también como PWA (`flutter build web`, en Vercel como el visor) para que nadie tenga
+que instalar nada. La PWA está aplazada, pero **todo código nuevo** tiene que cumplir esto
+para que después sea compilar y publicar:
+- **Nada de `dart:io` fuera de `lib/plataforma/`**, que usa imports condicionales
+  (`if (dart.library.js_interop)`). Hoy lo usan solo `services/connectivity_service.dart`
+  (`InternetAddress.lookup`) y `services/sync_report.dart`: se mueven cuando se toquen.
+- **Reglas de negocio en Dart puro** (`lib/dominio/`: repartir, redondear, saldos del
+  grupo), sin importar Flutter, con tests. El servidor manda; la copia de Dart es para
+  trabajar sin conexión, con un test de paridad.
+- **Pantallas con ruta y URL** (`/grupo/<id>`, `/grupo/unirse/<código>`,
+  `/contacto/<id>`). Las invitaciones son enlaces, que en web funcionan solos.
+- **Antes de agregar un paquete, confirmar en pub.dev que soporta web.** Si no hay
+  alternativa, se envuelve en `lib/plataforma/` con una versión web que degrade.
+- Login nuevo: preferir el **código de 6 dígitos por correo** (OTP de Supabase) al enlace
+  mágico, que en un iPhone con la PWA instalada se abre en Safari, con otra sesión.
+- Almacenamiento: Hive sirve en web (IndexedDB). No usar archivos ni rutas del sistema.
+- Verificación barata en cada fase: `flutter build web` tiene que compilar (sin
+  publicarlo).
 
 ---
 
@@ -1008,6 +1392,7 @@ deudas/
         20260924120000_propuestas.sql ← fase 6 (generada, ver notas de la fase 6)
         20260924130000_conciliacion_tardias.sql ← hueco de la fase 5 y volver a vincularse
         20260924140000_publicacion.sql ← fase 7 (generada: copias exactas + «v2 fase 7»)
+        20260924150000_aceptacion_automatica.sql ← fase 8 (solo en local; copias + «v2 fase 8»)
       functions/
         _shared/estado_cuenta.ts   ← lógica de v1 SIN CAMBIOS
         _shared/historial.ts       ← lógica de v1 + ORDER BY (notas de la fase 1)
@@ -1015,7 +1400,8 @@ deudas/
         get_estado_cuenta/  get_historial/  visor/  borrar_cuenta/
       tests/
         01_rls.sql  02_rpc_duenos.sql  04_vinculos.sql  05_conciliacion.sql
-        06_propuestas.sql  07_conciliacion_tardias.sql  08_publicacion.sql ← pgTAP, 231
+        06_propuestas.sql  07_conciliacion_tardias.sql  08_publicacion.sql
+        09_aceptacion_automatica.sql ← pgTAP, 398
     POLITICA_PRIVACIDAD.md         ← borrador (fase 7.2), sin publicar
   flutter_app/  (repo Sebas04A/app_deudas, rama v2, commiteada sin push)
     lib/config.dart                ← Entorno.esV2 / URL / key por --dart-define
@@ -1025,6 +1411,10 @@ deudas/
     lib/screens/home_screen.dart   ← "Cerrar sesión" (solo v2)
     lib/services/sync_report.dart  ← mensaje de 42501
     lib/services/cuenta_service.dart ← exportar mis datos / borrar mi cuenta (fase 7)
+    lib/services/avisos_service.dart ← avisos, rechazar_fila, fusionar_espejo, su cola (fase 8)
+    lib/screens/novedades_screen.dart ← Novedades: reemplaza la bandeja (fase 8)
+    lib/dominio/duplicados.dart    ← aviso previo "¿es lo mismo?", Dart puro (fase 8)
+    lib/widgets/aviso_duplicado.dart, rechazar_fila.dart ← (fase 8)
     android/app/src/main/AndroidManifest.xml ← intent-filter del deep link
   visor_web/    (repo público Sebas04A/visor_deudas, rama v2, commiteada y subida)
     js/app.js                      ← solo la edge `visor`; fuera de localhost → v2 nube
@@ -1963,13 +2353,15 @@ reparto de pagos.
 
 **Objetivo.** Lo necesario para abrir la app a cualquiera.
 
-**Prerrequisitos.** Fase 3 ✅ para publicar "cada uno su libreta". Fase 6 ✅ para publicar
-con vínculos.
+**Prerrequisitos.** Fase 3 ✅ para publicar "cada uno su libreta". Fases 6 y 8 ✅ para
+publicar con vínculos. Fase 9 ✅ para publicar con grupos.
 
 - [ ] **7.1** Notificaciones push (Firebase Cloud Messaging):
       - tabla `dispositivos (owner_id, token_fcm)`;
-      - edge function disparada por un *database webhook* en `INSERT` de `propuestas` y
-        en `UPDATE` de su `estado`.
+      - edge function disparada por un *database webhook* en `INSERT` de `avisos`
+        (fase 8, §4.7). Antes de la fase 8 el diseño decía `propuestas`.
+      - Firebase Cloud Messaging también manda notificaciones a la web: sirve para la
+        futura PWA.
 - [~] **7.2** Privacidad (Ley Orgánica de Protección de Datos Personales, Ecuador):
       - [~] política de privacidad: **borrador** en `deudas/v2/POLITICA_PRIVACIDAD.md`.
             Falta que el dueño complete lo que está entre corchetes (responsable, correo,
@@ -2020,6 +2412,237 @@ prueba.
 
 ---
 
+### Fase 8 — Aceptación automática y avisos
+
+**Objetivo.** Con un vínculo activo, lo que anota uno aparece y cuenta de una vez en la
+libreta del otro, que recibe un aviso y puede rechazarlo. Reemplaza la bandeja de la
+fase 6.
+
+**Prerrequisitos.** Fase 6 hecha en la nube de prueba (lo está). Que el dueño haya
+revisado las decisiones 21 a 24 de §3.3 (**hecho el 2026-09-24**: cambió 21, 22 y 24).
+**No** depende de la fase 3.
+
+**Contexto.** §3.2 (decisiones del 2026-09-24), §4.7, §5.4 (fase 8) y las notas de la
+fase 6 (qué hace cada función auxiliar). Es tan delicada como la 6: escribe en la libreta
+del otro dentro del `INSERT` de uno.
+
+**Pasos**
+
+- [x] **8.1** (2026-09-24, **solo en local**) Migración `20260924150000_aceptacion_automatica.sql`:
+      - tabla `avisos` con su RLS (sin `cambios_acordados`: decisión 22);
+      - `_nace_propuesta_post` llama a `_llegada`: entran solos las deudas y los pagos que
+        anota quien recibe; nacen `propuesta` los pagos que anota quien entrega y lo que
+        pase del tope de 50 (decisión 24); un aviso por cada caso;
+      - RPC `rechazar_fila`, `fusionar_espejo` y `marcar_vistos`. `proponer_cambio` sigue
+        igual (decisión 22): no hay `cambiar_acordada` ni `deshacer_cambio`;
+      - avisos de `aceptar_propuesta`, `rechazar_propuesta`, `anular_propuesta`,
+        `proponer_cambio` y `desvincular` por triggers (`_aviso_propuesta` en `propuestas`,
+        `_aviso_vinculo` en `vinculos`), sin redefinir esas funciones;
+      - lo pendiente al aplicarla pasa por `_llegada` (bloque `DO`; en local no había nada;
+        **comprobar la nube con un `SELECT` antes del `db push`**);
+      - funciones redefinidas (`registrar_pago`, `_nace_propuesta_post`,
+        `exportar_mis_datos`): copia exacta de su última versión más líneas marcadas
+        `v2 fase 8`, generadas con script con anclas.
+- [x] **8.2** Regresión: `comparar_linea_base.py` 22/22 y `comparar_edges.py` 55/55
+      (igual a producción). Sin vínculo no cambia nada.
+- [x] **8.3** `09_aceptacion_automatica.sql`, **167 tests**, con control negativo. Los 15
+      escenarios de abajo, ajustados a las decisiones del dueño (el 8 y el 9 comprueban que
+      cambiar y borrar siguen siendo propuesta, con sus avisos), más 7c (fusión de una deuda
+      que esperaba respuesta). Cada uno termina con `verificar_vinculo().ok` y "mi saldo" de
+      los dos calculado a mano:
+      1. A anota "B me debe $20" → las dos filas `acordada` y un acuerdo; aviso
+         `deuda_nueva` a B; saldo acordado A = +20, B = −20.
+      2. B anota "le debo $10 a A" → lo mismo, visto desde el otro lado.
+      3. A anota un pago que recibió de B → acordado, espejo repartido en B (FIFO).
+      4. B anota un pago que entregó → `propuesta` + `pago_por_confirmar` a A; no cuenta
+         en el acordado. A confirma → acordado y `confirmado` a B. Otro pago: A dice "no lo
+         recibí" → `rechazada` en B, `rechazo` con motivo.
+      5. B rechaza el espejo del escenario 1 → las dos `rechazada`; aviso `rechazo` a A.
+         Lo repartido pasa a saldo a favor (§4.2). No se rechaza lo propio (22023) ni lo
+         ajeno (42501).
+      6. Rechazar una deuda que entró en un cruce de la OTRA libreta → el cruce se
+         recorta; ningún pago virtual queda con sobrante.
+      7. Duplicados: (a) la de B ya estaba acordada → `fusionar_espejo` rechaza el par
+         nuevo; (b) y (c) un pago y una deuda de B que esperaban respuesta ocupan el lugar
+         del espejo. Ningún saldo queda duplicado.
+      8. A propone cambiar el monto de 20 a 25 → aviso `cambio` a B, nada cambia hasta
+         aceptar; B acepta → las dos filas cambian y a A le llega `confirmado`.
+      9. B propone borrar algo acordado → aviso `borrado` a A; A lo rechaza → sigue igual.
+      10. `UPDATE` directo del monto de una fila acordada → `42501` (la guardia sigue).
+      11. El sync reintenta el mismo `INSERT` (upsert) → un solo espejo y un solo aviso;
+          una fila nueva por upsert entra sola.
+      12. Deudor sin vínculo → todo `local`, sin avisos.
+      13. `registrar_pago` por RPC con el vínculo; la fila 51 del día nace `propuesta`; el
+          tope es por persona.
+      14. Desvincular con un pago por confirmar → queda anulado y su aviso se va; lo
+          acordado sigue; `desvinculado` al otro.
+      15. RLS: B no lee los avisos de A; nadie inserta, cambia ni borra avisos directo.
+- [x] **8.4** `probar_concurrencia_propuestas.py` adaptado: en cada ronda los dos, a la
+      vez, registran un pago recibido y después, en orden al azar, anotan deudas y pagos,
+      rechazan, proponen cambios y responden lo pendiente. 6 semillas × 25 rondas: sin
+      errores, invariante y cuadre intactos y **0 deadlocks**. Control negativo sin
+      `_candado_vinculo`: 16 y 19 deadlocks (ver notas).
+- [x] **8.5** Flutter (rama `v2` de `app_deudas`, commiteada sin push), "Listo para web":
+      - **Novedades** (`screens/novedades_screen.dart`) en lugar de la bandeja: "Por
+        responder" (Confirmar / No lo recibí para los pagos, Aceptar / Rechazar para lo
+        demás) y "Novedades" (Rechazar, "Es la misma", marcar todo como visto). Contador
+        en el inicio (`BotonNovedades`).
+      - Marca **NUEVA** en la fila y "incluye $X … no habías visto" en el detalle.
+      - "Rechazar (no la reconozco)" en la pulsación larga de una deuda que anotó el otro
+        y un botón en los pagos del historial (`widgets/rechazar_fila.dart`).
+      - Aviso previo "¿Es lo mismo?" al guardar una deuda o un pago
+        (`widgets/aviso_duplicado.dart` + `lib/dominio/duplicados.dart`, Dart puro).
+      - Editar algo acordado sigue proponiendo (decisión 22): sin cambios.
+      - Cola sin conexión para `rechazar_fila`, `fusionar_espejo` y `marcar_vistos`
+        (`services/avisos_service.dart`, `cola_avisos_<uid>`); las confirmaciones usan la
+        cola de propuestas de siempre.
+      - `origenId` en `Deuda` y `Pago` (campos Hive nuevos, sin migrar cajas).
+      - `PlanPago` y sus tests no cambian.
+- [x] **8.6** `reading.py`: no hace falta nada. Lo `rechazada` ya se filtra y los espejos
+      llegan `acordada`, como al aceptar en la fase 6.
+- [x] **8.7** Lista de dos celulares reescrita (§0.4, bloque B).
+
+**Criterio de salida.** Tests y concurrencia en verde, regresión en 0, `flutter build
+web` compila (todo ✅ en local, 2026-09-24) y la prueba en dos celulares (8.7) sin fallos
+graves (**falta**: necesita la migración en la nube y la APK nueva, con OK del dueño).
+
+**Notas de ejecución** (2026-09-24)
+
+- **Resultado en local:** `supabase test db` → **398/398** (231 + 167). Línea base 22/22,
+  edges 55/55, `probar_rpc_v2` OK, `probar_fase7` OK (adaptado: ahora las deudas entran
+  solas y lo pendiente es un pago entregado), concurrencia OK en 6 semillas. Flutter:
+  `flutter analyze lib` 0 errores (183 avisos, 4 menos que antes: se fue la bandeja);
+  tests 35/35 (6 nuevos en `duplicados_test.dart`); `flutter build web` compila.
+- **Control negativo de `09`:** sin aceptación automática fallan 140; sin apagar el aviso
+  al aceptar en nombre del otro, 1; si el rechazo no descuenta la fila del otro, 24; si la
+  fusión no borra el espejo (deuda o pago), 62 o 65.
+- **Actuar como el otro:** `_suplantar` escribe `request.jwt.claim.sub`, que `auth.uid()`
+  mira antes que `request.jwt.claims`. Así `aceptar_propuesta` y `registrar_pago` (que
+  valida el deudor con `auth.uid()` y pone `owner_id` por DEFAULT) corren como B dentro
+  del `INSERT` de A. Se restaura al volver; un error lo deshace solo.
+- **Deadlock encontrado por la prueba de concurrencia:** `registrar_pago` de A toma el
+  candado de su deudor y, en el trigger, el espejo pide los dos del vínculo; B, al mismo
+  tiempo, al revés. Postgres lo detecta al segundo (`deadlock_timeout`) y **PostgREST
+  reintenta el 40P01 sin avisar**: el cliente no veía error, solo ~1,1 s de espera por
+  pago (contra ~90 ms). Con `_candado_vinculo` al principio de `registrar_pago`, 0. El
+  script ahora mide `pg_stat_database.deadlocks` antes y después.
+- **Bug encontrado por los tests:** `_es_de_conciliacion` daba NULL con un `idem_key`
+  nulo (un cambio propuesto sin clave) y el aviso "confirmado" no salía. Con `COALESCE`.
+- **Tests de la fase 6 (`06`, `08`):** prueban el camino de la propuesta, así que ponen
+  `deudas.tope_diario = 0` al preparar. Sin eso fallaban 95 (lo esperado: ahora todo entra
+  solo).
+- **Las propuestas de 'crear' se siguen creando** (ya `aceptada`): la app lee de ahí los
+  motivos de rechazo, y `_nacidas_hoy` cuenta el tope con ellas (solo las del trigger, con
+  su clave `crear`; la conciliación no cuenta).
+- **Estado al cerrar el 2026-09-24:** el dueño dio el OK para subir y commitear. Hecho:
+  commits (este repo con `scripts/v2/rama_v2.sh`, `app_deudas` en `v2`) y la APK v2
+  recompilada con la fase 8 (`deudas-v2-nube-debug.apk`, 219 MB). **El `db push` lo tiene
+  que correr el dueño**: el modo automático del agente no le deja modificar la base en la
+  nube. Un `--dry-run` confirmó que solo sube `20260924150000_aceptacion_automatica.sql`.
+- **La nube de prueba ya no está vacía** (antes del push: 3 perfiles, 8 deudas, 1 vínculo
+  activo y **1 propuesta pendiente**, una deuda de $10 de "Alice" a "Bob"). El bloque `DO`
+  del final de la migración la hace entrar sola: espejo en la libreta de Bob y aviso
+  `deuda_nueva`. Bob la puede rechazar desde Novedades.
+- **Pendiente:**
+  1. El dueño, desde la raíz del repo:
+     ```bash
+     set -a; . deudas/v2/.env; set +a
+     export DOCKER_HOST=unix://$XDG_RUNTIME_DIR/podman/podman.sock
+     ~/.local/bin/supabase db push --password "$DEUDAS_V2_DB_PASSWORD" --workdir deudas/v2
+     ~/.local/bin/supabase migration list --linked --workdir deudas/v2   # 20260924150000 en remoto
+     ```
+  2. Después (lo puede hacer un agente): `SUPABASE_DB_PASSWORD="$DEUDAS_V2_DB_PASSWORD"
+     supabase test db --linked --workdir deudas/v2` (398), y `probar_rpc_v2.py`,
+     `probar_fase7.py` y `probar_concurrencia_propuestas.py --rondas 10` con `--destino nube`.
+     Las edges no cambian: no hay que desplegarlas.
+  3. Instalar la APK nueva y la prueba en dos celulares (§0.4 B). **La APK nueva sin la
+     migración en la nube falla** en Novedades (no existe `avisos`).
+
+---
+
+### Fase 9 — Gastos divididos y grupos
+
+**Objetivo.** Dividir un gasto entre varios contactos sin crear un grupo (9A) y grupos
+compartidos donde los gastos se dividen solos y todo cuenta de una vez salvo rechazo (9B).
+
+**Prerrequisitos.** Fase 8 ✅ (usa `avisos` y, en el gasto suelto con contactos vinculados,
+la aceptación automática). Que el dueño haya revisado las decisiones 25 a 31 de §3.3.
+
+**Contexto.** §3.2, §4.8, §5.4 (fase 9) y "Listo para web" (§6.5).
+
+**Pasos: 9A, gasto suelto**
+
+- [ ] **9.1** Repartir: `_repartir(monto, pesos)` en SQL y `lib/dominio/reparto.dart` en
+      Dart puro. Test de paridad con una tabla de casos compartida: $100 entre 3; $0.05
+      entre 3; montos fijos que no suman el total (error); porcentajes que no suman 100
+      (error); partes 2:1:1; un solo participante; repartir de nuevo tras un rechazo.
+- [ ] **9.2** Migración `<ts>_gastos.sql`: `gastos`, `gasto_participantes`,
+      `deudas.gasto_id` (FK compuesta con el dueño), trigger de guardia para las deudas
+      de un gasto, lápidas y `updated_at`, `crear_gasto`/`editar_gasto`/`borrar_gasto`
+      para `grupo_id` NULL. Tests `10_gastos.sql` con control negativo:
+      1. Pagué $90 entre yo, Ana y Beto → dos deudas de $30 con `gasto_id`; mi parte en el
+         gasto; `estado_cuenta` de Ana y de Beto +30.
+      2. Pagó Ana → una deuda "le debo $30"; la parte de Beto solo en el gasto.
+      3. Sin incluirme → $45 cada uno.
+      4. Editar el total a $96 → deudas de $32. Bajarlo por debajo de lo ya pagado de una
+         → suelta el exceso (decisión 16).
+      5. `UPDATE` directo del monto de una deuda del gasto → `42501`; el título sí se puede.
+      6. Ana vinculada → su deuda sigue §4.7 (espejo y aviso en la libreta de Ana).
+      7. Borrar el gasto → sus deudas se van (o pasan a `rechazada` si están acordadas).
+      8. Idempotencia de `crear_gasto`; RLS (nadie ve un gasto suelto ajeno).
+      9. Regresión: 22/22 y 55/55.
+- [ ] **9.3** Flutter 9A: en "Nueva deuda", el interruptor **"Dividir entre varios"**:
+      selección múltiple de contactos, "Incluirme" (marcado por defecto), quién pagó (yo
+      o un contacto), modo, vista previa de cuánto le toca a cada uno (con
+      `reparto.dart`) y guardar (cola sin conexión con `idem_key`; se ve al instante). En
+      el historial: "Cena · $90 entre 3"; tocarla abre el gasto para editarlo.
+
+**Pasos: 9B, grupos**
+
+- [ ] **9.4** Migración `<ts>_grupos.sql`: `grupos`, `grupo_miembros`,
+      `grupo_invitaciones`, `grupo_pagos`, `_soy_miembro`, RLS, los RPC de §5.4,
+      `rechazar_parte` y `estado_grupo`, los avisos del grupo y los límites de uso
+      (invitaciones de grupo por día, como 7.3). Tests `11_grupos.sql` con control
+      negativo:
+      1. Grupo con A, B y C (usuarios) y D (persona). A paga $90 entre A, B y C → B y C le
+         deben $30 a A; avisos `gasto_nuevo` a B y C.
+      2. Otro grupo con los mismos miembros → saldos independientes.
+      3. C rechaza su parte → rechazada para C; la de B pasa a $45; gasto `en_revision`;
+         avisos a A y B; el neto de C por ese gasto es 0.
+      4. A (quien pagó) rechaza → gasto `rechazado` para todos.
+      5. Modo `montos`: B rechaza → lo absorbe A y queda en revisión (decisión 26).
+      6. Pagos: A (recibe) anota B→A $30 → cuenta. B (entrega) anota B→A → por
+         confirmar, no cuenta; A confirma → cuenta; A dice "no lo recibí" → rechazado.
+      7. D (persona): A anota que D le debe; el pago D→A que anota A cuenta de una vez.
+      8. Editar un gasto quien no lo anotó ni lo pagó → `42501`. Volver a incluir a quien
+         rechazó.
+      9. Salir con saldo ≠ 0 → error; con saldo 0 → sale y deja de ver el grupo.
+      10. RLS: quien no es miembro no ve nada; un miembro no lee la libreta de otro;
+          nadie escribe directo en ninguna tabla del grupo.
+      11. Unirse con un código vencido, usado o inválido → mismo error (sin sondeo).
+      12. Idempotencia de todos los RPC.
+      13. Regresión: 22/22 y 55/55 (los grupos no tocan `estado_cuenta`).
+- [ ] **9.5** Flutter 9B: pestaña **Grupos** (lista con mi saldo en cada uno), detalle
+      (gastos con su estado, saldos por par, "Saldar", pagos por confirmar), nuevo gasto
+      del grupo (mismo formulario que 9.3 con los miembros), invitar (enlace
+      `/grupo/unirse/<código>` + QR y WhatsApp), unirse, agregar persona sin app, rechazar
+      mi parte con motivo, salir o archivar. Los avisos del grupo en Novedades. Pull
+      incremental de las tablas del grupo. Saldos del grupo sin conexión con Dart puro
+      (`lib/dominio/saldos_grupo.dart`) y paridad con `estado_grupo`.
+- [ ] **9.6** Inicio: total = contactos + grupos, mostrados por separado.
+- [ ] **9.7** `exportar_mis_datos` (7.2) incluye mis grupos, gastos y pagos del grupo.
+      `borrar_cuenta`: mis filas de `grupo_miembros` pasan a persona sin app (`usuario_id`
+      NULL, se conserva el nombre) para que los saldos de los demás no cambien. Pasa
+      también a la política de privacidad.
+
+**Criterio de salida.** Tests en verde, regresión en 0, `flutter build web` compila y una
+prueba real: un grupo con 3 cuentas de prueba, con gastos, un rechazo y pagos (confirmado
+y por confirmar), en el que los saldos de los tres cuadran.
+
+**Etapa 9C** (opcional, después): ver §4.8.
+
+---
+
 ## 9. Pendiente de decidir (preguntar al dueño en la fase indicada)
 
 | Decisión | Se necesita en | Opciones / recomendación |
@@ -2035,6 +2658,9 @@ prueba.
 | ~~Filas anotadas entre las dos confirmaciones de la conciliación~~ | — | **Decidido y hecho (2026-09-24):** se proponen al pasar a `activo` (decisión 18). |
 | Límites de uso (20 invitaciones/día, 10 canjes fallidos/hora, 60 visor/minuto) | Antes de publicar | Implementados con esos valores (decisión 20). Ajustar si el dueño prefiere otros. |
 | Política de privacidad | Antes de publicar | Borrador en `deudas/v2/POLITICA_PRIVACIDAD.md`: completar responsable, correo y plazos, revisar y publicar. |
+| ~~Decisiones 21 a 24 de §3.3 (aceptación automática)~~ | — | **Revisadas por el dueño (2026-09-24):** 21 = avisar antes a quien anota; 22 = cambios y borrados siguen siendo propuesta; 23 = conciliación explícita; 24 = tope de 50. |
+| Decisiones 25 a 31 de §3.3 (gastos y grupos) | Antes de la fase 9 | Las propuso el agente el 2026-09-24. Las que más conviene mirar: 26 (rechazo en modo montos), 27 (si rechaza quien pagó) y 28 (pago por confirmar no cuenta). |
+| ¿PWA? | Después de la fase 9 | **Aplazada por el dueño (2026-09-24).** Mientras tanto, todo el código nuevo cumple "Listo para web" (§6.5). A favor: sin instalar nada, sirve en iPhone, invitar es un enlace y se evita Play Store. En contra: iOS puede borrar lo guardado sin sincronizar si no se agrega a la pantalla de inicio, y en iPhone los push solo funcionan con la PWA instalada. |
 
 ---
 
@@ -2125,6 +2751,23 @@ Trampas encontradas el 2026-09-24:
 - **Dentro de una función, un `RAISE` deshace todo lo que la función escribió**, también
   el registro de un intento fallido. Para contar fallos hay que responder sin error (por
   eso `reclamar_invitacion` devuelve NULL).
+
+Trampas encontradas en la fase 8:
+
+- **PostgREST reintenta un 40P01 (deadlock) sin avisar.** El cliente no ve el error, solo
+  ~1 s de espera (el `deadlock_timeout`). Para detectarlo, mirar
+  `pg_stat_database.deadlocks` antes y después (lo hace `probar_concurrencia_propuestas.py`)
+  o el log del contenedor (`podman logs supabase_db_deudas_v2 | grep deadlock`).
+- **Un trigger que escribe en la libreta del otro toma SUS candados.** Si la operación que
+  lo dispara ya tenía el candado de su deudor (`registrar_pago`), los dos se traban. Tomar
+  los candados del vínculo primero (`_candado_vinculo`).
+- **Actuar como otro usuario:** `auth.uid()` mira `request.jwt.claim.sub` antes que
+  `request.jwt.claims`; `_suplantar` escribe el primero y lo restaura. Solo desde
+  funciones internas (sin `EXECUTE` para los clientes).
+- **`x IN (…)` con `x` NULL da NULL**, y `NOT NULL` también: un `IF` así no entra. Pasó con
+  `_es_de_conciliacion` y un `idem_key` nulo; envolver en `COALESCE(…, false)`.
+- **Los tests de la fase 6 prueban la bandeja:** con la aceptación automática fallarían.
+  `set_config('deudas.tope_diario', '0', true)` al preparar los devuelve a ese camino.
 
 ---
 

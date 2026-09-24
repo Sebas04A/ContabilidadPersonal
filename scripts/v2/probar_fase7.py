@@ -4,14 +4,16 @@ Fase 7 de deudas/PLAN_MULTIUSUARIO.md, de punta a punta por la API real:
     contabilidad/backend/.venv/bin/python scripts/v2/probar_fase7.py [--destino local]
 
 Dos cuentas temporales, A y B, se vinculan por el flujo real (invitación, canje y una
-conciliación vacía) y cada una anota algo que le llega al otro como propuesta. Después:
-  * A exporta sus datos (`exportar_mis_datos`): solo lo suyo, y las propuestas en que es
-    parte;
+conciliación vacía). Cada una anota una deuda, que entra sola en la libreta del otro
+(fase 8), y B anota un pago que entregó, que espera a que A lo confirme. Después:
+  * A exporta sus datos (`exportar_mis_datos`): solo lo suyo (su deuda y el espejo de la
+    de B), las propuestas en que es parte y sus avisos;
   * B prueba un código que no existe: `reclamar_invitacion` responde null, no un error;
   * el visor responde con el token de A y, pasadas las 60 consultas del minuto, da 429;
   * A borra su cuenta (edge `borrar_cuenta`): sin la palabra de confirmación, 400; con
-    ella, la cuenta desaparece, no le quedan lápidas, y B conserva su libreta con lo que
-    había propuesto de vuelta en `local`.
+    ella, la cuenta desaparece, no le quedan lápidas, y B conserva su libreta: lo acordado
+    sigue acordado (su deuda y el espejo de la de A) y el pago que esperaba vuelve a
+    `local`.
 B se borra al final. Solo contra local, o contra la nube de PRUEBA: crea y borra cuentas.
 Ojo: la prueba del límite deja la IP de esta máquina sin visor durante un minuto.
 """
@@ -74,12 +76,18 @@ def main():
         B.pedir("POST", "/rest/v1/deudas", {"id": str(uuid.uuid4()), "deudor_id": deudor_b,
                                             "titulo": "Taxi", "monto": 5,
                                             "fecha_gasto": "2026-09-21", "es_mi_deuda": False})
+        B.pedir("POST", "/rest/v1/pagos", {"deudor_id": deudor_b, "monto_total": 3,
+                                           "fecha_pago": "2026-09-22", "es_mi_pago": True})
 
         print("Exportar mis datos")
         exp = A.rpc("exportar_mis_datos", {})
         comprobar([d["id"] for d in exp["deudores"]] == [deudor_a], "A exporta solo su contacto")
-        comprobar([d["titulo"] for d in exp["deudas"]] == ["Cena"], "y solo sus deudas")
-        comprobar(len(exp["propuestas"]) == 2, "y las 2 propuestas en que es parte")
+        comprobar(sorted(d["titulo"] for d in exp["deudas"]) == ["Cena", "Taxi"]
+                  and {d["owner_id"] for d in exp["deudas"]} == {uids["A"]},
+                  "y solo sus deudas: la suya y el espejo de la de B")
+        comprobar(len(exp["propuestas"]) == 3, "y las 3 propuestas en que es parte")
+        comprobar(sorted(x["tipo"] for x in exp["avisos"]) == ["deuda_nueva", "pago_por_confirmar"],
+                  "y sus avisos")
 
         print("Canje con un código que no sirve")
         comprobar(B.rpc("reclamar_invitacion", {"p_codigo": "NOEXISTE00"}) is None,
@@ -112,9 +120,13 @@ def main():
                   "no quedan lápidas de A")
         comprobar(admin.pedir("GET", f"/rest/v1/deudores?select=id&owner_id=eq.{uids['A']}") == [],
                   "ni su libreta")
-        propias = B.pedir("GET", f"/rest/v1/deudas?select=titulo,estado_acuerdo&deudor_id=eq.{deudor_b}")
-        comprobar(propias == [{"titulo": "Taxi", "estado_acuerdo": "local"}],
-                  "B conserva su deuda, de vuelta en local")
+        propias = B.pedir("GET", f"/rest/v1/deudas?select=titulo,estado_acuerdo&deudor_id=eq.{deudor_b}"
+                                 "&order=titulo")
+        comprobar(propias == [{"titulo": "Cena", "estado_acuerdo": "acordada"},
+                              {"titulo": "Taxi", "estado_acuerdo": "acordada"}],
+                  "B conserva lo acordado: su deuda y el espejo de la de A")
+        pagos = B.pedir("GET", f"/rest/v1/pagos?select=estado_acuerdo&deudor_id=eq.{deudor_b}")
+        comprobar(pagos == [{"estado_acuerdo": "local"}], "y el pago que esperaba vuelve a local")
         comprobar(B.pedir("GET", "/rest/v1/vinculos?select=id") == [], "y ya no tiene vínculo")
     finally:
         for uid in uids.values():
