@@ -7,12 +7,12 @@
 > derecho) y publicarlo en una URL pública (p. ej. en el visor: `/privacidad`), que es lo
 > que pide la ficha de Play Store. Lo técnico de abajo describe cómo funciona hoy v2.
 
-**Última actualización:** [fecha de publicación]
+**Última actualización:** 2026-09-24
 
 ## 1. Quién es responsable de tus datos
 
-[Nombre completo del responsable], [ciudad], Ecuador. Contacto para cualquier tema de
-privacidad: **[correo de contacto]**.
+Sebastian Arcentales Quito , Ecuador. Contacto para cualquier tema de
+privacidad: **andresebasarcentalesarciniega@gmail.com**.
 
 ## 2. Qué datos guardamos
 
@@ -42,13 +42,12 @@ otras personas. Eres responsable de anotarlos con su conocimiento.
   de cuenta con ese contacto. Puedes cambiar el enlace (el anterior deja de funcionar).
 - **Proveedores:** la app guarda los datos en Supabase ([supabase.com](https://supabase.com)),
   con servidores en Estados Unidos (región us-east-2), lo que implica una transferencia
-  internacional de datos. El visor se sirve desde Vercel. [Agregar Firebase si se
-  implementan las notificaciones de la fase 7.1.]
+  internacional de datos. El visor se sirve desde Vercel.
 
 ## 4. Cuánto tiempo los guardamos
 
 Mientras tengas la cuenta. Al borrarla (ver §5) se borra tu libreta completa en el momento.
-Las copias de seguridad del proveedor se renuevan en [plazo, según el plan de Supabase].
+Las copias de seguridad del proveedor se renuevan en 7 días (según el plan de retención de Supabase).
 
 Lo que un contacto vinculado ya aceptó está también en **su** libreta (como copia con la
 dirección invertida) y es suyo: borrar tu cuenta no lo borra de la suya.
@@ -64,8 +63,8 @@ portabilidad y a no ser objeto de decisiones automatizadas. En la app:
   se cambia proponiéndoselo.
 - **Eliminación:** menú ⋮ → **"Borrar mi cuenta"**. Se borra tu cuenta y toda tu libreta;
   tus vínculos se rompen.
-- Para cualquier otra solicitud, escribe a **[correo de contacto]**. Respondemos en el
-  plazo que marca la ley ([15 días]).
+- Para cualquier otra solicitud, escribe a **andresebasarcentalesarciniega@gmail.com**. Respondemos en el
+  plazo que marca la ley (15 días).
 
 También puedes presentar un reclamo ante la Superintendencia de Protección de Datos
 Personales.
@@ -79,7 +78,7 @@ exige la ley.
 
 ## 7. Menores de edad
 
-La app no está pensada para menores de [15] años.
+La app no está pensada para menores de 15 años.
 
 ## 8. Cambios
 

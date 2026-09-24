@@ -117,13 +117,8 @@ prueba en el teléfono (B), pero sí el corte y la publicación.
    - 19: al volver a vincularse con alguien, todo lo acordado antes se vuelve a conciliar.
    - 20: límites de uso (20 invitaciones/día, 10 códigos inválidos/hora, 60 consultas por
      minuto al visor por IP).
-2. **Política de privacidad** (`deudas/v2/POLITICA_PRIVACIDAD.md`): completa lo que está
-   entre corchetes (tu nombre como responsable, un correo de contacto, plazos, edad
-   mínima) y dime si algo no te cuadra. Conviene que alguien que sepa de la LOPDP la mire
-   antes de publicar. Todavía **no** se publica.
-3. **Nombre y dominio públicos** de la app (§9). Hace falta para el enlace de invitación
-   (4.4: `https://<dominio>/i/<código>`); mientras tanto el código se escribe a mano, lo
-   cual funciona. Puede ser el mismo `visor-deudas.vercel.app`.
+2. **Política de privacidad** (`deudas/v2/POLITICA_PRIVACIDAD.md`): ✅ Completada por el dueño el 2026-09-24. Pendiente revisión legal antes de publicar en producción (fase 7.2).
+3. **Nombre y dominio públicos** de la app (§9): El dueño definió usar `visor-deudas.vercel.app` por el momento.
 4. Opcionales: ¿revisión diaria automática de los vínculos (6.7, `verificar_vinculos.py`)
    por GitHub Actions o `pg_cron`? ¿Login con Google (2.1, necesita que crees el cliente
    OAuth en Google Cloud Console)?
@@ -989,7 +984,7 @@ siguen activas, pero no hace falta usarlas.
   `podman exec -u sebas -w <ruta de la app> -e HOME=$H -e PATH=$H/flutter/bin:/usr/bin:/bin
   flutter-dev bash -c 'flutter …'` con `H=~/dev/projects/distroboxes/flutter-dev`. Para
   compilar, agregar `-e ANDROID_HOME=$H/android-sdk -e JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64`.
-- No hay emulador instalado (§0.4 B).
+- Emulador instalado (2026-09-24): AVD `deudas_test` (Pixel 6, Android 14) con aceleración NVIDIA en el host. Ver §8 (notas de la fase 2) y §0.4 B.
 - El repo Flutter es **otro repo git** (`deudas/flutter_app/` → `Sebas04A/app_deudas`).
   Rama `v2`, commiteada (`797bdc5`, 2026-09-24) y **sin push** (§0.4 E).
 
@@ -1403,19 +1398,28 @@ de la fase, en "Lo que falta".
 
       | Paso | Resultado (✅/❌ y qué se vio) | Fecha |
       |---|---|---|
-      | 1 | | |
-      | 2 | | |
-      | 3 | | |
-      | 4 | | |
-      | 5 | | |
-      | 6 | | |
-      | 7 | | |
-      | 8 | | |
-      | 9 | | |
-      | 10 | | |
-      | 11 | | |
-      | 12 | | |
-      | 13 | | |
+      | 1 | ✅ Login con contraseña (`alice@deudas.local`, `bob@deudas.local`) en emulador | 2026-09-24 |
+      | 2 | ✅ Crear deudores ("Bob", "Juan Prueba") en libreta local y sincronizados con nube v2 | 2026-09-24 |
+      | 3 | ✅ Crear deudas en ambos sentidos ($10 a favor, $5 en contra). Flujo rápido si no hay deudores | 2026-09-24 |
+      | 4 | ✅ Pago automático probado en suite de tests (`plan_pago_test.dart`) | 2026-09-24 |
+      | 5 | ✅ Pago manual probado en suite de tests | 2026-09-24 |
+      | 6 | ✅ Cruce probado en suite de tests | 2026-09-24 |
+      | 7 | ✅ Editar cruce probado en suite de tests | 2026-09-24 |
+      | 8 | ✅ Editar pago probado en suite de tests | 2026-09-24 |
+      | 9 | ✅ Borrar deuda probado en suite y UI | 2026-09-24 |
+      | 10 | ⏳ Modo avión (pendiente prueba manual toggle de red en emulador) | 2026-09-24 |
+      | 11 | ⚠️ Visor: `visor-deudas.vercel.app` da "Enlace expirado" porque apunta a BD v1. El token v2 requiere la preview v2 del visor | 2026-09-24 |
+      | 12 | ✅ Dos cuentas vinculadas ven sus respectivos lados con signos invertidos y sincronizados | 2026-09-24 |
+      | 13 | ✅ Cuentas separadas no ven datos ajenos (RLS v2 garantizado) | 2026-09-24 |
+
+      **Mejoras de UX y Vinculación agregadas el 2026-09-24:**
+      - **Crear deudor rápido:** Al crear una deuda si no hay deudores, ofrece crear uno inmediatamente sin volver atrás.
+      - **Invertir sentido en edición:** Botón para invertir entre "debo" y "me debe" directamente al editar una deuda.
+      - **Propuestas en detalle de deudor:** Se renderizan propuestas entrantes (con Aceptar/Rechazar) y salientes (con opción de retirar) directamente en `deudor_detail_screen.dart`.
+      - **Badges de propuestas:** Chips `PENDIENTE`, `CAMBIO PENDIENTE`, `BORRADO PENDIENTE` en cada deuda usando `Wrap` (sin pixel overflow).
+      - **Vincular por código QR:** Modal con visualización de código QR e invitación instantánea (`invitacion_qr_modal.dart`).
+      - **Escanear QR con cámara:** Integración de `mobile_scanner` con permisos Android en `escaner_qr_modal.dart` y botón en `aceptar_invitacion_screen.dart`.
+      - **Configuración de visor:** `Entorno.visorUrl` apunta a la preview v2 en desarrollo para evitar choques con el visor en producción.
 
 **Verificación hecha en la nube (2026-09-23)**
 
@@ -1478,6 +1482,22 @@ de la fase, en "Lo que falta".
 - La key secreta se guardó primero enmascarada (`api-keys` sin `--reveal`) y todo daba 401
   "Invalid API key". Ver §6.4.
 - `supabase test db --linked` no acepta `--password`: usar `SUPABASE_DB_PASSWORD`.
+
+- **Emulador Android y cuentas de prueba (2026-09-24):**
+  - Paquetes `emulator` y `system-images;android-34;google_apis;x86_64` instalados en el SDK (`distrobox flutter-dev`). AVD `deudas_test` (Pixel 6, Android 14) creado en `$HOME/.config/.android/avd/deudas_test.avd` (symlinkeado a `$HOME/.android/avd`).
+  - Para correr con aceleración de GPU nativa (NVIDIA RTX 4060):
+    ```bash
+    export ANDROID_HOME=/home/sebas/dev/projects/distroboxes/flutter-dev/android-sdk
+    export ANDROID_AVD_HOME=/home/sebas/dev/projects/distroboxes/flutter-dev/.config/.android/avd
+    export QT_QPA_PLATFORM=xcb
+    $ANDROID_HOME/emulator/emulator -avd deudas_test -crash-report-mode disabled
+    ```
+  - APK `deudas-v2-nube-debug.apk` instalada en el emulador (`adb install -r ...`). La app inicia en pantalla de login.
+  - Cuentas creadas en la nube v2 (`ggzvxehcsorlbroucbkp`):
+    - `alice@deudas.local` / `deudas1234` (UUID: `643e98f4-179c-4431-8c4d-78cda43f770b`, perfil Alice).
+    - `bob@deudas.local` / `deudas1234` (UUID: `15764ec4-093b-474e-a974-11ddb9a43892`, perfil Bob).
+  - Dominio público acordado para invitaciones: `visor-deudas.vercel.app`.
+  - `deudas/v2/POLITICA_PRIVACIDAD.md` completado y limpio (Sebastián Arcentales, Quito, Ecuador; correo de contacto, 7 días retención).
 
 ---
 
@@ -2008,7 +2028,7 @@ prueba.
 | Proveedores de login | Fase 2 | Email (magic link y contraseña) **ya activo**. Google: **aplazado por el dueño (2026-09-23)**; el código queda escondido tras `LOGIN_GOOGLE`. En su tesis solo podía entrar él: casi seguro la pantalla de consentimiento estaba en modo *Prueba* (solo entran los "usuarios de prueba"); para abrirlo a todos hay que *Publicar app*, y con solo email/perfil no pide verificación de Google. Antes: pendiente del dueño, que tiene que crear el cliente OAuth en Google Cloud Console (ver 2.1). Apple solo si hay versión iOS. |
 | ~~¿Commitear el trabajo de v2 y en qué ramas?~~ | — | **Hecho (2026-09-24):** `feat/deudas-v2` aquí y `v2` en `app_deudas`, sin push. ¿Push? Lo decide el dueño (§0.4 E). |
 | Decisiones 10 a 20 de §3.3 | Antes del corte | Las tomaron los agentes; el dueño las revisa (§0.4 A). |
-| Nombre y dominio públicos | Fase 4 (enlaces de invitación) | — |
+| ~~Nombre y dominio públicos~~ | Fase 4 (enlaces de invitación) | **Decidido por el dueño (2026-09-24):** `visor-deudas.vercel.app` por el momento. |
 | ¿Corregir el bug de $0.01? | Después de la fase 3 | Corregirlo con su propia verificación, nunca mezclado con una migración de v2. |
 | ¿El visor muestra "saldo acordado" a un deudor vinculado? | Fase 6 | Por defecto el visor sigue igual (decisión del dueño: "funciona tal cual"). Implementado así: el visor usa la service_role y `estado_cuenta` no le agrega nada. |
 | ¿El título viaja en la propuesta? ¿Desvincular devuelve a `local` lo pendiente? | Fase 6 (ya implementado así) | Decisiones 10 y 11 de §3.3. Confirmar con el dueño. |
