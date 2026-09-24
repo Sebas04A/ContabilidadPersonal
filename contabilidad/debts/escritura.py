@@ -4,17 +4,15 @@ Proporciona funciones para crear y actualizar deudores y deudas.
 """
 
 import pandas as pd
-from supabase import create_client, Client
+from supabase import Client
+
+from contabilidad.debts.cliente import crear_cliente
 from datetime import datetime
 from typing import Optional, Dict, List
 import uuid
 
-# Credenciales de Supabase
-SUPABASE_URL = "https://rcmdzvbxerumzxvnubfo.supabase.co"
-SUPABASE_KEY = "sb_publishable_CZL2FVo5YLTnUPeyAq7S-w_lfExK_yw"
-
-# Cliente de Supabase
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# Cliente de Supabase: a qué base habla (v1 o v2, con qué sesión) lo decide cliente.py.
+supabase: Client = crear_cliente()
 
 
 def crear_deudor(nombre: str) -> Dict:

@@ -4,7 +4,9 @@ Proporciona funciones para obtener datos limpios de deudas en formato DataFrame.
 """
 
 import pandas as pd
-from supabase import create_client, Client
+from supabase import Client
+
+from contabilidad.debts.cliente import crear_cliente
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Optional, List
@@ -14,12 +16,19 @@ from contabilidad.backend.logger import get_logger
 
 logger = get_logger(__name__)
 
-# Credenciales de Supabase
-SUPABASE_URL = "https://rcmdzvbxerumzxvnubfo.supabase.co"
-SUPABASE_KEY = "sb_publishable_CZL2FVo5YLTnUPeyAq7S-w_lfExK_yw"
+# Cliente de Supabase: a qué base habla (v1 o v2, con qué sesión) lo decide cliente.py.
+supabase: Client = crear_cliente()
 
-# Cliente de Supabase
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+def _sin_rechazadas(filas: list) -> list:
+    """
+    Deudas v2 (fase 6): una deuda o pago que la otra persona rechazó no cuenta en ningún
+    saldo (deudas/PLAN_MULTIUSUARIO.md §4.1). Se filtra aquí y no en la consulta porque en
+    v1 la columna `estado_acuerdo` no existe: allí la clave no viene y no se quita nada.
+    Solo hace falta donde se leen las tablas o la vista directo; lo que viene del RPC
+    `estado_cuenta` ya llega filtrado.
+    """
+    return [f for f in filas if f.get('estado_acuerdo') != 'rechazada']
 
 
 def obtener_todos_deudores() -> pd.DataFrame:
@@ -649,11 +658,15 @@ def obtener_estado_cuenta(deudor_id: str) -> dict:
         f_remoto = pool.submit(_saldos_remotos, deudor_id)
 
         deudas_raw, pagos_raw, remoto = f_deudas.result(), f_pagos.result(), f_remoto.result()
+    deudas_raw, pagos_raw = _sin_rechazadas(deudas_raw), _sin_rechazadas(pagos_raw)
 
     deuda_ids = [d.get('id') for d in deudas_raw if d.get('id') is not None]
+    # Los ids van en la URL (`deuda_id=in.(…)`): con un deudor de cientos de deudas la URL
+    # pasa de los 8 KB y el gateway la rechaza (414). Por tandas, el resultado es el mismo.
     detalles = []
-    if deuda_ids:
-        detalles = supabase.table('detalle_pagos').select('*').in_('deuda_id', deuda_ids).execute().data or []
+    for i in range(0, len(deuda_ids), 100):
+        tanda = deuda_ids[i:i + 100]
+        detalles += supabase.table('detalle_pagos').select('*').in_('deuda_id', tanda).execute().data or []
 
     local = _construir_flujo_cuenta(deudas_raw, pagos_raw, detalles)
     return _con_saldos_del_servidor(deudor_id, local, remoto)
@@ -700,7 +713,8 @@ def _con_saldos_del_servidor(deudor_id: str, local: dict, remoto=None) -> dict:
         d['estado'] = r.get('estado', d['estado'])
 
     for k, v in remoto['resumen'].items():
-        if k in local['resumen'] or k == 'monto_ideal_a_cruzar':
+        # `saldo_acordado` / `pendiente_acuerdo` solo vienen con un deudor vinculado (v2).
+        if k in local['resumen'] or k in ('monto_ideal_a_cruzar', 'saldo_acordado', 'pendiente_acuerdo'):
             local['resumen'][k] = int(v) if k.startswith('count') else _ec_num(v)
     if remoto.get('cruce_sugerido'):
         local['cruce_sugerido'] = remoto['cruce_sugerido']
@@ -741,6 +755,7 @@ def obtener_saldos_deudores() -> dict:
                 f_pagos = pool.submit(lambda: supabase.table('pagos').select('*').execute().data or [])
                 f_det = pool.submit(lambda: supabase.table('detalle_pagos').select('*').execute().data or [])
                 deudas_raw, pagos_raw, detalles = f_deudas.result(), f_pagos.result(), f_det.result()
+            deudas_raw, pagos_raw = _sin_rechazadas(deudas_raw), _sin_rechazadas(pagos_raw)
         except Exception as e:
             logger.error("Error querying Supabase for deudores balances: %s", e)
             return {}
@@ -834,15 +849,15 @@ def obtener_deudas_por_deudor(deudor_id: str, solo_pendientes: bool = True) -> p
     if solo_pendientes:
         query = query.neq('estado', 'PAGADA')
     
-    response = query.execute()
+    filas = _sin_rechazadas(query.execute().data or [])
     
-    if not response.data:
+    if not filas:
         return pd.DataFrame(columns=[
             'id', 'titulo', 'monto_original', 'deudor_id', 'fecha_gasto', 
             'monto_pagado', 'saldo_pendiente', 'estado'
         ])
     
-    df = pd.DataFrame(response.data)
+    df = pd.DataFrame(filas)
     df['fecha_gasto'] = pd.to_datetime(df['fecha_gasto'])
     df['monto'] = pd.to_numeric(df['monto_original'])
     df['pagada'] = df['estado'] == 'PAGADA'
@@ -878,12 +893,12 @@ def obtener_deudas_con_deudor(solo_pendientes: bool = True) -> pd.DataFrame:
     query = supabase.table('vista_estado_deudas').select('*')
     if solo_pendientes:
         query = query.neq('estado', 'PAGADA')
-    resp_deudas = query.execute()
+    filas = _sin_rechazadas(query.execute().data or [])
     
-    if not resp_deudas.data:
+    if not filas:
         return pd.DataFrame()
         
-    df = pd.DataFrame(resp_deudas.data)
+    df = pd.DataFrame(filas)
     
     # 2. Obtener deudores
     # Optimizacion: Deudores uniques
@@ -1025,12 +1040,12 @@ def obtener_todos_pagos() -> pd.DataFrame:
         return pd.DataFrame()
 
     # 1. Obtener pagos
-    response = supabase.table('pagos').select('*').execute()
+    filas = _sin_rechazadas(supabase.table('pagos').select('*').execute().data or [])
     
-    if not response.data:
+    if not filas:
         return pd.DataFrame(columns=['id', 'fecha_pago', 'monto_total', 'deudor_id', 'deudor_nombre'])
         
-    df = pd.DataFrame(response.data)
+    df = pd.DataFrame(filas)
     
     # 2. Enriquecer con nombre de deudor
     # Obtener deudores para map
@@ -1083,7 +1098,7 @@ def obtener_pagos_para_analisis(
             q = q.gte('fecha_pago', fecha_inicio[:10])
         if fecha_fin:
             q = q.lte('fecha_pago', fecha_fin[:10])
-        pagos_raw = q.execute().data or []
+        pagos_raw = _sin_rechazadas(q.execute().data or [])
         if not pagos_raw:
             return []
 
@@ -1098,10 +1113,11 @@ def obtener_pagos_para_analisis(
         nombres = {str(d['id']): d.get('nombre') for d in deudores}
 
         deuda_ids = list({d['deuda_id'] for d in detalles if d.get('deuda_id')})
+        # Por tandas: con cientos de ids la URL supera el límite del gateway (414).
         titulos = {}
-        if deuda_ids:
-            deudas = supabase.table('deudas').select('id, titulo').in_('id', deuda_ids).execute().data or []
-            titulos = {str(d['id']): d.get('titulo') or '—' for d in deudas}
+        for i in range(0, len(deuda_ids), 100):
+            deudas = supabase.table('deudas').select('id, titulo').in_('id', deuda_ids[i:i + 100]).execute().data or []
+            titulos.update({str(d['id']): d.get('titulo') or '—' for d in deudas})
 
     det_by_pago: dict = {}
     for det in detalles:
