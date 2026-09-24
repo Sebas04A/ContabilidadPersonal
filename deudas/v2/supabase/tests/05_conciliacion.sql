@@ -110,7 +110,9 @@ SELECT is(confirmar_conciliacion('f0000000-0000-0000-0000-000000000000'),
   'B confirma sin pares: "Solo B" va propuesto y el vínculo pasa a activo');
 
 RESET ROLE;
-SELECT is((SELECT count(*) FROM acuerdos)::int, 5, 'hay 5 acuerdos');
+-- Solo los de este vínculo: la base puede tener otros (la nube de prueba tiene datos).
+SELECT is((SELECT count(*) FROM acuerdos WHERE vinculo_id = 'f0000000-0000-0000-0000-000000000000')::int, 5,
+  'hay 5 acuerdos');
 SELECT ok((SELECT count(DISTINCT (entidad, fila_a)) = count(*) AND count(DISTINCT (entidad, fila_b)) = count(*)
              FROM acuerdos), 'ninguna fila está en dos acuerdos');
 

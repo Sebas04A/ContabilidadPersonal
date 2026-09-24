@@ -51,7 +51,7 @@
 | 5 | Conciliación inicial | 🟨 adelantada: 5.1–5.4 hechas y en el proyecto v2 de prueba; hueco de las filas tardías y revincularse arreglados (2026-09-24); falta probar en celulares | 2026-09-24 | Claude |
 | 6 | Propuestas continuas | 🟨 adelantada: 6.1–6.7 hechas y **en el proyecto v2 de prueba** (2026-09-24, con OK del dueño; 231 tests pgTAP allí); menores hechos (retirar propuesta, historial con estado); falta probar en celulares y la semana de uso real | 2026-09-24 | Claude |
 | 7 | Publicación | 🟨 adelantada: 7.2 (exportar, borrar cuenta; política de privacidad en borrador) y 7.3 (límites) hechas y en la nube de prueba; faltan 7.1 (Firebase), 7.4, 7.5 y publicar la política: todo necesita al dueño | 2026-09-24 | Claude |
-| 8 | Aceptación automática y avisos | 🟨 hecha en local y commiteada; APK recompilada. Falta que el dueño corra el `db push` (notas de la fase 8), la batería en la nube y probar en dos celulares | 2026-09-24 | Claude |
+| 8 | Aceptación automática y avisos | 🟨 hecha y **en la nube de prueba** (398 tests allí, concurrencia OK), commiteada, APK recompilada; falta probar en dos celulares (§0.4 B) | 2026-09-24 | Claude |
 | 9 | Gastos divididos y grupos | ⬜ pendiente (diseñada el 2026-09-24, §4.8) | | |
 
 Estados: ⬜ pendiente · 🟨 en curso · ✅ hecha (criterio de salida cumplido) · ⛔ bloqueada
@@ -63,7 +63,7 @@ Estados: ⬜ pendiente · 🟨 en curso · ✅ hecha (criterio de salida cumplid
 - v2 existe en local (`deudas/v2`) y en la nube: proyecto gratuito "Deudas v2",
   `ggzvxehcsorlbroucbkp` (§6.4).
 - Cada fila tiene dueño y el RLS lo hace cumplir. Tests pgTAP: **231** (fases 1 y 4 a 7),
-  verdes en local y en la nube (2026-09-24); **398** con la fase 8, solo en local.
+  verdes en local y en la nube (2026-09-24); **398** con la fase 8, en los dos.
 - Los datos reales, importados, dan los mismos estados de cuenta que producción. Probado en
   local, y en la nube con un ensayo del corte que después se borró.
 - La app Flutter tiene login y datos por usuario detrás de la bandera `DEUDAS_V2`.
@@ -90,8 +90,8 @@ Play Store).
 **Fase 8 hecha en local (2026-09-24, tarde):** el dueño revisó las decisiones 21 a 24
 (cambió 21, 22 y 24) y se implementó todo: migración `20260924150000_aceptacion_automatica.sql`
 (398 tests), concurrencia, Flutter con "Novedades" y el aviso previo de duplicados, y
-`flutter build web`. Commiteada y con la APK recompilada; **el `db push` a la nube de
-prueba lo tiene que correr el dueño** (comando en las notas de la fase 8).
+`flutter build web`. Commiteada, con la APK recompilada y **en la nube de prueba** (el
+`db push` lo corrió el dueño; 398/398 allí). Lo que sigue es la prueba en dos celulares.
 
 **Fases 8 y 9**, pedidas por el dueño el 2026-09-24 (§4.7, §4.8, §5.4). Orden recomendado:
 - La fase 2.5 y el corte (fase 3) **no dependen** de 8 ni de 9: son de un solo usuario.
@@ -174,9 +174,8 @@ tiene la protección de Vercel: ábrela con tu sesión de Vercel o desactívala 
 Deployment Protection). Anota ✅ o ❌ con lo que viste
 en la tabla de 2.5. Un ❌ no es grave: díselo a un agente con lo que pasó.
 
-> ⚠️ **Esta lista es la de la fase 8** (lo nuevo entra solo; 8.7). Necesita que la
-> migración de la fase 8 esté en la nube de prueba y la APK recompilada: hasta entonces la
-> nube y la APK de §0.4 siguen con la bandeja de la fase 6.
+> ⚠️ **Esta lista es la de la fase 8** (lo nuevo entra solo; 8.7). La nube de prueba y la
+> APK ya la tienen (2026-09-24).
 
 **Además, si tienes dos teléfonos o dos personas** (fases 4 a 8; si solo hay un teléfono,
 casi todo se puede hacer cerrando sesión y entrando con la otra cuenta):
@@ -270,7 +269,7 @@ se firma con la clave de debug de esta máquina) y publicar la política de priv
   marcar de la fase 7; casi todo espera al dueño (bloques A a D).
 - Antes de tocar la base: `supabase start` (§6.3; si dice "already running" con el
   contenedor de la base parado, `supabase stop` y `start`), `supabase test db`
-  → **398/398** desde la fase 8 (en local; en la nube, 231 hasta que se suba) y apágalo al
+  → **398/398** desde la fase 8 (en local y en la nube) y apágalo al
   terminar (escucha en `0.0.0.0` con keys de demostración).
 - La base local tiene los datos reales importados (usuario `dueno@deudas.local`) para las
   comparaciones de regresión; si se hace `db reset`, rehacerlos (`deudas/v2/README.md`).
@@ -1264,7 +1263,7 @@ env -C …/deudas/v2 ~/.local/bin/supabase stop       # apagar (conserva los dat
 | Región / compute | `us-east-2` / nano (plan **gratuito**) |
 | Organización | `vercel_icfg_WvLWAK8UVzd44O4fr36p2Q7g` ("Sebas Arcentales' projects", gestionada por Vercel, gratuita). Es la **única** organización del dueño. Límite gratuito: 2 proyectos **activos**; hoy están activos "Deudas" (v1) y "Deudas v2"; "Solidaridad PUCE", "Trade" y "Titulacion" están pausados |
 | Dashboard | https://supabase.com/dashboard/project/ggzvxehcsorlbroucbkp |
-| Migraciones aplicadas | `20260923180000_base`, `20260923190000_duenos`, `20260924100000_vinculos`, `20260924110000_conciliacion`, `20260924120000_propuestas`, `20260924130000_conciliacion_tardias`, `20260924140000_publicacion` (`supabase migration list --linked`) |
+| Migraciones aplicadas | `20260923180000_base`, `20260923190000_duenos`, `20260924100000_vinculos`, `20260924110000_conciliacion`, `20260924120000_propuestas`, `20260924130000_conciliacion_tardias`, `20260924140000_publicacion`, `20260924150000_aceptacion_automatica` (`supabase migration list --linked`) |
 | Edge functions | `get_estado_cuenta`, `get_historial`, `borrar_cuenta` (`verify_jwt = true`), `visor` (`verify_jwt = false`) |
 | Auth | Email habilitado (magic link y contraseña). `site_url` y `additional_redirect_urls` = `com.deudas.deudas_app://login-callback`. Google **no** configurado (§9) |
 | Usuarios hoy | `pruebas@deudas.local` (el de `probar_rpc_v2.py`, sin datos; sus ~240 lápidas en `borrados` son de sus pruebas y son legítimas). Ninguno real |
@@ -1392,7 +1391,7 @@ deudas/
         20260924120000_propuestas.sql ← fase 6 (generada, ver notas de la fase 6)
         20260924130000_conciliacion_tardias.sql ← hueco de la fase 5 y volver a vincularse
         20260924140000_publicacion.sql ← fase 7 (generada: copias exactas + «v2 fase 7»)
-        20260924150000_aceptacion_automatica.sql ← fase 8 (solo en local; copias + «v2 fase 8»)
+        20260924150000_aceptacion_automatica.sql ← fase 8 (en la nube; copias + «v2 fase 8»)
       functions/
         _shared/estado_cuenta.ts   ← lógica de v1 SIN CAMBIOS
         _shared/historial.ts       ← lógica de v1 + ORDER BY (notas de la fase 1)
@@ -2428,7 +2427,7 @@ del otro dentro del `INSERT` de uno.
 
 **Pasos**
 
-- [x] **8.1** (2026-09-24, **solo en local**) Migración `20260924150000_aceptacion_automatica.sql`:
+- [x] **8.1** (2026-09-24; en la nube de prueba desde ese día, push del dueño) Migración `20260924150000_aceptacion_automatica.sql`:
       - tabla `avisos` con su RLS (sin `cambios_acordados`: decisión 22);
       - `_nace_propuesta_post` llama a `_llegada`: entran solos las deudas y los pagos que
         anota quien recibe; nacen `propuesta` los pagos que anota quien entrega y lo que
@@ -2534,29 +2533,20 @@ graves (**falta**: necesita la migración en la nube y la APK nueva, con OK del 
 - **Las propuestas de 'crear' se siguen creando** (ya `aceptada`): la app lee de ahí los
   motivos de rechazo, y `_nacidas_hoy` cuenta el tope con ellas (solo las del trigger, con
   su clave `crear`; la conciliación no cuenta).
-- **Estado al cerrar el 2026-09-24:** el dueño dio el OK para subir y commitear. Hecho:
-  commits (este repo con `scripts/v2/rama_v2.sh`, `app_deudas` en `v2`) y la APK v2
-  recompilada con la fase 8 (`deudas-v2-nube-debug.apk`, 219 MB). **El `db push` lo tiene
-  que correr el dueño**: el modo automático del agente no le deja modificar la base en la
-  nube. Un `--dry-run` confirmó que solo sube `20260924150000_aceptacion_automatica.sql`.
-- **La nube de prueba ya no está vacía** (antes del push: 3 perfiles, 8 deudas, 1 vínculo
-  activo y **1 propuesta pendiente**, una deuda de $10 de "Alice" a "Bob"). El bloque `DO`
-  del final de la migración la hace entrar sola: espejo en la libreta de Bob y aviso
-  `deuda_nueva`. Bob la puede rechazar desde Novedades.
-- **Pendiente:**
-  1. El dueño, desde la raíz del repo:
-     ```bash
-     set -a; . deudas/v2/.env; set +a
-     export DOCKER_HOST=unix://$XDG_RUNTIME_DIR/podman/podman.sock
-     ~/.local/bin/supabase db push --password "$DEUDAS_V2_DB_PASSWORD" --workdir deudas/v2
-     ~/.local/bin/supabase migration list --linked --workdir deudas/v2   # 20260924150000 en remoto
-     ```
-  2. Después (lo puede hacer un agente): `SUPABASE_DB_PASSWORD="$DEUDAS_V2_DB_PASSWORD"
-     supabase test db --linked --workdir deudas/v2` (398), y `probar_rpc_v2.py`,
-     `probar_fase7.py` y `probar_concurrencia_propuestas.py --rondas 10` con `--destino nube`.
-     Las edges no cambian: no hay que desplegarlas.
-  3. Instalar la APK nueva y la prueba en dos celulares (§0.4 B). **La APK nueva sin la
-     migración en la nube falla** en Novedades (no existe `avisos`).
+- **En la nube de prueba (2026-09-24):** el agente no pudo hacer el `db push` (el modo
+  automático no le deja modificar la base en la nube; un `--dry-run` sí) y lo corrió el
+  dueño con `! …` desde la sesión. Salió el error conocido de `pg-delta` (§10), pero
+  `migration list` confirmó `20260924150000` en remoto.
+  - La nube ya tenía datos de prueba del dueño (3 perfiles, 1 vínculo activo) con **una
+    propuesta pendiente** (deuda de $10 de "Alice" a "Bob"): el bloque `DO` la hizo entrar
+    sola y a Bob le llegó su `deuda_nueva`. `verificar_vinculo` ok.
+  - `test db --linked`: 398/398 tras corregir `05_conciliacion.sql`, que contaba **todos**
+    los acuerdos de la base (con datos del dueño daba 7, no 5): ahora cuenta los de su
+    vínculo. `probar_rpc_v2`, `probar_fase7` y `probar_concurrencia_propuestas --rondas 10`
+    con `--destino nube`: OK. Las edges no cambian.
+  - Commits: `fbbb40b` (este repo, `feat/deudas-v2`) y `27858ce` (`app_deudas`, `v2`), más
+    el de este arreglo; APK v2 recompilada (`deudas-v2-nube-debug.apk`, 219 MB). Sin push.
+- **Pendiente:** instalar la APK y la prueba en dos celulares (§0.4 B, lista nueva).
 
 ---
 
