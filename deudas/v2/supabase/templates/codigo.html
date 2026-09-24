@@ -1,0 +1,18 @@
+<!--
+  Correo para entrar a la app (Deudas v2). Sirve para las dos plantillas de Auth que manda
+  signInWithOtp: `magic_link` (cuenta que ya existe) y `confirmation` (cuenta nueva). Ver
+  config.toml.
+
+  Lo principal es el CÓDIGO: se escribe en la app y no depende del navegador. El enlace
+  fallaba ("Email link is invalid or has expired") cuando el navegador interno de Gmail no
+  volvía a la app o cuando algo abría el enlace antes que la persona: es de un solo uso.
+  El enlace queda como respaldo.
+-->
+<h2 style="font-family: sans-serif;">Tu código para entrar</h2>
+<p style="font-family: sans-serif;">Escríbelo en la app de Deudas:</p>
+<p style="font-family: monospace; font-size: 32px; font-weight: bold; letter-spacing: 6px;">{{ .Token }}</p>
+<p style="font-family: sans-serif; color: #666;">Vence en una hora. Si no pediste entrar, ignora este correo.</p>
+<p style="font-family: sans-serif; color: #666; font-size: 13px;">
+  ¿Prefieres el enlace? <a href="{{ .ConfirmationURL }}">Entrar desde este teléfono</a>
+  (solo funciona una vez y desde el teléfono donde está la app).
+</p>

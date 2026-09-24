@@ -1265,7 +1265,7 @@ env -C …/deudas/v2 ~/.local/bin/supabase stop       # apagar (conserva los dat
 | Dashboard | https://supabase.com/dashboard/project/ggzvxehcsorlbroucbkp |
 | Migraciones aplicadas | `20260923180000_base`, `20260923190000_duenos`, `20260924100000_vinculos`, `20260924110000_conciliacion`, `20260924120000_propuestas`, `20260924130000_conciliacion_tardias`, `20260924140000_publicacion`, `20260924150000_aceptacion_automatica` (`supabase migration list --linked`) |
 | Edge functions | `get_estado_cuenta`, `get_historial`, `borrar_cuenta` (`verify_jwt = true`), `visor` (`verify_jwt = false`) |
-| Auth | Email habilitado (magic link y contraseña). `site_url` y `additional_redirect_urls` = `com.deudas.deudas_app://login-callback`. Google **no** configurado (§9) |
+| Auth | Email habilitado (código por correo, enlace de respaldo y contraseña). `site_url` y `additional_redirect_urls` = `com.deudas.deudas_app://login-callback`. Plantillas `magic_link` y `confirmation` con el código (`supabase/templates/codigo.html`): **en config.toml; en la nube solo después de que el dueño corra `config push`** (notas de la fase 8). Google **no** configurado (§9) |
 | Usuarios hoy | `pruebas@deudas.local` (el de `probar_rpc_v2.py`, sin datos; sus ~240 lápidas en `borrados` son de sus pruebas y son legítimas). Ninguno real |
 | Datos hoy | **Vacío.** Los datos reales se importaron una vez para ensayar el corte y se borraron (ver notas de la fase 2) |
 
@@ -2548,6 +2548,36 @@ graves (**falta**: necesita la migración en la nube y la APK nueva, con OK del 
     el de este arreglo; APK v2 recompilada (`deudas-v2-nube-debug.apk`, 219 MB). Sin push.
 - **Pendiente:** instalar la APK y la prueba en dos celulares (§0.4 B, lista nueva).
 
+**Primera persona real y login con código (2026-09-24, noche)**
+
+- El dueño le pasó la app a su mamá (APK release por WhatsApp, sin cable):
+  `flutter build apk --release --split-per-abi` con los `--dart-define` de v2 → la de
+  `arm64-v8a` (27 MB), copiada como `build/app/outputs/flutter-apk/Deudas-v2.apk`. Firmada
+  con la clave de debug de esta máquina (§0.4 D): las actualizaciones solo instalan encima
+  si se compilan aquí.
+- **`--split-per-abi` suma 1000/2000/4000 al `versionCode`** (armeabi/arm64/x86_64). La de
+  la mamá es 2002 (`version: 1.0.0+2`): una actualización tiene que ser `split-per-abi` y
+  con el `+N` más alto, o Android la rechaza (`INSTALL_FAILED_VERSION_DOWNGRADE`).
+- **El enlace mágico falló** ("Email link is invalid or has expired"): en la nube el
+  correo quedó confirmado, el token gastado y el `flow_state` PKCE sin canjear. El
+  navegador interno de Gmail validó el enlace pero no volvió a la app, y el segundo toque
+  encontró el token usado. Arreglo inmediato: contraseña puesta por la API de
+  administración (la cuenta es `paulyarciniega@gmail.com`; su perfil se llama
+  "paulyarciniega", falta el nombre que ella quiera).
+- **Arreglo de fondo: entrar con código.** El correo trae el código
+  (`supabase/templates/codigo.html`, plantillas `magic_link` y `confirmation` en
+  `config.toml`) y la app lo pide después de "Enviarme el código" (`verifyOTP` con
+  `OtpType.email`, sirve para cuenta nueva y existente); el enlace queda de respaldo. Probado:
+  `scripts/v2/probar_login_codigo.py` (local, lee el correo en Mailpit; control negativo sin
+  plantillas: falla) y en el emulador contra el stack local (APK con el manifiesto de debug
+  permitiendo HTTP, revertido después): código → sesión → libreta vacía. APK release
+  recompilada con esto (`1.0.0+2`).
+- **Falta: `supabase config push` en la nube** (lo corre el dueño: el agente no puede
+  modificar la nube y en modo agente aplica sin preguntar). Hasta entonces, la nube manda el
+  correo viejo (solo enlace) y la app nueva pide un código que no llega: en la nube se entra
+  con contraseña o con el enlace. La última vez que se pushó, la configuración de Auth
+  quedó "up to date", así que la diferencia deberían ser solo las dos plantillas.
+
 ---
 
 ### Fase 9 — Gastos divididos y grupos
@@ -2743,6 +2773,10 @@ Trampas encontradas el 2026-09-24:
   eso `reclamar_invitacion` devuelve NULL).
 
 Trampas encontradas en la fase 8:
+
+- **Enlace mágico de un solo uso:** el navegador interno de Gmail (o un escáner de enlaces)
+  lo puede gastar sin volver a la app, y el siguiente toque da `otp_expired`. Por eso se
+  entra con código (notas de la fase 8).
 
 - **PostgREST reintenta un 40P01 (deadlock) sin avisar.** El cliente no ve el error, solo
   ~1 s de espera (el `deadlock_timeout`). Para detectarlo, mirar

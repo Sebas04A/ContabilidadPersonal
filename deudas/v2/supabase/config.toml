@@ -243,6 +243,17 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
+# Correos para entrar con CÓDIGO (la app lo pide; el enlace queda de respaldo). Una cuenta
+# que ya existe recibe `magic_link`; una nueva, `confirmation`. Aplican también a la nube
+# ([remotes.nube] no los sobrescribe). Ver templates/codigo.html.
+[auth.email.template.magic_link]
+subject = "Tu código para entrar a Deudas"
+content_path = "./supabase/templates/codigo.html"
+
+[auth.email.template.confirmation]
+subject = "Tu código para entrar a Deudas"
+content_path = "./supabase/templates/codigo.html"
+
 # Uncomment to customize email template
 # [auth.email.template.invite]
 # subject = "You have been invited"
