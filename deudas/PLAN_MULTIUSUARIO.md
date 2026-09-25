@@ -106,6 +106,14 @@ las cuatro migraciones (lo corrió él), 714/714 en la nube y APK recompiladas
 (`deudas-v2-nube-debug.apk` y `Deudas-v2.apk`, versionCode 2003). Decisiones del agente para revisar: 32 a 34
 de §3.3.
 
+**Revisión de decisiones (2026-09-25):** el dueño revisó 10 a 20 y 32 a 34 (§3.3); cambió
+12 (desvincular deja todo como con una Persona, con advertencia), 14 (±2 días), 17 (varios
+cambios pendientes), 32 (5 días) y 34 (30 días de gracia). Migración
+`20260925100000_decisiones_dueno.sql` + test 14, Flutter (advertencia al desvincular, ±2
+días, textos). **En la nube de prueba desde el 2026-09-25** (push del dueño): 748/748 allí,
+`pg_cron` con la purga diaria, `probar_grupos`, `probar_rpc_v2` y `probar_fase7` OK. APK
+`1.0.0+4` compilada. Sin commit.
+
 **Fases 8 y 9**, pedidas por el dueño el 2026-09-24 (§4.7, §4.8, §5.4). Orden recomendado:
 - La fase 2.5 y el corte (fase 3) **no dependen** de 8 ni de 9: son de un solo usuario.
 - **La fase 8 va antes de probar en dos celulares las fases 4 a 7.** Cambia la bandeja por
@@ -138,7 +146,7 @@ un agente, pásale esta sección y la fase de que se trate.
 Anota cada respuesta en §9 (o dísela al agente, que la anota). Nada de esto frena la
 prueba en el teléfono (B), pero sí el corte y la publicación.
 
-1. **Decisiones 10 a 20 de §3.3**, que tomaron los agentes. Para cada una: "de acuerdo" o
+1. ✅ **Revisadas el 2026-09-25** (cambió 12, 14 y 17). **Decisiones 10 a 20 de §3.3**, que tomaron los agentes. Para cada una: "de acuerdo" o
    qué cambiar. Las que más conviene mirar:
    - 10: el título de una deuda viaja en la propuesta (el otro ve "Cena", no solo "$20").
    - 11 y 12: al desvincular, lo pendiente vuelve a ser solo de quien lo anotó y lo
@@ -149,7 +157,8 @@ prueba en el teléfono (B), pero sí el corte y la publicación.
      minuto al visor por IP).
 2. **Política de privacidad** (`deudas/v2/POLITICA_PRIVACIDAD.md`): ✅ Completada por el dueño el 2026-09-24. Pendiente revisión legal antes de publicar en producción (fase 7.2).
 3. **Nombre y dominio públicos** de la app (§9): El dueño definió usar `visor-deudas.vercel.app` por el momento.
-4. ~~Decisiones 21 a 31 (fases 8 y 9)~~: **revisadas el 2026-09-24** (§3.3). **Nuevas: 32
+4. ~~Decisiones 21 a 31 (fases 8 y 9)~~: **revisadas el 2026-09-24** (§3.3). ✅ **32 a 34
+   revisadas el 2026-09-25**; quedan 35 a 37, menores, del agente. Antes: **32
    a 34** (las tomó el agente al implementar la fase 9): enlace de grupo para varias
    personas, quién edita un gasto del grupo y borrar los grupos sin nadie con app.
 5. Opcionales: ¿revisión diaria automática de los vínculos (6.7, `verificar_vinculos.py`)
@@ -283,7 +292,7 @@ se firma con la clave de debug de esta máquina) y publicar la política de priv
   marcar de la fase 7; casi todo espera al dueño (bloques A a D).
 - Antes de tocar la base: `supabase start` (§6.3; si dice "already running" con el
   contenedor de la base parado, `supabase stop` y `start`), `supabase test db`
-  → **714/714** desde la fase 9 (en local y en la nube)
+  → **750/750** en local con `20260925110000_aviso_mismo_cambio.sql` (748 en la nube hasta subirla)
   (la nube todavía no la tiene). Apágalo al terminar (escucha en `0.0.0.0` con keys de demostración).
 - La base local tiene los datos reales importados (usuario `dueno@deudas.local`) para las
   comparaciones de regresión; si se hace `db reset`, rehacerlos (`deudas/v2/README.md`).
@@ -489,20 +498,29 @@ primeras son las que más conviene que mire):
 11. **Desvincular devuelve a `local` lo que esperaba respuesta.** Las propuestas pendientes
     se anulan (§4.4) y sus filas siguen contando en el saldo de quien las anotó, como
     antes de proponerlas. Lo acordado queda acordado.
-12. **Roto el vínculo, la guardia se apaga:** cada uno vuelve a editar libremente lo que
-    tenía acordado. Si no, esas filas quedarían congeladas para siempre.
+12. **Al desvincular, todo queda como con una Persona sin app** *(cambiada por el dueño el
+    2026-09-25; antes: "roto el vínculo, la guardia se apaga" y lo acordado seguía
+    `acordada`)*. En las dos libretas lo acordado vuelve a `local`, se olvida quién anotó
+    cada fila (`origen_id`) y se borran los acuerdos; cada uno edita o borra libremente. El
+    saldo no cambia: lo rechazado sigue rechazado. La app lo advierte antes de desvincular
+    (segunda confirmación).
 13. **Al aceptar, un candidato puede ser una propuesta MÍA** (los dos anotaron lo mismo a
     la vez y cada uno se lo mandó al otro). Enlazarlas deja las dos acordadas y resuelve
     también la mía.
-14. **Enlazar exige mismo monto y dirección invertida**, no la misma fecha: si el monto
-    difiere, el saldo acordado de los dos dejaría de cuadrar.
+14. **Enlazar exige mismo monto y dirección invertida, y fecha a ±2 días** *(el dueño,
+    2026-09-25; antes ±3)*, y siempre lo confirma el usuario ("¿Es la misma?"). Vale para
+    todos los emparejamientos: conciliación, candidatos al aceptar, aviso previo de
+    duplicados (también en Dart) y `fusionar_espejo`.
 15. **Un pago espejo se reparte con `registrar_pago`** (automático: cruce y FIFO), como
     cualquier pago de la libreta de quien acepta.
 16. **Cambiar lo acordado ajusta el reparto de cada libreta:** si cambia la dirección, la
     fila suelta todo lo repartido; si el monto baja por debajo de lo ya pagado, suelta el
     exceso (primero de los pagos reales más recientes; si no alcanza, sale de sus
     cruces). Lo soltado queda como saldo a favor, que `estado_cuenta` abona solo.
-17. **Una sola propuesta de cambio pendiente por acuerdo**, venga de quien venga (`23505`).
+17. **Pueden convivir varios cambios pendientes sobre un acuerdo** *(el dueño, 2026-09-25;
+    antes uno solo, `23505`)*. Si dos dicen exactamente lo mismo (monto, fecha y dirección,
+    vistos desde cada libreta), venga de quien venga, queda el más nuevo y el otro se anula.
+    Aceptar uno anula los demás, que se propusieron sobre cómo estaba antes.
 
 Decisiones tomadas el 2026-09-24 (también para que el dueño las revise):
 
@@ -518,6 +536,11 @@ Decisiones tomadas el 2026-09-24 (también para que el dueño las revise):
     intento fallido, `reclamar_invitacion` con un código que no sirve **devuelve NULL** en
     vez de lanzar `22023` (un error desharía el registro). Superar un límite da `PT429`
     (PostgREST responde 429).
+
+**Revisión del dueño (2026-09-25):** aprobó 10, 11, 13, 15, 16, 18, 19 y 20 tal cual y cambió
+12, 14 y 17 (arriba). Sobre la 16: los cambios a lo acordado ya quedan pendientes hasta que
+el otro acepta (decisión 22); la 16 solo dice cómo se ajusta el reparto cuando se aceptan.
+Implementado en `20260925100000_decisiones_dueno.sql` (test `14_decisiones_dueno.sql`).
 
 Decisiones de diseño de la fase 8, **revisadas por el dueño el 2026-09-24** (21, 22 y 24
 cambiaron respecto de lo que propuso el agente; no re-litigar):
@@ -564,16 +587,31 @@ cual el 2026-09-24**; no re-litigar):
 Decisiones que tomó el agente al implementar la fase 9 (2026-09-24; **el dueño las
 revisa**, igual que las 10 a 20):
 32. **El enlace de un grupo sirve para varias personas** (se comparte en el chat del grupo)
-    hasta que vence a los 7 días o quien lo creó genera otro, que anula el anterior. El de
+    hasta que vence a los **5 días** *(el dueño, 2026-09-25; antes 7)* o quien lo creó
+    genera otro, que anula el anterior. El de
     un contacto (fase 4) sigue siendo de un solo uso.
 33. **Quién edita qué en un grupo:** un gasto lo editan o borran quien lo anotó y quien lo
     pagó; un pago del grupo lo borra quien lo anotó. En un gasto suelto cuyas deudas ya
     están acordadas con un contacto vinculado, editarlo o borrarlo **se le propone**
     (decisión 22 manda sobre el caso 7 de 9.2, que decía "pasan a rechazada").
-34. **Un grupo sin nadie con la app se borra.** Cuando se borra la última cuenta con app
-    de un grupo (las demás filas son personas sin app), nadie puede volver a verlo: se
-    borra con sus gastos, pagos y lápidas (`20260924190000_grupos_sin_nadie.sql`). Si
-    queda una cuenta viva, aunque haya salido del grupo, no se toca.
+34. **Un grupo sin nadie con la app se borra a los 30 días** *(el dueño, 2026-09-25; antes
+    en el acto)*. Cuando se borra la última cuenta con app de un grupo (las demás filas son
+    personas sin app), nadie puede volver a verlo: se marca `grupos.sin_nadie_desde` y
+    `_purgar_grupos_sin_nadie()` lo borra con sus gastos, pagos y lápidas pasados 30 días
+    (a diario por `pg_cron`, 04:17 UTC, y en cada borrado de cuenta). Si queda una cuenta
+    viva, aunque haya salido del grupo, no se toca. El dueño revisó 32 a 34 el 2026-09-25:
+    33 tal cual.
+
+Decisiones que tomó el agente al implementar la revisión del 2026-09-25 (**aprobadas por el
+dueño el mismo día**; la 36, "avisando correctamente al usuario"):
+35. **Al desvincular, lo rechazado sigue rechazado** (no empieza a contar), para que el
+    saldo no cambie, como pidió el dueño.
+36. **"Exactamente lo mismo" (17) se compara entre libretas:** si A propone $30 y B propone
+    $30 desde su lado (con la dirección al revés), es el mismo cambio y queda el de B. A A
+    le llega el aviso "B propone el mismo cambio que tú habías propuesto: acéptalo para que
+    quede" (`datos.mismo_que_el_tuyo`, `20260925110000_aviso_mismo_cambio.sql`).
+37. **En el detalle del contacto se ve un solo cambio mío por deuda** (la marca y "Retirar"),
+    aunque haya varios; todos aparecen en Novedades.
 
 ### 3.4 Glosario
 
@@ -1835,7 +1873,7 @@ de la fase, en "Lo que falta".
       | 8 | ✅ Editar pago probado en suite de tests | 2026-09-24 |
       | 9 | ✅ Borrar deuda probado en suite y UI | 2026-09-24 |
       | 10 | ✅ Modo avión: el dueño lo probó y sincroniza bien | 2026-09-25 |
-      | 11 | ⏳ Visor: `visor-deudas.vercel.app` da "Enlace expirado" porque apunta a BD v1 (esperado). La preview v2 pide iniciar sesión en Vercel: es la protección de despliegues (§0.4 B); entrar con la cuenta de Vercel del dueño o apagarla en Settings → Deployment Protection | 2026-09-25 |
+      | 11 | ⏳ Visor: la preview v2 decía "Enlace expirado" porque el emulador tenía la APK de la **base local** (`deudas-v2-local-fase9-debug.apk`, instalada el 24 a las 23:08): sus contactos no existen en la nube. La edge `visor` de la nube responde bien a tokens v2 (probado). El 2026-09-25 se instaló la APK contra la nube: repetir con un contacto creado en ella. (Cualquier fallo del visor, no solo un token vencido, muestra "Enlace expirado".) | 2026-09-25 |
       | 12 | ✅ Dos cuentas vinculadas ven sus respectivos lados con signos invertidos y sincronizados | 2026-09-24 |
       | 13 | ✅ Cuentas separadas no ven datos ajenos (RLS v2 garantizado) | 2026-09-24 |
 
@@ -2783,7 +2821,7 @@ y por confirmar), en el que los saldos de los tres cuadran.
 | ~~Plan y organización del proyecto v2~~ | Fase 2 | **Decidido (2026-09-23):** todo gratuito, con la cuenta del dueño, en su única organización (la gestionada por Vercel). Para **publicar** (fase 7) conviene revisarlo: el plan gratuito con Nano ya agotó el presupuesto de Disk IO de v1 con un solo usuario; Pro cuesta ~$25/mes. **No subir de plan sin el dueño.** |
 | Proveedores de login | Fase 2 | Email (magic link y contraseña) **ya activo**. Google: **aplazado por el dueño (2026-09-23)**; el código queda escondido tras `LOGIN_GOOGLE`. En su tesis solo podía entrar él: casi seguro la pantalla de consentimiento estaba en modo *Prueba* (solo entran los "usuarios de prueba"); para abrirlo a todos hay que *Publicar app*, y con solo email/perfil no pide verificación de Google. Antes: pendiente del dueño, que tiene que crear el cliente OAuth en Google Cloud Console (ver 2.1). Apple solo si hay versión iOS. |
 | ~~¿Commitear el trabajo de v2 y en qué ramas?~~ | — | **Hecho (2026-09-24):** `feat/deudas-v2` aquí y `v2` en `app_deudas`, sin push. ¿Push? Lo decide el dueño (§0.4 E). |
-| Decisiones 10 a 20 de §3.3 | Antes del corte | Las tomaron los agentes; el dueño las revisa (§0.4 A). |
+| ~~Decisiones 10 a 20 de §3.3~~ | — | **Revisadas por el dueño (2026-09-25):** cambió 12, 14 y 17; las demás tal cual. |
 | ~~Nombre y dominio públicos~~ | Fase 4 (enlaces de invitación) | **Decidido por el dueño (2026-09-24):** `visor-deudas.vercel.app` por el momento. |
 | ¿Corregir el bug de $0.01? | Después de la fase 3 | Corregirlo con su propia verificación, nunca mezclado con una migración de v2. |
 | ¿El visor muestra "saldo acordado" a un deudor vinculado? | Fase 6 | Por defecto el visor sigue igual (decisión del dueño: "funciona tal cual"). Implementado así: el visor usa la service_role y `estado_cuenta` no le agrega nada. |
@@ -2793,7 +2831,8 @@ y por confirmar), en el que los saldos de los tres cuadran.
 | Política de privacidad | Antes de publicar | Borrador en `deudas/v2/POLITICA_PRIVACIDAD.md`: completar responsable, correo y plazos, revisar y publicar. |
 | ~~Decisiones 21 a 24 de §3.3 (aceptación automática)~~ | — | **Revisadas por el dueño (2026-09-24):** 21 = avisar antes a quien anota; 22 = cambios y borrados siguen siendo propuesta; 23 = conciliación explícita; 24 = tope de 50. |
 | ~~Decisiones 25 a 31 de §3.3 (gastos y grupos)~~ | — | **Aprobadas por el dueño sin cambios (2026-09-24).** |
-| Decisiones 32 a 34 de §3.3 (fase 9, del agente) | Antes de subir la fase 9 a la nube | Las tomó el agente al implementar (2026-09-24). Implementadas así; cambiar si el dueño prefiere otra cosa. |
+| ~~Decisiones 32 a 34 de §3.3~~ | — | **Revisadas por el dueño (2026-09-25):** 32 = 5 días; 34 = 30 días de gracia; 33 tal cual. |
+| ~~Decisiones 35 a 37 de §3.3~~ | — | **Aprobadas por el dueño (2026-09-25)**; la 36 con aviso claro a quien propuso primero. |
 | ¿PWA? | Después de la fase 9 | **Aplazada por el dueño (2026-09-24).** Mientras tanto, todo el código nuevo cumple "Listo para web" (§6.5). A favor: sin instalar nada, sirve en iPhone, invitar es un enlace y se evita Play Store. En contra: iOS puede borrar lo guardado sin sincronizar si no se agrega a la pantalla de inicio, y en iPhone los push solo funcionan con la PWA instalada. |
 
 ---

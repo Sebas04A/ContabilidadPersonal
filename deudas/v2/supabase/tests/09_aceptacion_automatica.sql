@@ -529,7 +529,8 @@ SET LOCAL ROLE authenticated;
 
 -- ====================================================================================
 -- 14. Desvincular con un pago por confirmar: queda anulado (vuelve a ser solo de B) y su
---     aviso desaparece; lo acordado sigue; al otro le llega que se rompió el vínculo.
+--     aviso desaparece; lo acordado vuelve a ser normal (decisión 12, 2026-09-25); al
+--     otro le llega que se rompió el vínculo.
 -- ====================================================================================
 SELECT pg_temp.como('B');
 INSERT INTO pagos (id, deudor_id, monto_total, fecha_pago, es_mi_pago) VALUES
@@ -537,11 +538,13 @@ INSERT INTO pagos (id, deudor_id, monto_total, fecha_pago, es_mi_pago) VALUES
 SELECT pg_temp.como('A');
 SELECT is(pg_temp.sin_ver('pago_por_confirmar'), 1, '14. A tiene un pago por confirmar');
 SELECT pg_temp.como('B');
+-- Al desvincular el espejo olvida su origen: se guarda antes.
+INSERT INTO t VALUES ('esp_d9', to_jsonb(pg_temp.espejo('a0000000-0000-0000-0000-0000000000d9')));
 SELECT lives_ok($$SELECT desvincular('f0000000-0000-0000-0000-000000000000')$$, '14. B se desvincula');
 SELECT is(pg_temp.estado('b0000000-0000-0000-0000-0000000000f9'), 'local', '14. el pago por confirmar vuelve a ser solo de B');
-SELECT is(pg_temp.estado('b0000000-0000-0000-0000-0000000000e2'), 'acordada', '14. lo acordado sigue acordado');
+SELECT is(pg_temp.estado('b0000000-0000-0000-0000-0000000000e2'), 'local', '14. lo acordado vuelve a ser normal (decisión 12)');
 SELECT is(pg_temp.sin_ver('desvinculado'), 0, '14. a B no le llega aviso (lo hizo él)');
-SELECT throws_ok(format('SELECT rechazar_fila(%L, %L)', 'deuda', pg_temp.espejo('a0000000-0000-0000-0000-0000000000d9')),
+SELECT throws_ok(format('SELECT rechazar_fila(%L, %L)', 'deuda', (SELECT valor #>> '{}' FROM t WHERE clave = 'esp_d9')),
   '22023', NULL, '14. sin vínculo ya no se rechaza nada');
 SELECT pg_temp.como('A');
 SELECT is(pg_temp.sin_ver('pago_por_confirmar'), 0, '14. a A ya no le queda nada que confirmar');

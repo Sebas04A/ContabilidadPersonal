@@ -86,7 +86,10 @@ INSERT INTO t VALUES ('codigo', to_jsonb(crear_invitacion('a1000000-0000-0000-00
 SELECT set_config('request.jwt.claims', '{"sub":"b0000000-0000-0000-0000-000000000000","role":"authenticated"}', true);
 INSERT INTO t VALUES ('vinculo', to_jsonb(reclamar_invitacion(
   (SELECT valor->>0 FROM t WHERE clave = 'codigo'), 'b1000000-0000-0000-0000-000000000000')));
-SELECT is((SELECT estado_acuerdo FROM deudas WHERE origen_id = 'a0000000-0000-0000-0000-0000000000d2'), 'local',
+-- Desde la decisión 12 (2026-09-25) el espejo ya no recuerda quién lo anotó: se busca por
+-- título, que nació con él.
+SELECT is((SELECT estado_acuerdo FROM deudas
+            WHERE deudor_id = 'b1000000-0000-0000-0000-000000000000' AND titulo = 'Taxi'), 'local',
   'lo acordado en el vínculo roto vuelve a local para conciliarse de nuevo');
 
 SELECT set_config('request.jwt.claims', '{"sub":"a0000000-0000-0000-0000-000000000000","role":"authenticated"}', true);

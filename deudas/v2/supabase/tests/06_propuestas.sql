@@ -4,7 +4,7 @@
 -- los dos. Los números esperados están calculados a mano en los comentarios.
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
-SELECT plan(96);
+SELECT plan(97);
 
 -- ------------------------------------------------------------------------------------
 -- Datos: A (a0…) y B (b0…) vinculados y activos; C (c0…) es un tercero.
@@ -258,8 +258,14 @@ SELECT ok(pg_temp.ok(), '7. verificar_vinculo ok');
 --    A: 28 −14 = 14. B: −37 +14 = −23. Acordado: A 23, B −23.
 -- ====================================================================================
 INSERT INTO t VALUES ('c8a', proponer_cambio('deuda', 'a0000000-0000-0000-0000-0000000000d7', 'editar', '{"monto": 5}'));
-SELECT throws_ok($$SELECT proponer_cambio('deuda', 'a0000000-0000-0000-0000-0000000000d7', 'editar', '{"monto": 6}')$$,
-  '23505', NULL, '8. una sola propuesta de cambio pendiente por fila');
+-- Decisión 17 (2026-09-25): pueden convivir varios cambios sobre la misma fila. A retira
+-- el segundo para que el escenario siga igual.
+INSERT INTO t VALUES ('c8_2', proponer_cambio('deuda', 'a0000000-0000-0000-0000-0000000000d7', 'editar', '{"monto": 6}'));
+SELECT is((SELECT count(*)::int FROM propuestas
+            WHERE fila_origen = 'a0000000-0000-0000-0000-0000000000d7' AND tipo = 'editar' AND estado = 'pendiente'),
+  2, '8. dos cambios pendientes sobre la misma fila conviven (decisión 17)');
+SELECT lives_ok($$SELECT anular_propuesta((SELECT (valor ->> 'propuesta_id')::uuid FROM t WHERE clave = 'c8_2'))$$,
+  '8. A retira el segundo');
 SELECT pg_temp.como('B');
 SELECT lives_ok($$SELECT rechazar_propuesta((SELECT (valor ->> 'propuesta_id')::uuid FROM t WHERE clave = 'c8a'))$$,
   '8. B rechaza el cambio');

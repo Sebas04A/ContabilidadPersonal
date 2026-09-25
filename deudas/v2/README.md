@@ -38,7 +38,7 @@ importar. Las credenciales de arriba son **solo del stack local**.
 ## Probar
 
 ```bash
-env -C deudas/v2 ~/.local/bin/supabase test db              # pgTAP: RLS, RPC, vínculos, conciliación, propuestas, fases 7, 8 y 9 (714)
+env -C deudas/v2 ~/.local/bin/supabase test db              # pgTAP: RLS, RPC, vínculos, conciliación, propuestas, fases 7, 8 y 9 y decisiones del dueño (750)
 $PY scripts/v2/probar_rpc_v2.py --destino local             # pruebas end-to-end de v1, como usuario de prueba
 $PY scripts/v2/probar_concurrencia_propuestas.py            # fases 6 y 8: dos sesiones a la vez (y cuenta deadlocks)
 $PY scripts/v2/probar_fase7.py                              # fase 7: exportar, límites, borrar la cuenta

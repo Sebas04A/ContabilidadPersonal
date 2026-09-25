@@ -1,8 +1,9 @@
 -- Fase 9: borrar un grupo entero y los grupos que se quedan sin nadie con app
--- (20260924190000_grupos_sin_nadie.sql).
+-- (20260924190000_grupos_sin_nadie.sql), y los 30 días de gracia de la decisión 34
+-- (20260925100000_decisiones_dueno.sql).
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
-SELECT plan(14);
+SELECT plan(21);
 
 -- Ana (A) y Beto (B) tienen la app; Dani es una persona sin app.
 INSERT INTO auth.users (id, email, aud, role, raw_user_meta_data) VALUES
@@ -86,7 +87,8 @@ SELECT is(pg_temp.cuantos('91000000-0000-0000-0000-000000000001'), '1 grupo, 3 m
 SET CONSTRAINTS ALL DEFERRED;
 
 -- ------------------------------------------------------------------------------------
--- 2. Borrar cuentas: el grupo se va cuando no queda ninguna cuenta con app en él.
+-- 2. Borrar cuentas: cuando no queda ninguna cuenta con app, el grupo espera 30 días
+--    (decisión 34) y después se va.
 -- ------------------------------------------------------------------------------------
 DELETE FROM auth.users WHERE id = 'a0000000-0000-0000-0000-000000000000';
 SELECT is(pg_temp.cuantos('91000000-0000-0000-0000-000000000001'), '1 grupo, 3 miembros, 1 gastos, 1 pagos, 1 lápidas',
@@ -96,12 +98,29 @@ SELECT is((SELECT usuario_id IS NULL FROM grupo_miembros WHERE id = pg_temp.m('9
 SELECT is((SELECT count(*)::int FROM borrados_gastos WHERE grupo_id = '91000000-0000-0000-0000-000000000002'), 0,
   '2. las lápidas del grupo 2, que ya no existe, se limpian con cualquier cuenta que se borre');
 
+SELECT is((SELECT sin_nadie_desde FROM grupos WHERE id = '91000000-0000-0000-0000-000000000001'), NULL,
+  '2. con Beto todavía, el grupo no está marcado');
+
 DELETE FROM auth.users WHERE id = 'b0000000-0000-0000-0000-000000000000';
+SELECT is(pg_temp.cuantos('91000000-0000-0000-0000-000000000001'), '1 grupo, 3 miembros, 1 gastos, 1 pagos, 1 lápidas',
+  '2. control negativo (34): se borra Beto, la última cuenta → el grupo NO se va en el acto');
+SELECT ok((SELECT sin_nadie_desde FROM grupos WHERE id = '91000000-0000-0000-0000-000000000001') IS NOT NULL,
+  '2. queda marcado desde cuándo no tiene a nadie');
+
+SELECT is(_purgar_grupos_sin_nadie(), 0, '2. recién marcado, la purga no lo toca');
+UPDATE grupos SET sin_nadie_desde = now() - interval '29 days'
+ WHERE id = '91000000-0000-0000-0000-000000000001';
+SELECT is(_purgar_grupos_sin_nadie(), 0, '2. ni a los 29 días');
+UPDATE grupos SET sin_nadie_desde = now() - interval '31 days'
+ WHERE id = '91000000-0000-0000-0000-000000000001';
+SELECT is(_purgar_grupos_sin_nadie(), 1, '2. a los 31 días la purga lo borra');
 SELECT is(pg_temp.cuantos('91000000-0000-0000-0000-000000000001'), '0 grupo, 0 miembros, 0 gastos, 0 pagos, 0 lápidas',
-  '2. se borra Beto, la última cuenta → el grupo se va con todo y sus lápidas');
+  '2. con todo y sus lápidas');
 SELECT is((SELECT count(*)::int FROM borrados_gastos WHERE grupo_id IS NOT NULL), 0,
   '2. y las lápidas de grupos que ya no existen');
 SELECT lives_ok($$SET CONSTRAINTS ALL IMMEDIATE$$, '2. sin FK rotas');
+SELECT is((SELECT count(*)::int FROM cron.job WHERE jobname = 'purgar-grupos-sin-nadie'), 1,
+  '2. la purga corre a diario (pg_cron)');
 
 SELECT * FROM finish();
 ROLLBACK;

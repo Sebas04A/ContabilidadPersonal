@@ -11,9 +11,9 @@ conciliación vacía). Cada una anota una deuda, que entra sola en la libreta de
   * B prueba un código que no existe: `reclamar_invitacion` responde null, no un error;
   * el visor responde con el token de A y, pasadas las 60 consultas del minuto, da 429;
   * A borra su cuenta (edge `borrar_cuenta`): sin la palabra de confirmación, 400; con
-    ella, la cuenta desaparece, no le quedan lápidas, y B conserva su libreta: lo acordado
-    sigue acordado (su deuda y el espejo de la de A) y el pago que esperaba vuelve a
-    `local`.
+    ella, la cuenta desaparece, no le quedan lápidas, y B conserva su libreta como con una
+    persona sin app (decisión 12, 2026-09-25): lo acordado (su deuda y el espejo de la de
+    A) vuelve a `local` y el pago que esperaba también.
 B se borra al final. Solo contra local, o contra la nube de PRUEBA: crea y borra cuentas.
 Ojo: la prueba del límite deja la IP de esta máquina sin visor durante un minuto.
 """
@@ -120,11 +120,11 @@ def main():
                   "no quedan lápidas de A")
         comprobar(admin.pedir("GET", f"/rest/v1/deudores?select=id&owner_id=eq.{uids['A']}") == [],
                   "ni su libreta")
-        propias = B.pedir("GET", f"/rest/v1/deudas?select=titulo,estado_acuerdo&deudor_id=eq.{deudor_b}"
-                                 "&order=titulo")
-        comprobar(propias == [{"titulo": "Cena", "estado_acuerdo": "acordada"},
-                              {"titulo": "Taxi", "estado_acuerdo": "acordada"}],
-                  "B conserva lo acordado: su deuda y el espejo de la de A")
+        propias = B.pedir("GET", f"/rest/v1/deudas?select=titulo,estado_acuerdo,origen_id"
+                                 f"&deudor_id=eq.{deudor_b}&order=titulo")
+        comprobar(propias == [{"titulo": "Cena", "estado_acuerdo": "local", "origen_id": None},
+                              {"titulo": "Taxi", "estado_acuerdo": "local", "origen_id": None}],
+                  "B conserva su deuda y el espejo de la de A, como con una persona sin app")
         pagos = B.pedir("GET", f"/rest/v1/pagos?select=estado_acuerdo&deudor_id=eq.{deudor_b}")
         comprobar(pagos == [{"estado_acuerdo": "local"}], "y el pago que esperaba vuelve a local")
         comprobar(B.pedir("GET", "/rest/v1/vinculos?select=id") == [], "y ya no tiene vínculo")
