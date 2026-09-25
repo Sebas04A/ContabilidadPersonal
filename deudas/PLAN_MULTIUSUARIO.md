@@ -292,7 +292,7 @@ se firma con la clave de debug de esta máquina) y publicar la política de priv
   marcar de la fase 7; casi todo espera al dueño (bloques A a D).
 - Antes de tocar la base: `supabase start` (§6.3; si dice "already running" con el
   contenedor de la base parado, `supabase stop` y `start`), `supabase test db`
-  → **750/750** en local con `20260925110000_aviso_mismo_cambio.sql` (748 en la nube hasta subirla)
+  → **750/750** en local y en la nube (desde `20260925110000_aviso_mismo_cambio.sql`, subida el 2026-09-25)
   (la nube todavía no la tiene). Apágalo al terminar (escucha en `0.0.0.0` con keys de demostración).
 - La base local tiene los datos reales importados (usuario `dueno@deudas.local`) para las
   comparaciones de regresión; si se hace `db reset`, rehacerlos (`deudas/v2/README.md`).
