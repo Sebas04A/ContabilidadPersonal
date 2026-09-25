@@ -70,11 +70,14 @@ def main():
 
     sql(a.destino, archivo)
 
-    # Comprobación: los conteos del destino tienen que ser los del respaldo.
+    # Comprobación: los conteos del destino tienen que ser los del respaldo. Solo las filas
+    # del dueño: en una base con otras cuentas (el corte, 2026-09-25) la tabla entera no
+    # cuadra nunca.
     cli = Cliente(*conexion(a.destino))
     mal = False
     for tabla in TABLAS:
-        hay = len(cli.tabla(tabla, select="id"))
+        filas = cli.tabla(tabla, select="id,owner_id" if a.owner else "id")
+        hay = sum(1 for f in filas if not a.owner or f["owner_id"] == a.owner)
         ok = hay == conteos[tabla]
         mal |= not ok
         print(f"  {'✓' if ok else '✗'} {tabla:16} {hay:5} (respaldo {conteos[tabla]})")

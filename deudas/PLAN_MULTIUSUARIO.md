@@ -46,7 +46,7 @@
 | 0 | Preparación y réplica local | ✅ hecha | 2026-09-23 | Claude |
 | 1 | Multi-dueño y seguridad (local) | ✅ hecha | 2026-09-23 | Claude |
 | 2 | Clientes contra v2 (proyecto de prueba) | 🟨 casi: falta 2.5 (dispositivo, dueño); 2.3 y pull incremental hechos; Google listo en código | 2026-09-23 | Claude |
-| 3 | Corte: el dueño se muda a v2 | ⬜ pendiente | | |
+| 3 | Corte: el dueño se muda a v2 | 🟨 hecho el corte (3.1–3.7, 2026-09-25): datos en la nube, backend, app y visor en v2; faltan instalar la app en el teléfono del dueño, 3.8 (cerrar la base vieja, con OK), 3.9 y la semana de uso | 2026-09-25 | Claude |
 | 4 | Invitaciones y vínculos | 🟨 adelantada: 4.1–4.3 hechas y en el proyecto v2 de prueba; falta 4.4 (visor/App Link) y probar en 2 celulares | 2026-09-23 | Claude |
 | 5 | Conciliación inicial | 🟨 adelantada: 5.1–5.4 hechas y en el proyecto v2 de prueba; hueco de las filas tardías y revincularse arreglados (2026-09-24); falta probar en celulares | 2026-09-24 | Claude |
 | 6 | Propuestas continuas | 🟨 adelantada: 6.1–6.7 hechas y **en el proyecto v2 de prueba** (2026-09-24, con OK del dueño; 231 tests pgTAP allí); menores hechos (retirar propuesta, historial con estado); falta probar en celulares y la semana de uso real | 2026-09-24 | Claude |
@@ -1983,12 +1983,12 @@ encuentra al mismo deudor en v2.
 **Pasos** (todos el mismo día, en este orden; `PY=contabilidad/backend/.venv/bin/python`,
 todo desde la raíz del repo)
 
-- [ ] **3.1 Congelar v1.**
+- [x] **3.1 Congelar v1.**
       - El dueño abre la app vieja, sincroniza, comprueba en "Estado de sincronización"
         que no queda nada pendiente y **deja de usarla**.
       - El backend de contabilidad se apaga al final de 3.2, para que nadie escriba en v1
         durante el corte.
-- [ ] **3.2 Respaldo y línea base finales** (solo leen producción):
+- [x] **3.2 Respaldo y línea base finales** (solo leen producción):
       ```bash
       $PY scripts/v2/backup_completo.py              # → backups/deudas_v2_origen_<fecha>/
       $PY scripts/v2/capturar_linea_base.py          # → backups/estado_cuenta_baseline_v2_<fecha>/
@@ -1996,21 +1996,21 @@ todo desde la raíz del repo)
       $PY scripts/snapshot_dashboard.py capturar --nombre pre_corte_v2
       ```
       Después apagar el backend.
-- [ ] **3.3 Cuenta real del dueño en v2.** Con su email real y una contraseña que el dueño
+- [x] **3.3 Cuenta real del dueño en v2.** Con su email real y una contraseña que el dueño
       elija (el backend la necesita; en la app puede entrar con magic link igual):
       ```bash
       OWNER=$($PY scripts/v2/crear_usuario.py --destino nube --email <email del dueño> \
                 --clave '<contraseña>' --nombre Sebas)
       ```
       Anotar el UUID en las notas de esta fase.
-- [ ] **3.4 Importar.**
+- [x] **3.4 Importar.**
       ```bash
       $PY scripts/v2/importar.py --origen backups/deudas_v2_origen_<fecha> --destino nube --owner $OWNER
       ```
       Imprime ✓ por tabla si los conteos coinciden con el respaldo. El usuario
       `pruebas@deudas.local` no tiene datos y puede quedarse, porque `probar_rpc_v2.py` lo
       usa.
-- [ ] **3.5 Verificar** (todo tiene que dar 0 diferencias):
+- [x] **3.5 Verificar** (todo tiene que dar 0 diferencias):
       ```bash
       $PY scripts/v2/comparar_linea_base.py backups/estado_cuenta_baseline_v2_<fecha> \
           --destino nube --email <email> --clave '<contraseña>'
@@ -2022,7 +2022,7 @@ todo desde la raíz del repo)
         tiene que existir en v2. Script corto: leer el CSV con pandas, juntar los ids no
         vacíos, pedir `GET /rest/v1/deudas?select=id&id=in.(…)` por tandas de 100 con la
         sesión del dueño y comparar.
-- [ ] **3.6 Cambiar los clientes.**
+- [x] **3.6 Cambiar los clientes.**
       - **Backend de contabilidad:** crear `contabilidad/backend/.env` (ignorado por git)
         con `DEUDAS_SUPABASE_URL`, `DEUDAS_SUPABASE_KEY` (la *publishable* de
         `deudas/v2/.env`), `DEUDAS_EMAIL` y `DEUDAS_PASSWORD` (los de 3.3). Levantar el
@@ -2049,7 +2049,7 @@ todo desde la raíz del repo)
         obsoletos. Sus equivalentes están en `scripts/v2/` (`probar_rpc_v2.py` reutiliza
         los `probar_*`). Los que se sigan usando deben pasar a `contabilidad/debts/cliente.py`
         o a `scripts/v2/_comun.py`.
-- [ ] **3.7 Comprobar el visor publicado** con 2 o 3 tokens reales: el monto y los
+- [x] **3.7 Comprobar el visor publicado** con 2 o 3 tokens reales: el monto y los
       movimientos iguales a los de 3.2.
 - [ ] **3.8 Base vieja de solo escritura cerrada** (**con OK del dueño**). Guardar como
       `deudas/supabase/migrations/<ts>_solo_lectura_post_corte.sql` y aplicarlo con
@@ -2103,7 +2103,34 @@ todo desde la raíz del repo)
 app se puede publicar** en su versión "cada uno con su libreta" (fase 7 para lo mínimo
 legal).
 
-**Notas de ejecución.** *(vacío)*
+**Notas de ejecución (2026-09-25, pedido por el dueño: "Migra mis datos")**
+
+- 3.1: el dueño confirmó la app vieja sincronizada y sin usar.
+- 3.2: `backups/deudas_v2_origen_20260925_130342` (11 deudores, 335 deudas, 41 pagos, 271
+  detalles, 4 + 3 bitácoras), `backups/estado_cuenta_baseline_v2_20260925_130345` (22) y
+  `backups/dashboard_snapshots/pre_corte_v2.json`.
+- 3.3: cuenta `andresebasarcentalesarciniega@gmail.com`, UUID
+  `6c8072b7-680a-46ad-809d-1eab82d4d856`. Contraseña aleatoria generada por el agente, solo
+  en `contabilidad/backend/.env` (modo 600, ignorado por git); en la app se entra con código.
+- 3.4: importado. El chequeo de `importar.py` contaba la tabla entera y en la nube hay otras
+  cuentas (pruebas y la mamá): daba ✗ con los datos bien. Ahora cuenta solo las filas del
+  `--owner`; la segunda corrida (idempotente) dio ✓ en las 6 tablas.
+- 3.5: `comparar_linea_base` 22/22 sin diferencias; `comparar_edges` igual que producción.
+  De `etiquetas.csv`: 129 `deuda_id` y 5 `pago_id`; falta uno,
+  `c081007b-7897-4865-9f03-d0a2aeec3984` ("Uber cromos", Ñaña, 2 filas), que **tampoco
+  existe en v1**: referencia rota de antes del corte, no de la migración.
+- 3.6: backend con `.env` → "Deudas: sesión iniciada como …" y
+  `snapshot_dashboard comparar` **IDÉNTICO**. `app_deudas`: `config.dart` con v2 por
+  defecto (`5ca26a1`, versión `1.0.0+5`), `main` adelantado a `v2` y los dos subidos. La
+  release sin defines se probó en el emulador (abre v2 y sincroniza):
+  `build/app/outputs/flutter-apk/Deudas-v2.apk` (arm64, versionCode 2005, clave de debug de
+  esta máquina: se instala encima de la v1 del dueño y de la de la mamá). Visor: `v2`
+  (`640fc45`) publicado en `main`; `visor-deudas.vercel.app` ya sirve la versión v2.
+- 3.7: la página publicada apunta a v2 y 3 tokens reales responden en la nube (la
+  igualdad con producción la probó `comparar_edges`).
+- **Falta:** que el dueño instale la APK en su teléfono (si el correo trae un enlace y no
+  el código, correr `config push`: §6.4), 3.8 (con su OK), 3.9 y 3.10 (`deudas/README.md`
+  está fuera de las rutas de v2: se actualiza en la rama del dueño).
 
 ---
 
