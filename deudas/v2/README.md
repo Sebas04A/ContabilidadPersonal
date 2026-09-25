@@ -38,10 +38,11 @@ importar. Las credenciales de arriba son **solo del stack local**.
 ## Probar
 
 ```bash
-env -C deudas/v2 ~/.local/bin/supabase test db              # pgTAP: RLS, RPC, vínculos, conciliación, propuestas, fase 7 y 8 (398)
+env -C deudas/v2 ~/.local/bin/supabase test db              # pgTAP: RLS, RPC, vínculos, conciliación, propuestas, fases 7, 8 y 9 (714)
 $PY scripts/v2/probar_rpc_v2.py --destino local             # pruebas end-to-end de v1, como usuario de prueba
 $PY scripts/v2/probar_concurrencia_propuestas.py            # fases 6 y 8: dos sesiones a la vez (y cuenta deadlocks)
 $PY scripts/v2/probar_fase7.py                              # fase 7: exportar, límites, borrar la cuenta
+$PY scripts/v2/probar_grupos.py                             # fase 9: un grupo con 3 cuentas; los saldos de los tres cuadran
 $PY scripts/v2/comparar_edges.py --destino local --email dueno@deudas.local --clave dueno-local-123
 ```
 
@@ -93,6 +94,7 @@ Borrador de la política de privacidad (fase 7.2, sin publicar): [`POLITICA_PRIV
 | `medir_conciliacion.py --email --clave` | Mide los pares de `candidatos_conciliacion` con un deudor real (solo local) |
 | `probar_concurrencia_propuestas.py [--destino …] [--rondas N] [--semilla S] [--conservar]` | Dos cuentas temporales vinculadas anotan, se pagan, rechazan, proponen cambios y responden a la vez; comprueba la invariante, el cuadre de las dos libretas y que no haya deadlocks (`pg_stat_database`, porque PostgREST los reintenta sin avisar) |
 | `probar_fase7.py [--destino …]` | Fase 7 por la API real: exportar, canje con código malo (null), límite del visor y borrar la cuenta. Crea y borra dos cuentas |
+| `probar_grupos.py [--destino …]` | Fase 9B por la API real: tres cuentas y una persona sin app en un grupo, gastos, un rechazo de parte, pagos confirmados, por confirmar y rechazados, y salir; en cada paso los tres ven los mismos saldos. Crea y borra las cuentas (el grupo se va con la última) |
 | `rama_v2.sh estado\|commitear <mensaje>` | Commitea lo de v2 en la rama `feat/deudas-v2` sin cambiar de rama (el dueño trabaja en otra). Ver `../PLAN_MULTIUSUARIO.md` §0.4 E |
 | `verificar_vinculos.py [--destino …]` | `verificar_vinculo()` sobre todos los vínculos vivos, con la key de servicio. Sale con 1 si alguno no cuadra |
 

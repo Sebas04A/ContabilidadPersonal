@@ -7,7 +7,7 @@
 > derecho) y publicarlo en una URL pública (p. ej. en el visor: `/privacidad`), que es lo
 > que pide la ficha de Play Store. Lo técnico de abajo describe cómo funciona hoy v2.
 
-**Última actualización:** 2026-09-24
+**Última actualización:** 2026-09-24 (se sumaron los gastos divididos y los grupos, fase 9)
 
 ## 1. Quién es responsable de tus datos
 
@@ -22,6 +22,8 @@ privacidad: **andresebasarcentalesarciniega@gmail.com**.
 | Nombre de perfil | Que tus contactos vinculados sepan quién les propone algo | Lo das al registrarte (o se toma del correo) |
 | Tu libreta: contactos, deudas, pagos, notas y títulos | Llevar tus cuentas; es la función de la app | Lo anotas tú |
 | Invitaciones, vínculos y propuestas | Ponerte de acuerdo con un contacto que también usa la app | Se crean cuando invitas, aceptas o respondes |
+| Gastos divididos | Repartir una cuenta entre varios: quién pagó y cuánto le toca a cada uno | Lo anotas tú (o un miembro de tu grupo) |
+| Grupos: nombre, miembros (tu nombre de perfil o el nombre de una persona sin app), gastos y pagos del grupo | Llevar las cuentas compartidas de un viaje, una casa, etc. | Lo anotan los miembros del grupo |
 | IP de quien abre un enlace del visor, **cifrada con SHA-256** y borrada a la hora | Frenar abusos (límite de consultas por minuto) | La conexión |
 | Intentos fallidos de canjear un código de invitación (sin el código) | Frenar a quien prueba códigos al azar | La conexión |
 
@@ -38,6 +40,10 @@ otras personas. Eres responsable de anotarlos con su conocimiento.
   le propones: monto, fecha, dirección y el título o nota de esa fila. Durante la
   conciliación inicial ve el monto, la fecha y la dirección de tu historial con él, **no**
   tus títulos.
+- **En un grupo, todos sus miembros con la app** ven todos los gastos, pagos y saldos del
+  grupo (también los de pares en los que no estás) y los nombres de sus miembros. Quien
+  deja el grupo deja de verlo. Lo que anotas en un grupo no pasa a tu libreta ni a la de
+  nadie.
 - **El enlace del visor** que compartes con un contacto muestra a quien lo tenga el estado
   de cuenta con ese contacto. Puedes cambiar el enlace (el anterior deja de funcionar).
 - **Proveedores:** la app guarda los datos en Supabase ([supabase.com](https://supabase.com)),
@@ -52,13 +58,18 @@ Las copias de seguridad del proveedor se renuevan en 7 días (según el plan de 
 Lo que un contacto vinculado ya aceptó está también en **su** libreta (como copia con la
 dirección invertida) y es suyo: borrar tu cuenta no lo borra de la suya.
 
+En cada grupo en el que estás, al borrar tu cuenta tu lugar queda como el de una persona sin
+la app, con tu nombre, para que las cuentas de los demás no cambien. Un grupo en el que ya
+no queda nadie con la app se borra entero.
+
 ## 5. Tus derechos
 
 Según la LOPDP tienes derecho de acceso, rectificación, eliminación, oposición,
 portabilidad y a no ser objeto de decisiones automatizadas. En la app:
 
 - **Acceso y portabilidad:** menú ⋮ → **"Exportar mis datos"** te da toda tu libreta en un
-  archivo JSON.
+  archivo JSON, con tus gastos divididos y los grupos en los que estás (sus gastos y
+  pagos).
 - **Rectificación:** puedes editar cualquier fila tuya. Lo que ya acordaste con un contacto
   se cambia proponiéndoselo.
 - **Eliminación:** menú ⋮ → **"Borrar mi cuenta"**. Se borra tu cuenta y toda tu libreta;

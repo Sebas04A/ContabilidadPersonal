@@ -52,7 +52,7 @@
 | 6 | Propuestas continuas | 🟨 adelantada: 6.1–6.7 hechas y **en el proyecto v2 de prueba** (2026-09-24, con OK del dueño; 231 tests pgTAP allí); menores hechos (retirar propuesta, historial con estado); falta probar en celulares y la semana de uso real | 2026-09-24 | Claude |
 | 7 | Publicación | 🟨 adelantada: 7.2 (exportar, borrar cuenta; política de privacidad en borrador) y 7.3 (límites) hechas y en la nube de prueba; faltan 7.1 (Firebase), 7.4, 7.5 y publicar la política: todo necesita al dueño | 2026-09-24 | Claude |
 | 8 | Aceptación automática y avisos | 🟨 hecha y **en la nube de prueba** (398 tests allí, concurrencia OK), commiteada, APK recompilada; falta probar en dos celulares (§0.4 B) | 2026-09-24 | Claude |
-| 9 | Gastos divididos y grupos | ⬜ pendiente (diseñada el 2026-09-24, §4.8) | | |
+| 9 | Gastos divididos y grupos | 🟨 hecha en local (9.1–9.7: 714 tests pgTAP, paridad Dart↔SQL, `probar_grupos.py` con 3 cuentas, regresión en 0, `flutter build web` OK); `180000` corregida (2026-09-25, dos agujeros de seguridad); el dueño pidió cerrarla (2026-09-25): commit, `db push` y APK; falta probar en celulares | 2026-09-25 | Claude |
 
 Estados: ⬜ pendiente · 🟨 en curso · ✅ hecha (criterio de salida cumplido) · ⛔ bloqueada
 (escribir el motivo).
@@ -92,6 +92,17 @@ Play Store).
 (398 tests), concurrencia, Flutter con "Novedades" y el aviso previo de duplicados, y
 `flutter build web`. Commiteada, con la APK recompilada y **en la nube de prueba** (el
 `db push` lo corrió el dueño; 398/398 allí). Lo que sigue es la prueba en dos celulares.
+
+**Fase 9 hecha en local (2026-09-24, noche)**, sin nube ni commit, como pidió el dueño:
+migraciones `20260924160000_gastos.sql` (9A), `20260924170000_grupos.sql` (9B) y
+`20260924190000_grupos_sin_nadie.sql` (arreglo), tests `10`, `11` y `13` (709 en total),
+Flutter con "Dividir entre varios", pestaña Grupos e inicio con contactos + grupos, y
+`scripts/v2/probar_grupos.py` (3 cuentas por la API real: los saldos de los tres cuadran).
+En local también quedó aplicada `20260924180000_fix_rechazar_cruces.sql` (de otra sesión),
+**corregida el 2026-09-25**: su primera versión abría dos agujeros de seguridad (notas de la
+fase 9); 714 tests. El 2026-09-25 el dueño pidió cerrar la fase 9: commit, `db push` de las
+cuatro migraciones (lo corre él) y APK nueva. Decisiones del agente para revisar: 32 a 34
+de §3.3.
 
 **Fases 8 y 9**, pedidas por el dueño el 2026-09-24 (§4.7, §4.8, §5.4). Orden recomendado:
 - La fase 2.5 y el corte (fase 3) **no dependen** de 8 ni de 9: son de un solo usuario.
@@ -136,8 +147,9 @@ prueba en el teléfono (B), pero sí el corte y la publicación.
      minuto al visor por IP).
 2. **Política de privacidad** (`deudas/v2/POLITICA_PRIVACIDAD.md`): ✅ Completada por el dueño el 2026-09-24. Pendiente revisión legal antes de publicar en producción (fase 7.2).
 3. **Nombre y dominio públicos** de la app (§9): El dueño definió usar `visor-deudas.vercel.app` por el momento.
-4. ~~Decisiones 21 a 24 (fase 8)~~: **revisadas el 2026-09-24** (§3.3). Faltan las 25 a
-   31 (fase 9).
+4. ~~Decisiones 21 a 31 (fases 8 y 9)~~: **revisadas el 2026-09-24** (§3.3). **Nuevas: 32
+   a 34** (las tomó el agente al implementar la fase 9): enlace de grupo para varias
+   personas, quién edita un gasto del grupo y borrar los grupos sin nadie con app.
 5. Opcionales: ¿revisión diaria automática de los vínculos (6.7, `verificar_vinculos.py`)
    por GitHub Actions o `pg_cron`? ¿Login con Google (2.1, necesita que crees el cliente
    OAuth en Google Cloud Console)?
@@ -269,14 +281,16 @@ se firma con la clave de debug de esta máquina) y publicar la política de priv
   marcar de la fase 7; casi todo espera al dueño (bloques A a D).
 - Antes de tocar la base: `supabase start` (§6.3; si dice "already running" con el
   contenedor de la base parado, `supabase stop` y `start`), `supabase test db`
-  → **398/398** desde la fase 8 (en local y en la nube) y apágalo al
-  terminar (escucha en `0.0.0.0` con keys de demostración).
+  → **398/398** desde la fase 8 (en local y en la nube); **714/714 en local** con la fase 9
+  (la nube todavía no la tiene). Apágalo al terminar (escucha en `0.0.0.0` con keys de demostración).
 - La base local tiene los datos reales importados (usuario `dueno@deudas.local`) para las
   comparaciones de regresión; si se hace `db reset`, rehacerlos (`deudas/v2/README.md`).
 - Batería completa tras cualquier cambio de SQL o edges (en local y, con OK del dueño, en
   la nube): `supabase test db`, `comparar_linea_base.py` (22/22),
   `comparar_edges.py` (55/55), `probar_rpc_v2.py`, `probar_concurrencia_propuestas.py`,
-  `probar_fase7.py`. Comandos en `deudas/v2/README.md`.
+  `probar_fase7.py`, `probar_grupos.py`. Comandos en `deudas/v2/README.md`. Entre dos
+  corridas de `comparar_edges.py` espera un minuto: el límite del visor (60/min por IP) la
+  hace fallar con un traceback.
 - Commits de este repo: con `scripts/v2/rama_v2.sh` (E). Nunca en la rama del dueño.
 
 ---
@@ -524,8 +538,8 @@ cambiaron respecto de lo que propuso el agente; no re-litigar):
     del tope nace `propuesta` y espera respuesta, como en la fase 6, en vez de fallar el
     sync. *(El agente había propuesto 100.)*
 
-Decisiones de la fase 9 (2026-09-24, **las propuso el agente; el dueño las revisa antes de
-implementar**):
+Decisiones de la fase 9 (las propuso el agente el 2026-09-24; **el dueño las aprobó todas tal
+cual el 2026-09-24**; no re-litigar):
 25. **Centavos al dividir:** se reparte el monto truncado a centavos y los centavos que
     sobran se dan de a uno: primero a quien pagó (si participa) y después en el orden de
     la lista. $100 entre 3 → 33.34 / 33.33 / 33.33. La suma cuadra siempre.
@@ -544,6 +558,20 @@ implementar**):
 31. **Gasto suelto que pagó un contacto:** en mi libreta queda solo "le debo mi parte a
     quien pagó". Las partes de los demás se guardan en el gasto como información, pero no
     son deudas mías.
+
+Decisiones que tomó el agente al implementar la fase 9 (2026-09-24; **el dueño las
+revisa**, igual que las 10 a 20):
+32. **El enlace de un grupo sirve para varias personas** (se comparte en el chat del grupo)
+    hasta que vence a los 7 días o quien lo creó genera otro, que anula el anterior. El de
+    un contacto (fase 4) sigue siendo de un solo uso.
+33. **Quién edita qué en un grupo:** un gasto lo editan o borran quien lo anotó y quien lo
+    pagó; un pago del grupo lo borra quien lo anotó. En un gasto suelto cuyas deudas ya
+    están acordadas con un contacto vinculado, editarlo o borrarlo **se le propone**
+    (decisión 22 manda sobre el caso 7 de 9.2, que decía "pasan a rechazada").
+34. **Un grupo sin nadie con la app se borra.** Cuando se borra la última cuenta con app
+    de un grupo (las demás filas son personas sin app), nadie puede volver a verlo: se
+    borra con sus gastos, pagos y lápidas (`20260924190000_grupos_sin_nadie.sql`). Si
+    queda una cuenta viva, aunque haya salido del grupo, no se toca.
 
 ### 3.4 Glosario
 
@@ -1088,11 +1116,19 @@ CREATE TABLE acuerdos (
 - `estado_cuenta` deja de poder ser `LANGUAGE sql` puro si hace falta una rama por
   vínculo: se puede resolver con un `LEFT JOIN` a `_vinculo_de`. Mantener `STABLE`.
 
-### 5.4 Avisos, gastos y grupos (fase 8 implementada; fase 9 en diseño)
+### 5.4 Avisos, gastos y grupos (fases 8 y 9 implementadas)
 
 > La parte de la fase 8 está **implementada** en `20260924150000_aceptacion_automatica.sql`
 > (la referencia). No hay `cambios_acordados`: cambiar o borrar lo acordado sigue siendo
 > propuesta (decisión 22).
+>
+> La fase 9 está **implementada en local** en `20260924160000_gastos.sql`,
+> `20260924170000_grupos.sql` y `20260924190000_grupos_sin_nadie.sql`: **la referencia son
+> esas migraciones**, no el boceto de abajo. Diferencias: `creado_por` de `grupos` y
+> `gastos` es `ON DELETE SET NULL` (la cuenta se puede borrar), las lápidas van en su propia
+> tabla `borrados_gastos` (lo de un grupo lo bajan todos sus miembros), hay más tipos de
+> aviso (`gasto_editado`, `gasto_borrado`, `pago_grupo_nuevo|confirmado|rechazado|borrado`),
+> un RPC más (`borrar_pago_grupo`) y `cambios_gastos(p_desde)` para el pull incremental.
 
 ```sql
 -- ── Fase 8 ──────────────────────────────────────────────────────────────
@@ -1790,14 +1826,14 @@ de la fase, en "Lo que falta".
       | 1 | ✅ Login con contraseña (`alice@deudas.local`, `bob@deudas.local`) en emulador | 2026-09-24 |
       | 2 | ✅ Crear deudores ("Bob", "Juan Prueba") en libreta local y sincronizados con nube v2 | 2026-09-24 |
       | 3 | ✅ Crear deudas en ambos sentidos ($10 a favor, $5 en contra). Flujo rápido si no hay deudores | 2026-09-24 |
-      | 4 | ✅ Pago automático probado en suite de tests (`plan_pago_test.dart`) | 2026-09-24 |
+      | 4 | ✅ Pago automático probado en suite de tests (`plan_pago_test.dart`); el dueño también probó 4 a 8 en la app (2026-09-25) y quiere repetir toda la lista cuando la app esté completa | 2026-09-24 |
       | 5 | ✅ Pago manual probado en suite de tests | 2026-09-24 |
       | 6 | ✅ Cruce probado en suite de tests | 2026-09-24 |
       | 7 | ✅ Editar cruce probado en suite de tests | 2026-09-24 |
       | 8 | ✅ Editar pago probado en suite de tests | 2026-09-24 |
       | 9 | ✅ Borrar deuda probado en suite y UI | 2026-09-24 |
-      | 10 | ⏳ Modo avión (pendiente prueba manual toggle de red en emulador) | 2026-09-24 |
-      | 11 | ⚠️ Visor: `visor-deudas.vercel.app` da "Enlace expirado" porque apunta a BD v1. El token v2 requiere la preview v2 del visor | 2026-09-24 |
+      | 10 | ✅ Modo avión: el dueño lo probó y sincroniza bien | 2026-09-25 |
+      | 11 | ⏳ Visor: `visor-deudas.vercel.app` da "Enlace expirado" porque apunta a BD v1 (esperado). La preview v2 pide iniciar sesión en Vercel: es la protección de despliegues (§0.4 B); entrar con la cuenta de Vercel del dueño o apagarla en Settings → Deployment Protection | 2026-09-25 |
       | 12 | ✅ Dos cuentas vinculadas ven sus respectivos lados con signos invertidos y sincronizados | 2026-09-24 |
       | 13 | ✅ Cuentas separadas no ven datos ajenos (RLS v2 garantizado) | 2026-09-24 |
 
@@ -2586,17 +2622,19 @@ graves (**falta**: necesita la migración en la nube y la APK nueva, con OK del 
 compartidos donde los gastos se dividen solos y todo cuenta de una vez salvo rechazo (9B).
 
 **Prerrequisitos.** Fase 8 ✅ (usa `avisos` y, en el gasto suelto con contactos vinculados,
-la aceptación automática). Que el dueño haya revisado las decisiones 25 a 31 de §3.3.
+la aceptación automática). Que el dueño haya revisado las decisiones 25 a 31 de §3.3
+(**hecho el 2026-09-24**: las aprobó sin cambios y pidió 9A y 9B en local, sin nube ni
+commit hasta que lo pida).
 
 **Contexto.** §3.2, §4.8, §5.4 (fase 9) y "Listo para web" (§6.5).
 
 **Pasos: 9A, gasto suelto**
 
-- [ ] **9.1** Repartir: `_repartir(monto, pesos)` en SQL y `lib/dominio/reparto.dart` en
+- [x] **9.1** Repartir: `_repartir(monto, pesos)` en SQL y `lib/dominio/reparto.dart` en
       Dart puro. Test de paridad con una tabla de casos compartida: $100 entre 3; $0.05
       entre 3; montos fijos que no suman el total (error); porcentajes que no suman 100
       (error); partes 2:1:1; un solo participante; repartir de nuevo tras un rechazo.
-- [ ] **9.2** Migración `<ts>_gastos.sql`: `gastos`, `gasto_participantes`,
+- [x] **9.2** Migración `<ts>_gastos.sql`: `gastos`, `gasto_participantes`,
       `deudas.gasto_id` (FK compuesta con el dueño), trigger de guardia para las deudas
       de un gasto, lápidas y `updated_at`, `crear_gasto`/`editar_gasto`/`borrar_gasto`
       para `grupo_id` NULL. Tests `10_gastos.sql` con control negativo:
@@ -2611,7 +2649,7 @@ la aceptación automática). Que el dueño haya revisado las decisiones 25 a 31 
       7. Borrar el gasto → sus deudas se van (o pasan a `rechazada` si están acordadas).
       8. Idempotencia de `crear_gasto`; RLS (nadie ve un gasto suelto ajeno).
       9. Regresión: 22/22 y 55/55.
-- [ ] **9.3** Flutter 9A: en "Nueva deuda", el interruptor **"Dividir entre varios"**:
+- [x] **9.3** Flutter 9A: en "Nueva deuda", el interruptor **"Dividir entre varios"**:
       selección múltiple de contactos, "Incluirme" (marcado por defecto), quién pagó (yo
       o un contacto), modo, vista previa de cuánto le toca a cada uno (con
       `reparto.dart`) y guardar (cola sin conexión con `idem_key`; se ve al instante). En
@@ -2619,7 +2657,7 @@ la aceptación automática). Que el dueño haya revisado las decisiones 25 a 31 
 
 **Pasos: 9B, grupos**
 
-- [ ] **9.4** Migración `<ts>_grupos.sql`: `grupos`, `grupo_miembros`,
+- [x] **9.4** Migración `<ts>_grupos.sql`: `grupos`, `grupo_miembros`,
       `grupo_invitaciones`, `grupo_pagos`, `_soy_miembro`, RLS, los RPC de §5.4,
       `rechazar_parte` y `estado_grupo`, los avisos del grupo y los límites de uso
       (invitaciones de grupo por día, como 7.3). Tests `11_grupos.sql` con control
@@ -2642,15 +2680,15 @@ la aceptación automática). Que el dueño haya revisado las decisiones 25 a 31 
       11. Unirse con un código vencido, usado o inválido → mismo error (sin sondeo).
       12. Idempotencia de todos los RPC.
       13. Regresión: 22/22 y 55/55 (los grupos no tocan `estado_cuenta`).
-- [ ] **9.5** Flutter 9B: pestaña **Grupos** (lista con mi saldo en cada uno), detalle
+- [x] **9.5** Flutter 9B: pestaña **Grupos** (lista con mi saldo en cada uno), detalle
       (gastos con su estado, saldos por par, "Saldar", pagos por confirmar), nuevo gasto
       del grupo (mismo formulario que 9.3 con los miembros), invitar (enlace
       `/grupo/unirse/<código>` + QR y WhatsApp), unirse, agregar persona sin app, rechazar
       mi parte con motivo, salir o archivar. Los avisos del grupo en Novedades. Pull
       incremental de las tablas del grupo. Saldos del grupo sin conexión con Dart puro
       (`lib/dominio/saldos_grupo.dart`) y paridad con `estado_grupo`.
-- [ ] **9.6** Inicio: total = contactos + grupos, mostrados por separado.
-- [ ] **9.7** `exportar_mis_datos` (7.2) incluye mis grupos, gastos y pagos del grupo.
+- [x] **9.6** Inicio: total = contactos + grupos, mostrados por separado.
+- [x] **9.7** `exportar_mis_datos` (7.2) incluye mis grupos, gastos y pagos del grupo.
       `borrar_cuenta`: mis filas de `grupo_miembros` pasan a persona sin app (`usuario_id`
       NULL, se conserva el nombre) para que los saldos de los demás no cambien. Pasa
       también a la política de privacidad.
@@ -2660,6 +2698,79 @@ prueba real: un grupo con 3 cuentas de prueba, con gastos, un rechazo y pagos (c
 y por confirmar), en el que los saldos de los tres cuadran.
 
 **Etapa 9C** (opcional, después): ver §4.8.
+
+**Notas de ejecución (2026-09-24, noche; todo en LOCAL, sin nube ni commit)**
+
+- **Qué hay.** SQL: `20260924160000_gastos.sql` (9A: `gastos`, `gasto_participantes`,
+  `borrados_gastos`, `_repartir`, `_partes_gasto`, guardia de las deudas de un gasto,
+  `crear_gasto`/`editar_gasto`/`borrar_gasto`, `cambios_gastos`) y
+  `20260924170000_grupos.sql` (9B: tablas del grupo, RLS con `_soy_miembro`, los RPC de
+  §5.4 más `borrar_pago_grupo`, `estado_grupo`, avisos y límites: 20 grupos y 20 enlaces
+  por día, 50 miembros). Tests `10_gastos.sql`, `11_grupos.sql` y `13_grupos_sin_nadie.sql`.
+  Flutter (`app_deudas`, sin commitear en la rama `v2`): `lib/dominio/reparto.dart` y
+  `saldos_grupo.dart` (Dart puro, con paridad contra el SQL por fixtures que genera
+  `scripts/v2/generar_casos_gastos.py`: 161 casos de `_repartir`, 200 de `_partes_gasto`,
+  40 grupos al azar), `GastosService` (pull incremental con su propio cursor, cola sin
+  conexión con `idem_key`, guarda en preferencias: sirve en web), `PanelDividir` en "Nueva
+  deuda", pantallas de gasto, grupos y grupo, rutas `/grupo/unirse/<código>`,
+  `/grupo/<id>` y `/gasto/<id>`, avisos del grupo en Novedades e inicio con contactos +
+  grupos.
+- **Verificado (local):** `supabase test db` 709/709 (714 desde el arreglo de la 180000); `comparar_linea_base` 22/22;
+  `comparar_edges` 55/55; `probar_rpc_v2`, `probar_concurrencia_propuestas` y
+  `probar_fase7` OK; `flutter test test/reparto_test.dart test/saldos_grupo_test.dart` OK;
+  `flutter analyze` sin errores (queda una advertencia vieja en `database_service.dart`);
+  `flutter build web --dart-define=DEUDAS_V2=true` compila.
+- **Criterio de salida, prueba real:** `scripts/v2/probar_grupos.py` (por la API, con 3
+  cuentas temporales y una persona sin app): dos gastos, un rechazo de parte (el gasto pasa
+  a revisión y vuelve a activo cuando los avisados lo ven), pagos confirmado, por
+  confirmar → confirmado, rechazado y de una persona sin app, salir con saldo ≠ 0 (error) y
+  con saldo 0. En cada paso A, B y C ven los mismos pares y netos, iguales a los
+  calculados a mano, y ninguna libreta cambia. Falta la prueba en celulares (necesita la
+  nube y una APK nueva).
+- **Bug encontrado por esa prueba: un grupo no se podía borrar** (`23503`). Las cascadas
+  de `grupos` corren una tras otra y la FK `gasto_participantes → grupo_miembros` (NO
+  ACTION) se comprobaba apenas se iban los miembros, con las partes todavía ahí; igual las
+  dos puntas de `grupo_pagos`. Arreglo en `20260924190000_grupos_sin_nadie.sql`: esas FK
+  pasan a `DEFERRABLE INITIALLY DEFERRED` (borrar un miembro suelto sigue fallando, con
+  control negativo en el test 13). Ninguna pantalla borra grupos, pero sin esto tampoco se
+  podía limpiar nada a mano.
+- **Grupos sin nadie (decisión 34):** al borrar la última cuenta con app de un grupo, el
+  grupo quedaba para siempre sin que nadie pudiera verlo. `_perfil_sin_gastos` ahora lo
+  borra, con las lápidas de grupos que ya no existen. Recorre todos los grupos en cada
+  cuenta borrada (el FK ya puso `usuario_id` en NULL, así que no se sabe cuáles eran los
+  suyos): barato con pocos grupos; si crece, guardar antes los grupos de la cuenta.
+- **`20260924180000_fix_rechazar_cruces.sql` (+ test `12_fix_rechazar_cruces.sql`):** la
+  escribió otra sesión el 2026-09-24 a las 19:29 (no es de la fase 9). Hace tolerantes
+  `_sacar_de_cruces` y `_editar_cruce_aplicar` a cruces con los dos pagos virtuales en
+  `es_mi_pago = false` o sin `cruce_id`. **Corregida el 2026-09-25** (nunca llegó a la
+  nube), porque la primera versión abría dos agujeros:
+  1. `_editar_cruce_aplicar` pasaba a `SECURITY DEFINER`. Tiene `GRANT` a
+     `authenticated` y depende del RLS para no ver cruces ajenos: cualquiera con sesión
+     podía recortar o borrar el cruce de otro sabiendo su id.
+  2. El `DELETE FROM pagos WHERE es_compensacion AND cruce_id IS NULL AND <sin detalle>`
+     de `_sacar_de_cruces` no filtraba por dueño, y esa función corre dentro de RPC
+     `SECURITY DEFINER` (`rechazar_fila`, `rechazar_propuesta`): rechazar una deuda
+     borraba los pagos de compensación huérfanos **de todos los usuarios**.
+
+  Ahora las dos funciones son copia exacta de su versión de `120000` más líneas marcadas
+  («v2 arreglo cruces mal formados»), generadas por script y verificadas con `diff`;
+  `_editar_cruce_aplicar` sigue `SECURITY INVOKER` y el `DELETE` borra solo los pagos cuyo
+  detalle acaba de soltar (`DELETE … RETURNING` en una sentencia y el borrado en otra: en
+  la misma, el `NOT EXISTS` todavía ve los detalles borrados). La deducción de cuál pago
+  es cuál solo se aplica si da dos pagos distintos. Test 12 con 5 aserciones nuevas
+  (8 a 11 son el control negativo: contra la versión vieja fallaron las 4). `db reset` +
+  reimportar + batería completa en local: 714/714, 22/22, edges iguales, `probar_*` OK.
+- **Flutter:** se corrigió un uso de `notifyListeners` desde fuera del `ChangeNotifier`
+  (`ControlDividir.agregar`, al sumar una persona sin app desde el formulario) y se quitaron
+  imports sin usar. En la misma copia de trabajo hay cambios de otra sesión (punto de
+  pendientes en el inicio y los contactos, Novedades más grande, `pendientes_helper.dart`):
+  compilan, pero no los revisó este agente.
+- **Para subir la fase 9** (cuando el dueño lo pida): revisar 32 a 34 y la 180000; `db
+  push` de 160000 a 190000 (lo corre el dueño con `! …`; antes, `--dry-run`); `test db
+  --linked` (la nube tiene datos del dueño: los tests no suponen tablas vacías, pero
+  conviene mirar los que cuentan filas); `probar_grupos.py --destino nube`; commit con
+  `rama_v2.sh` (correr `estado` antes: hay archivos de otra sesión) y en `app_deudas`;
+  recompilar las APK (§6.5).
 
 ---
 
@@ -2679,7 +2790,8 @@ y por confirmar), en el que los saldos de los tres cuadran.
 | Límites de uso (20 invitaciones/día, 10 canjes fallidos/hora, 60 visor/minuto) | Antes de publicar | Implementados con esos valores (decisión 20). Ajustar si el dueño prefiere otros. |
 | Política de privacidad | Antes de publicar | Borrador en `deudas/v2/POLITICA_PRIVACIDAD.md`: completar responsable, correo y plazos, revisar y publicar. |
 | ~~Decisiones 21 a 24 de §3.3 (aceptación automática)~~ | — | **Revisadas por el dueño (2026-09-24):** 21 = avisar antes a quien anota; 22 = cambios y borrados siguen siendo propuesta; 23 = conciliación explícita; 24 = tope de 50. |
-| Decisiones 25 a 31 de §3.3 (gastos y grupos) | Antes de la fase 9 | Las propuso el agente el 2026-09-24. Las que más conviene mirar: 26 (rechazo en modo montos), 27 (si rechaza quien pagó) y 28 (pago por confirmar no cuenta). |
+| ~~Decisiones 25 a 31 de §3.3 (gastos y grupos)~~ | — | **Aprobadas por el dueño sin cambios (2026-09-24).** |
+| Decisiones 32 a 34 de §3.3 (fase 9, del agente) | Antes de subir la fase 9 a la nube | Las tomó el agente al implementar (2026-09-24). Implementadas así; cambiar si el dueño prefiere otra cosa. |
 | ¿PWA? | Después de la fase 9 | **Aplazada por el dueño (2026-09-24).** Mientras tanto, todo el código nuevo cumple "Listo para web" (§6.5). A favor: sin instalar nada, sirve en iPhone, invitar es un enlace y se evita Play Store. En contra: iOS puede borrar lo guardado sin sincronizar si no se agrega a la pantalla de inicio, y en iPhone los push solo funcionan con la PWA instalada. |
 
 ---
@@ -2792,6 +2904,18 @@ Trampas encontradas en la fase 8:
   `_es_de_conciliacion` y un `idem_key` nulo; envolver en `COALESCE(…, false)`.
 - **Los tests de la fase 6 prueban la bandeja:** con la aceptación automática fallarían.
   `set_config('deudas.tope_diario', '0', true)` al preparar los devuelve a ese camino.
+
+Trampas encontradas en la fase 9:
+
+- **FK `NO ACTION` y cascadas en cadena:** al borrar un padre con dos cascadas (grupo →
+  miembros y grupo → gastos → partes), la FK de las partes a los miembros se comprueba
+  apenas se van los miembros, antes de que se vayan las partes (`23503`). Hacerla
+  `DEFERRABLE INITIALLY DEFERRED` (§ fase 9, notas).
+- **Una función sin `SECURITY DEFINER` llamada desde una que sí lo es corre sin RLS.** Un
+  `DELETE` sin filtro por dueño dentro de ella borra filas de todos (pasó en
+  `20260924180000_fix_rechazar_cruces.sql`, sin subir).
+- **`comparar_edges.py` dos veces en el mismo minuto falla** por el límite del visor (60
+  consultas por minuto por IP): esperar un minuto.
 
 ---
 
