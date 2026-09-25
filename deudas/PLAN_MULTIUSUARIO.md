@@ -52,7 +52,7 @@
 | 6 | Propuestas continuas | 🟨 adelantada: 6.1–6.7 hechas y **en el proyecto v2 de prueba** (2026-09-24, con OK del dueño; 231 tests pgTAP allí); menores hechos (retirar propuesta, historial con estado); falta probar en celulares y la semana de uso real | 2026-09-24 | Claude |
 | 7 | Publicación | 🟨 adelantada: 7.2 (exportar, borrar cuenta; política de privacidad en borrador) y 7.3 (límites) hechas y en la nube de prueba; faltan 7.1 (Firebase), 7.4, 7.5 y publicar la política: todo necesita al dueño | 2026-09-24 | Claude |
 | 8 | Aceptación automática y avisos | 🟨 hecha y **en la nube de prueba** (398 tests allí, concurrencia OK), commiteada, APK recompilada; falta probar en dos celulares (§0.4 B) | 2026-09-24 | Claude |
-| 9 | Gastos divididos y grupos | 🟨 hecha en local (9.1–9.7: 714 tests pgTAP, paridad Dart↔SQL, `probar_grupos.py` con 3 cuentas, regresión en 0, `flutter build web` OK); `180000` corregida (2026-09-25, dos agujeros de seguridad); el dueño pidió cerrarla (2026-09-25): commit, `db push` y APK; falta probar en celulares | 2026-09-25 | Claude |
+| 9 | Gastos divididos y grupos | 🟨 hecha en local (9.1–9.7: 714 tests pgTAP, paridad Dart↔SQL, `probar_grupos.py` con 3 cuentas, regresión en 0, `flutter build web` OK); `180000` corregida (2026-09-25, dos agujeros de seguridad); **en la nube de prueba desde el 2026-09-25** (714/714 allí, `probar_grupos` y `probar_rpc_v2` OK), commiteada y APK recompilada; falta probar en celulares | 2026-09-25 | Claude |
 
 Estados: ⬜ pendiente · 🟨 en curso · ✅ hecha (criterio de salida cumplido) · ⛔ bloqueada
 (escribir el motivo).
@@ -100,8 +100,10 @@ Flutter con "Dividir entre varios", pestaña Grupos e inicio con contactos + gru
 `scripts/v2/probar_grupos.py` (3 cuentas por la API real: los saldos de los tres cuadran).
 En local también quedó aplicada `20260924180000_fix_rechazar_cruces.sql` (de otra sesión),
 **corregida el 2026-09-25**: su primera versión abría dos agujeros de seguridad (notas de la
-fase 9); 714 tests. El 2026-09-25 el dueño pidió cerrar la fase 9: commit, `db push` de las
-cuatro migraciones (lo corre él) y APK nueva. Decisiones del agente para revisar: 32 a 34
+fase 9); 714 tests. **Cerrada el 2026-09-25 a pedido del dueño:** commits `53c4d77`
+(`feat/deudas-v2`) y `4d619a6` + `7a458c0` (`app_deudas`, versión `1.0.0+3`), `db push` de
+las cuatro migraciones (lo corrió él), 714/714 en la nube y APK recompiladas
+(`deudas-v2-nube-debug.apk` y `Deudas-v2.apk`, versionCode 2003). Decisiones del agente para revisar: 32 a 34
 de §3.3.
 
 **Fases 8 y 9**, pedidas por el dueño el 2026-09-24 (§4.7, §4.8, §5.4). Orden recomendado:
@@ -281,7 +283,7 @@ se firma con la clave de debug de esta máquina) y publicar la política de priv
   marcar de la fase 7; casi todo espera al dueño (bloques A a D).
 - Antes de tocar la base: `supabase start` (§6.3; si dice "already running" con el
   contenedor de la base parado, `supabase stop` y `start`), `supabase test db`
-  → **398/398** desde la fase 8 (en local y en la nube); **714/714 en local** con la fase 9
+  → **714/714** desde la fase 9 (en local y en la nube)
   (la nube todavía no la tiene). Apágalo al terminar (escucha en `0.0.0.0` con keys de demostración).
 - La base local tiene los datos reales importados (usuario `dueno@deudas.local`) para las
   comparaciones de regresión; si se hace `db reset`, rehacerlos (`deudas/v2/README.md`).
